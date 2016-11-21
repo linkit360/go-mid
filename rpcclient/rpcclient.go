@@ -1,0 +1,143 @@
+package rpcclient
+
+// rpc client for "github.com/vostrok/inmem/server"
+// supports reconnects when disconnected
+
+import (
+	"fmt"
+	"net"
+	"net/rpc"
+	"net/rpc/jsonrpc"
+	"time"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/felixge/tcpkeepalive"
+
+	"github.com/vostrok/inmem/server/src/handlers"
+	"github.com/vostrok/inmem/service"
+)
+
+var cli *Client
+
+type Client struct {
+	connection *rpc.Client
+	conf       RPCClientConfig
+}
+type RPCClientConfig struct {
+	DSN     string `default:"localhost:50307" yaml:"dsn"`
+	Timeout int    `default:"10" yaml:"timeout"`
+}
+
+func Init(contentdClientConf RPCClientConfig) {
+	var err error
+	cli = &Client{
+		conf: contentdClientConf,
+	}
+	if err = cli.dial(); err != nil {
+		log.WithField("error", err.Error()).Error("contentd rpc client unavialable")
+		return
+	}
+}
+
+func (c *Client) dial() error {
+	if c.connection != nil {
+		_ = c.connection.Close()
+	}
+
+	conn, err := net.DialTimeout("tcp", c.conf.DSN, time.Duration(c.conf.Timeout)*time.Second)
+	if err != nil {
+		return err
+	}
+	kaConn, _ := tcpkeepalive.EnableKeepAlive(conn)
+	kaConn.SetKeepAliveIdle(30 * time.Second)
+	kaConn.SetKeepAliveCount(4)
+	kaConn.SetKeepAliveInterval(5 * time.Second)
+	c.connection = jsonrpc.NewClient(kaConn)
+	return nil
+}
+
+func Call(rpcName string, req interface{}, res interface{}) error {
+	redialed := false
+	if cli.connection == nil {
+		cli.dial()
+	}
+redo:
+	if err := cli.connection.Call(rpcName, req, &res); err != nil {
+		log.WithFields(log.Fields{
+			"call": rpcName,
+			"msg":  err.Error(),
+		}).Debug("rpc client now is unavialable")
+		if !redialed {
+			cli.dial()
+			redialed = true
+			goto redo
+		}
+		err = fmt.Errorf("rpc.Call: %s", err.Error())
+		log.WithFields(log.Fields{
+			"call":  rpcName,
+			"error": err.Error(),
+		}).Error("redial did't help")
+		return err
+	}
+	return nil
+}
+
+func GetCampaignByHash(hash string) (service.Campaign, error) {
+	var campaign service.Campaign
+	err := Call(
+		"Campaign.ByHash",
+		handlers.GetByHashParams{Hash: hash},
+		&campaign,
+	)
+	return campaign, err
+}
+
+func GetServiceById(serviceId int64) (service.Service, error) {
+	var svc service.Service
+	err := Call(
+		"Service.ById",
+		handlers.GetByIdParams{Id: serviceId},
+		&svc,
+	)
+	return svc, err
+}
+
+func GetContentById(contentId int64) (service.Content, error) {
+	var content service.Content
+	err := Call(
+		"Content.ById",
+		handlers.GetByIdParams{Id: contentId},
+		&content,
+	)
+	return content, err
+}
+
+func SentContentClear(msisdn string, serviceId int64) error {
+	var res handlers.Response
+	err := Call(
+		"SentContent.Clear",
+		handlers.GetByParams{Msisdn: msisdn, ServiceId: serviceId},
+		&res,
+	)
+	return err
+}
+
+func SentContentPush(msisdn string, serviceId int64, contentId int64) error {
+	var res handlers.Response
+	err := Call(
+		"SentContent.Push",
+		handlers.GetByParams{Msisdn: msisdn, ServiceId: serviceId, ContentId: contentId},
+		&res,
+	)
+	return err
+}
+
+func SentContentGet(msisdn string, serviceId int64) (map[int64]struct{}, error) {
+	var contentIds map[int64]struct{}
+	err := Call(
+		"SentContent.Get",
+		handlers.GetByParams{Msisdn: msisdn, ServiceId: serviceId},
+		&contentIds,
+	)
+	return contentIds, err
+}
