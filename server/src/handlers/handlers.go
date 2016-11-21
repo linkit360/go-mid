@@ -12,6 +12,9 @@ type Campaign struct{}
 type GetByHashParams struct {
 	Hash string `json:"hash,omitempty"`
 }
+type GetByLinkParams struct {
+	Link string `json:"link,omitempty"`
+}
 type GetByIdParams struct {
 	Id int64 `json:"id,omitempty"`
 }
@@ -30,6 +33,16 @@ func (rpc *Campaign) ByHash(
 	req GetByHashParams, res *service.Campaign) error {
 
 	campaign, ok := service.Svc.Campaigns.ByHash[req.Hash]
+	if !ok {
+		return errNotFound
+	}
+	*res = campaign
+	return nil
+}
+func (rpc *Campaign) ByLink(
+	req GetByLinkParams, res *service.Campaign) error {
+
+	campaign, ok := service.Svc.Campaigns.ByLink[req.Link]
 	if !ok {
 		return errNotFound
 	}
