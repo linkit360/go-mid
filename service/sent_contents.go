@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -54,21 +53,12 @@ func (t ContentSentProperties) key() string {
 // Load sent contents to filter content that had been seen by the msisdn.
 // created at == before date specified in config
 func (s *SentContents) Reload() (err error) {
-	log.WithFields(log.Fields{}).Debug("content_sent reload...")
-	begin := time.Now()
-	defer func(err error) {
-		fields := log.Fields{
-			"took": time.Since(begin),
-		}
-		if err != nil {
-			fields["error"] = err.Error()
-		}
-		log.WithFields(fields).Debug("content_sent reload")
-	}(err)
-
-	query := fmt.Sprintf("select msisdn, id_service, id_content "+
-		"from %scontent_sent "+
-		"where sent_at > (CURRENT_TIMESTAMP - INTERVAL '"+
+	query := fmt.Sprintf("SELECT "+
+		"msisdn, "+
+		"id_service, "+
+		"id_content "+
+		"FROM %scontent_sent "+
+		"WHERE sent_at > (CURRENT_TIMESTAMP - INTERVAL '"+
 		strconv.Itoa(Svc.UniqueDays)+" days')",
 		Svc.dbConf.TablePrefix)
 

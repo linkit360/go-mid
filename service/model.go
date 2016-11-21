@@ -22,6 +22,9 @@ type MemService struct {
 	Services     *Services
 	Contents     *Contents
 	SentContents *SentContents
+	IpRanges     *IpRanges
+	Operators    *Operators
+	Prefixes     *Prefixes
 }
 
 func Init(
@@ -36,6 +39,14 @@ func Init(
 	Svc.dbConf = dbConf
 	Svc.UniqueDays = uniqueDays
 	m.Init(appName)
+
+	Svc.Campaigns = &Campaigns{}
+	Svc.Services = &Services{}
+	Svc.Contents = &Contents{}
+	Svc.SentContents = &SentContents{}
+	Svc.IpRanges = &IpRanges{}
+	Svc.Operators = &Operators{}
+	Svc.Prefixes = &Prefixes{}
 
 	Svc.cqrConfig = []cqr.CQRConfig{
 		{
@@ -53,6 +64,18 @@ func Init(
 		{
 			Tables: []string{"content_sent"},
 			Data:   Svc.SentContents,
+		},
+		{
+			Tables: []string{"operator_ip", "operators"},
+			Data:   Svc.IpRanges,
+		},
+		{
+			Tables: []string{"operators"},
+			Data:   Svc.Operators,
+		},
+		{
+			Tables: []string{"operator_msisdn_prefix"},
+			Data:   Svc.Prefixes,
 		},
 	}
 	cqr.InitCQR(Svc.cqrConfig)

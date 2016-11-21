@@ -4,9 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
-	"time"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 // Tasks:
@@ -24,23 +21,12 @@ type Content struct {
 }
 
 func (s *Contents) Reload() (err error) {
-	log.WithFields(log.Fields{}).Debug("content reload...")
-	begin := time.Now()
-	defer func(err error) {
-		fields := log.Fields{
-			"took": time.Since(begin),
-		}
-		if err != nil {
-			fields["error"] = err.Error()
-		}
-		log.WithFields(fields).Debug("content reload")
-	}(err)
-
-	query := fmt.Sprintf("select "+
+	query := fmt.Sprintf("SELECT "+
 		"id, "+
 		"object, "+
 		"content_name "+
-		"from %scontent where status = $1",
+		"FROM %scontent "+
+		"WHERE status = $1",
 		Svc.dbConf.TablePrefix)
 
 	var rows *sql.Rows

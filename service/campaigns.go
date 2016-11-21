@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -27,19 +26,14 @@ type Campaign struct {
 }
 
 func (s *Campaigns) Reload() (err error) {
-	log.WithFields(log.Fields{}).Debug("campaign reload...")
-	begin := time.Now()
-	defer func(err error) {
-		fields := log.Fields{
-			"took": time.Since(begin),
-		}
-		if err != nil {
-			fields["error"] = err.Error()
-		}
-		log.WithFields(fields).Debug("campaign reload")
-	}(err)
-
-	query := fmt.Sprintf("select id, hash, link, page_welcome, service_id_1 from %scampaigns where status = $1",
+	query := fmt.Sprintf("SELECT "+
+		"id, "+
+		"hash, "+
+		"link, "+
+		"page_welcome, "+
+		"service_id_1 "+
+		"FROM %scampaigns "+
+		"WHERE status = $1",
 		Svc.dbConf.TablePrefix)
 	var rows *sql.Rows
 	rows, err = Svc.db.Query(query, ACTIVE_STATUS)

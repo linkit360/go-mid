@@ -6,9 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 // Tasks:
@@ -32,18 +29,6 @@ type ServiceContent struct {
 }
 
 func (s *Services) Reload() (err error) {
-	log.WithFields(log.Fields{}).Debug("services reload...")
-	begin := time.Now()
-	defer func(err error) {
-		fields := log.Fields{
-			"took": time.Since(begin),
-		}
-		if err != nil {
-			fields["error"] = err.Error()
-		}
-		log.WithFields(fields).Debug("service reload")
-	}(err)
-
 	query := fmt.Sprintf("SELECT "+
 		"id, "+
 		"paid_hours, "+
@@ -86,8 +71,12 @@ func (s *Services) Reload() (err error) {
 	for _, v := range svcs {
 		serviceIdsStr = append(serviceIdsStr, strconv.FormatInt(v.Id, 10))
 	}
-	query = fmt.Sprintf("select id_service, id_content from %sservice_content where status = $1"+
-		" and id_service = any($2::integer[])", Svc.dbConf.TablePrefix)
+	query = fmt.Sprintf("SELECT "+
+		"id_service, "+
+		"id_content "+
+		"FROM %sservice_content "+
+		"WHERE status = $1 AND "+
+		"id_service = any($2::integer[])", Svc.dbConf.TablePrefix)
 	rows, err = Svc.db.Query(query, ACTIVE_STATUS, "{"+strings.Join(serviceIdsStr, ", ")+"}")
 	if err != nil {
 		err = fmt.Errorf("db.Query: %s, query: %s", err.Error(), query)
