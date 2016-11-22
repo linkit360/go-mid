@@ -3,6 +3,7 @@ package rpcclient
 // rpc client for "github.com/vostrok/inmem/server"
 // supports reconnects when disconnected
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/rpc"
@@ -16,6 +17,7 @@ import (
 	"github.com/vostrok/inmem/service"
 )
 
+var errNotFound = errors.New("Not found")
 var cli *Client
 
 type Client struct {
@@ -87,6 +89,10 @@ func GetOperatorByCode(code int64) (service.Operator, error) {
 		handlers.GetByCodeParams{Code: code},
 		&operator,
 	)
+	if operator == (service.Operator{}) {
+		return operator, errNotFound
+	}
+
 	return operator, err
 }
 
@@ -97,6 +103,9 @@ func GetOperatorByName(name string) (service.Operator, error) {
 		handlers.GetByNameParams{Name: name},
 		&operator,
 	)
+	if operator == (service.Operator{}) {
+		return operator, errNotFound
+	}
 	return operator, err
 }
 func GetIPInfoByMsisdn(msisdn string) (service.IPInfo, error) {
@@ -115,6 +124,9 @@ func GetIPInfoByIps(ips []net.IP) ([]service.IPInfo, error) {
 		handlers.GetByIPsParams{IPs: ips},
 		&res,
 	)
+	if len(res.IPInfos) == 0 {
+		return res.IPInfos, errNotFound
+	}
 	return res.IPInfos, err
 }
 func GetCampaignByHash(hash string) (service.Campaign, error) {
@@ -124,6 +136,9 @@ func GetCampaignByHash(hash string) (service.Campaign, error) {
 		handlers.GetByHashParams{Hash: hash},
 		&campaign,
 	)
+	if campaign.Id == 0 {
+		return campaign, errNotFound
+	}
 	return campaign, err
 }
 func GetCampaignByLink(link string) (service.Campaign, error) {
@@ -133,6 +148,9 @@ func GetCampaignByLink(link string) (service.Campaign, error) {
 		handlers.GetByLinkParams{Link: link},
 		&campaign,
 	)
+	if campaign.Id == 0 {
+		return campaign, errNotFound
+	}
 	return campaign, err
 }
 func GetAllCampaigns() (map[string]service.Campaign, error) {
@@ -142,6 +160,10 @@ func GetAllCampaigns() (map[string]service.Campaign, error) {
 		handlers.GetAllParams{},
 		&res,
 	)
+
+	if len(res.Campaigns) == 0 {
+		return res.Campaigns, errNotFound
+	}
 	return res.Campaigns, err
 }
 
@@ -152,6 +174,9 @@ func GetServiceById(serviceId int64) (service.Service, error) {
 		handlers.GetByIdParams{Id: serviceId},
 		&svc,
 	)
+	if svc.Id == 0 {
+		return svc, errNotFound
+	}
 	return svc, err
 }
 
@@ -162,6 +187,9 @@ func GetContentById(contentId int64) (service.Content, error) {
 		handlers.GetByIdParams{Id: contentId},
 		&content,
 	)
+	if content.Id == 0 {
+		return content, errNotFound
+	}
 	return content, err
 }
 
@@ -172,6 +200,9 @@ func GetPixelSettingByKey(key string) (service.PixelSetting, error) {
 		handlers.GetByKeyParams{Key: key},
 		&pixelSetting,
 	)
+	if pixelSetting == (service.PixelSetting{}) {
+		return pixelSetting, errNotFound
+	}
 	return pixelSetting, err
 }
 func GetPixelSettingByKeyWithRatio(key string) (service.PixelSetting, error) {
@@ -181,6 +212,9 @@ func GetPixelSettingByKeyWithRatio(key string) (service.PixelSetting, error) {
 		handlers.GetByKeyParams{Key: key},
 		&pixelSetting,
 	)
+	if pixelSetting == (service.PixelSetting{}) {
+		return pixelSetting, errNotFound
+	}
 	return pixelSetting, err
 }
 
