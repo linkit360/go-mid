@@ -63,6 +63,8 @@ func runRPC(appConfig config.AppConfig) {
 	server.RegisterName("Content", &handlers.Content{})
 	server.RegisterName("Operator", &handlers.Operator{})
 	server.RegisterName("IPInfo", &handlers.IPInfo{})
+	server.RegisterName("BlackList", &handlers.BlackList{})
+	server.RegisterName("PostPaid", &handlers.PostPaid{})
 
 	for {
 		if conn, err := l.Accept(); err == nil {

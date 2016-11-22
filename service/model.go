@@ -27,6 +27,8 @@ type MemService struct {
 	IpRanges        *IpRanges
 	Operators       *Operators
 	Prefixes        *Prefixes
+	BlackList       *BlackList
+	PostPaid        *PostPaid
 }
 
 type Config struct {
@@ -56,6 +58,8 @@ func Init(
 	Svc.IpRanges = &IpRanges{}
 	Svc.Operators = &Operators{}
 	Svc.Prefixes = &Prefixes{}
+	Svc.BlackList = &BlackList{}
+	Svc.PostPaid = &PostPaid{}
 
 	Svc.cqrConfig = []cqr.CQRConfig{
 		{
@@ -85,6 +89,14 @@ func Init(
 		{
 			Tables: []string{"operator_msisdn_prefix"},
 			Data:   Svc.Prefixes,
+		},
+		{
+			Tables: []string{"msisdn_blacklist"},
+			Data:   Svc.BlackList,
+		},
+		{
+			Tables: []string{"msisdn_postpaid"},
+			Data:   Svc.PostPaid,
 		},
 	}
 	cqr.InitCQR(Svc.cqrConfig)

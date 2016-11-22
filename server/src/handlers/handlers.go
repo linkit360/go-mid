@@ -15,13 +15,16 @@ var errNotFound = errors.New("Not found")
 type GetAllParams struct {
 }
 type GetAllCampaignsResponse struct {
-	Campaigns map[string]service.Campaign
+	Campaigns map[string]service.Campaign `json:"campaigns,omitempty"`
+}
+type GetByNameParams struct {
+	Name string `json:"name,omitempty"`
 }
 type GetByHashParams struct {
 	Hash string `json:"hash,omitempty"`
 }
 type GetByCodeParams struct {
-	Code int64 `json:"code"`
+	Code int64 `json:"code,omitempty"`
 }
 type GetByLinkParams struct {
 	Link string `json:"link,omitempty"`
@@ -30,15 +33,14 @@ type GetByIdParams struct {
 	Id int64 `json:"id,omitempty"`
 }
 type GetByMsisdnParams struct {
-	Msisdn string `json:"msisdn"`
+	Msisdn string `json:"msisdn,omitempty"`
 }
 type GetByIPsParams struct {
-	IPs []net.IP `json:"ips"`
+	IPs []net.IP `json:"ips,omitempty"`
 }
 type GetByIPsResponse struct {
-	IPInfos []service.IPInfo `json:"ip_infos"`
+	IPInfos []service.IPInfo `json:"ip_infos,omitempty"`
 }
-
 type GetByKeyParams struct {
 	Key string `json:"key,omitempty"`
 }
@@ -48,6 +50,12 @@ type GetByParams struct {
 	ContentId int64  `json:"content_id,omitempty"`
 }
 type Response struct {
+}
+type GetContentSentResponse struct {
+	ContentdIds map[int64]struct{} `json:"content_ids,omitempty"`
+}
+type BoolResponse struct {
+	Result bool `json:"result,omitempty"`
 }
 
 // Campaign
@@ -78,6 +86,40 @@ func (rpc *Campaign) All(
 	*res = GetAllCampaignsResponse{
 		Campaigns: service.Svc.Campaigns.ByLink,
 	}
+	return nil
+}
+
+type BlackList struct{}
+
+func (rpc *BlackList) ByMsisdn(
+	req GetByMsisdnParams, res *BoolResponse) error {
+
+	_, ok := service.Svc.BlackList.ByMsisdn[req.Msisdn]
+	if ok {
+		*res = BoolResponse{Result: true}
+	}
+	*res = BoolResponse{Result: false}
+	return nil
+}
+
+type PostPaid struct{}
+
+func (rpc *PostPaid) ByMsisdn(
+	req GetByMsisdnParams, res *BoolResponse) error {
+
+	_, ok := service.Svc.PostPaid.ByMsisdn[req.Msisdn]
+	if ok {
+		*res = BoolResponse{Result: true}
+	}
+	*res = BoolResponse{Result: false}
+	return nil
+}
+func (rpc *PostPaid) Push(
+	req GetByMsisdnParams, res *BoolResponse) error {
+
+	service.Svc.PostPaid.Push(req.Msisdn)
+	*res = BoolResponse{Result: true}
+
 	return nil
 }
 
@@ -123,8 +165,10 @@ func (rpc *ContentSent) Push(
 	return nil
 }
 func (rpc *ContentSent) Get(
-	req GetByParams, res *Response) error {
-	service.Svc.SentContents.Get(req.Msisdn, req.ServiceId)
+	req GetByParams, res *GetContentSentResponse) error {
+
+	contentIds := service.Svc.SentContents.Get(req.Msisdn, req.ServiceId)
+	*res = GetContentSentResponse{ContentdIds: contentIds}
 	return nil
 }
 
@@ -135,6 +179,16 @@ func (rpc *Operator) ByCode(
 	req GetByCodeParams, res *service.Operator) error {
 
 	operator, ok := service.Svc.Operators.ByCode[req.Code]
+	if !ok {
+		return errNotFound
+	}
+	*res = operator
+	return nil
+}
+func (rpc *Operator) ByName(
+	req GetByNameParams, res *service.Operator) error {
+
+	operator, ok := service.Svc.Operators.ByName[strings.ToLower(req.Name)]
 	if !ok {
 		return errNotFound
 	}

@@ -17,11 +17,14 @@ type Services struct {
 	ById map[int64]Service
 }
 type Service struct {
-	Id         int64
-	Price      float64
-	PaidHours  int
-	DelayHours int
-	ContentIds []int64
+	Id             int64
+	Price          float64
+	PaidHours      int
+	DelayHours     int
+	KeepDays       int
+	SMSSend        int
+	SMSNotPaidText string
+	ContentIds     []int64
 }
 type ServiceContent struct {
 	IdService int64
@@ -31,11 +34,16 @@ type ServiceContent struct {
 func (s *Services) Reload() (err error) {
 	query := fmt.Sprintf("SELECT "+
 		"id, "+
+		"price, "+
 		"paid_hours, "+
 		"delay_hours, "+
-		"price "+
-		"from %sservices where status = $1",
-		Svc.dbConf.TablePrefix)
+		"keep_days, "+
+		"sms_send, "+
+		"wording "+
+		"FROM %sservices "+
+		"WHERE status = $1",
+		Svc.dbConf.TablePrefix,
+	)
 	var rows *sql.Rows
 	rows, err = Svc.db.Query(query, ACTIVE_STATUS)
 	if err != nil {
@@ -49,9 +57,12 @@ func (s *Services) Reload() (err error) {
 		var srv Service
 		if err = rows.Scan(
 			&srv.Id,
+			&srv.Price,
 			&srv.PaidHours,
 			&srv.DelayHours,
-			&srv.Price,
+			&srv.KeepDays,
+			&srv.SMSSend,
+			&srv.SMSNotPaidText,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return err
@@ -111,12 +122,17 @@ func (s *Services) Reload() (err error) {
 		if !ok {
 			s.ById[serviceContent.IdService] = Service{}
 		}
+
 		srv.ContentIds = append(srv.ContentIds, serviceContent.IdContent)
-		srv.Id = serviceContent.IdService
+
 		svc := svcMap[serviceContent.IdService]
+		srv.Id = serviceContent.IdService
 		srv.Price = svc.Price
-		srv.DelayHours = svc.DelayHours
 		srv.PaidHours = svc.PaidHours
+		srv.DelayHours = svc.DelayHours
+		srv.KeepDays = svc.KeepDays
+		srv.SMSSend = svc.SMSSend
+		srv.SMSNotPaidText = svc.SMSNotPaidText
 		s.ById[serviceContent.IdService] = srv
 
 	}

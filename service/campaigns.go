@@ -95,6 +95,5 @@ func (s *Campaigns) Reload() (err error) {
 		s.ByHash[campaign.Hash] = campaign
 		s.ByLink[campaign.Link] = campaign
 	}
-	log.Debug(fmt.Sprintf("%#v", Svc.Campaigns.ByHash))
 	return nil
 }

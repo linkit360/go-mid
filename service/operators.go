@@ -14,6 +14,7 @@ import (
 type Operators struct {
 	sync.RWMutex
 	ByCode map[int64]Operator
+	ByName map[string]Operator
 }
 
 type Operator struct {
@@ -61,6 +62,12 @@ func (ops *Operators) Reload() error {
 	if rows.Err() != nil {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return err
+	}
+
+	ops.ByName = make(map[string]Operator, len(operators))
+	for _, op := range operators {
+		name := strings.ToLower(op.Name)
+		ops.ByName[name] = op
 	}
 
 	ops.ByCode = make(map[int64]Operator, len(operators))

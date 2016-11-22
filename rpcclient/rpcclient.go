@@ -2,7 +2,6 @@ package rpcclient
 
 // rpc client for "github.com/vostrok/inmem/server"
 // supports reconnects when disconnected
-
 import (
 	"fmt"
 	"net"
@@ -34,7 +33,7 @@ func Init(contentdClientConf RPCClientConfig) {
 		conf: contentdClientConf,
 	}
 	if err = cli.dial(); err != nil {
-		log.WithField("error", err.Error()).Error("contentd rpc client unavialable")
+		log.WithField("error", err.Error()).Error("inmem rpc client unavialable")
 		return
 	}
 }
@@ -72,7 +71,7 @@ redo:
 			redialed = true
 			goto redo
 		}
-		err = fmt.Errorf("rpc.Call: %s", err.Error())
+		err = fmt.Errorf(rpcName+": %s", err.Error())
 		log.WithFields(log.Fields{
 			"call":  rpcName,
 			"error": err.Error(),
@@ -86,6 +85,16 @@ func GetOperatorByCode(code int64) (service.Operator, error) {
 	err := Call(
 		"Operator.ByCode",
 		handlers.GetByCodeParams{Code: code},
+		&operator,
+	)
+	return operator, err
+}
+
+func GetOperatorByName(name string) (service.Operator, error) {
+	var operator service.Operator
+	err := Call(
+		"Operator.ByCode",
+		handlers.GetByNameParams{Name: name},
 		&operator,
 	)
 	return operator, err
@@ -127,13 +136,13 @@ func GetCampaignByLink(link string) (service.Campaign, error) {
 	return campaign, err
 }
 func GetAllCampaigns() (map[string]service.Campaign, error) {
-	var campaigns map[string]service.Campaign
+	var res handlers.GetAllCampaignsResponse
 	err := Call(
 		"Campaign.All",
 		handlers.GetAllParams{},
-		&campaigns,
+		&res,
 	)
-	return campaigns, err
+	return res.Campaigns, err
 }
 
 func GetServiceById(serviceId int64) (service.Service, error) {
@@ -177,11 +186,40 @@ func SentContentPush(msisdn string, serviceId int64, contentId int64) error {
 }
 
 func SentContentGet(msisdn string, serviceId int64) (map[int64]struct{}, error) {
-	var contentIds map[int64]struct{}
+	var res handlers.GetContentSentResponse
 	err := Call(
 		"SentContent.Get",
 		handlers.GetByParams{Msisdn: msisdn, ServiceId: serviceId},
-		&contentIds,
+		&res,
 	)
-	return contentIds, err
+	return res.ContentdIds, err
+}
+func PostPaidPush(msisdn string) error {
+	var res handlers.Response
+	err := Call(
+		"PostPaid.Push",
+		handlers.GetByMsisdnParams{Msisdn: msisdn},
+		&res,
+	)
+	return err
+}
+
+func IsBlackListed(msisdn string) (bool, error) {
+	var res handlers.BoolResponse
+	err := Call(
+		"BlackList.ByMsisdn",
+		handlers.GetByMsisdnParams{Msisdn: msisdn},
+		&res,
+	)
+	return res.Result, err
+}
+
+func IsPostPaid(msisdn string) (bool, error) {
+	var res handlers.BoolResponse
+	err := Call(
+		"PostPaid.ByMsisdn",
+		handlers.GetByMsisdnParams{Msisdn: msisdn},
+		&res,
+	)
+	return res.Result, err
 }
