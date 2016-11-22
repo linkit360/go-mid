@@ -165,6 +165,25 @@ func GetContentById(contentId int64) (service.Content, error) {
 	return content, err
 }
 
+func GetPixelSettingByKey(key string) (service.PixelSetting, error) {
+	var pixelSetting service.PixelSetting
+	err := Call(
+		"PixelSetting.ByKey",
+		handlers.GetByKeyParams{Key: key},
+		&pixelSetting,
+	)
+	return pixelSetting, err
+}
+func GetPixelSettingByKeyWithRatio(key string) (service.PixelSetting, error) {
+	var pixelSetting service.PixelSetting
+	err := Call(
+		"PixelSetting.GetWithRatio",
+		handlers.GetByKeyParams{Key: key},
+		&pixelSetting,
+	)
+	return pixelSetting, err
+}
+
 func SentContentClear(msisdn string, serviceId int64) error {
 	var res handlers.Response
 	err := Call(

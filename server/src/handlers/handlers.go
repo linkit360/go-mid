@@ -137,6 +137,30 @@ func (rpc *Service) ById(
 	return nil
 }
 
+// Pixel Setting
+type PixelSetting struct{}
+
+func (rpc *PixelSetting) ByKey(
+	req GetByKeyParams, res *service.PixelSetting) error {
+
+	svc, ok := service.Svc.PixelSettings.ByKey[req.Key]
+	if !ok {
+		return errNotFound
+	}
+	*res = *svc
+	return nil
+}
+func (rpc *PixelSetting) GetWithRatio(
+	req GetByKeyParams, res *service.PixelSetting) error {
+
+	ps, err := service.Svc.PixelSettings.GetWithRatio(req.Key)
+	if err != nil {
+		return errNotFound
+	}
+	*res = ps
+	return nil
+}
+
 // Content
 type Content struct{}
 

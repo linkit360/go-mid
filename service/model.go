@@ -29,6 +29,7 @@ type MemService struct {
 	Prefixes        *Prefixes
 	BlackList       *BlackList
 	PostPaid        *PostPaid
+	PixelSettings   *PixelSettings
 }
 
 type Config struct {
@@ -60,6 +61,7 @@ func Init(
 	Svc.Prefixes = &Prefixes{}
 	Svc.BlackList = &BlackList{}
 	Svc.PostPaid = &PostPaid{}
+	Svc.PixelSettings = &PixelSettings{}
 
 	Svc.cqrConfig = []cqr.CQRConfig{
 		{
@@ -97,6 +99,10 @@ func Init(
 		{
 			Tables: []string{"msisdn_postpaid"},
 			Data:   Svc.PostPaid,
+		},
+		{
+			Tables: []string{"pixel_settings"},
+			Data:   Svc.PixelSettings,
 		},
 	}
 	cqr.InitCQR(Svc.cqrConfig)
