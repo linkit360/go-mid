@@ -63,6 +63,8 @@ func (rpc *Campaign) ByHash(
 
 	campaign, ok := service.Svc.Campaigns.ByHash[req.Hash]
 	if !ok {
+		notFound.Inc()
+		campaignNotFound.Inc()
 		return nil
 	}
 	*res = campaign
@@ -73,6 +75,8 @@ func (rpc *Campaign) ByLink(
 
 	campaign, ok := service.Svc.Campaigns.ByLink[req.Link]
 	if !ok {
+		notFound.Inc()
+		campaignNotFound.Inc()
 		return nil
 	}
 	*res = campaign
@@ -130,6 +134,7 @@ func (rpc *Service) ById(
 
 	svc, ok := service.Svc.Services.ById[req.Id]
 	if !ok {
+		notFound.Inc()
 		return nil
 	}
 	*res = svc
@@ -144,6 +149,8 @@ func (rpc *PixelSetting) ByKey(
 
 	svc, ok := service.Svc.PixelSettings.ByKey[req.Key]
 	if !ok {
+		notFound.Inc()
+		pixelSettingNotFound.Inc()
 		return nil
 	}
 	*res = *svc
@@ -154,6 +161,8 @@ func (rpc *PixelSetting) GetWithRatio(
 
 	ps, err := service.Svc.PixelSettings.GetWithRatio(req.Key)
 	if err != nil {
+		notFound.Inc()
+		pixelSettingNotFound.Inc()
 		return nil
 	}
 	*res = ps
@@ -168,6 +177,7 @@ func (rpc *Content) ById(
 
 	content, ok := service.Svc.Contents.ById[req.Id]
 	if !ok {
+		notFound.Inc()
 		return nil
 	}
 	*res = content
@@ -203,16 +213,21 @@ func (rpc *Operator) ByCode(
 
 	operator, ok := service.Svc.Operators.ByCode[req.Code]
 	if !ok {
+		notFound.Inc()
+		operatorNotFound.Inc()
 		return nil
 	}
 	*res = operator
 	return nil
 }
+
 func (rpc *Operator) ByName(
 	req GetByNameParams, res *service.Operator) error {
 
 	operator, ok := service.Svc.Operators.ByName[strings.ToLower(req.Name)]
 	if !ok {
+		notFound.Inc()
+		operatorNotFound.Inc()
 		return nil
 	}
 	*res = operator
@@ -242,6 +257,7 @@ func (rpc *IPInfo) ByMsisdn(
 			return nil
 		}
 	}
+	notFound.Inc()
 	return nil
 }
 func (rpc *IPInfo) ByIP(

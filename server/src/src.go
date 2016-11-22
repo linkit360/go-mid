@@ -40,6 +40,7 @@ func runGin(appConfig config.AppConfig) {
 	r := gin.New()
 
 	service.AddCQRHandlers(r)
+	service.AddTablesHandler(r)
 	metrics.AddHandler(r)
 
 	r.Run(":" + appConfig.Server.HttpPort)

@@ -2,6 +2,8 @@ package service
 
 import (
 	"database/sql"
+	"fmt"
+	"net"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -9,7 +11,6 @@ import (
 	"github.com/vostrok/utils/cqr"
 	"github.com/vostrok/utils/db"
 	m "github.com/vostrok/utils/metrics"
-	"net"
 )
 
 var Svc MemService
@@ -106,8 +107,24 @@ func Init(
 		},
 	}
 	cqr.InitCQR(Svc.cqrConfig)
-	initMetrics()
+}
 
+func AddTablesHandler(r *gin.Engine) {
+	r.GET("tables", tablesHandler)
+}
+func tablesHandler(c *gin.Context) {
+	var tableNames = make(map[string]string)
+	for _, v := range Svc.cqrConfig {
+		for _, v := range v.Tables {
+			tableNames[v] = "http://localhost:50308/cqr?t=" + v
+		}
+
+	}
+	log.WithFields(log.Fields{
+		"tables": fmt.Sprintf("%#v", tableNames),
+	}).Debug("api tables")
+
+	c.IndentedJSON(200, tableNames)
 }
 func AddCQRHandlers(r *gin.Engine) {
 	cqr.AddCQRHandler(reloadCQRFunc, r)

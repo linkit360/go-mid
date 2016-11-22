@@ -99,7 +99,7 @@ func GetOperatorByCode(code int64) (service.Operator, error) {
 func GetOperatorByName(name string) (service.Operator, error) {
 	var operator service.Operator
 	err := Call(
-		"Operator.ByCode",
+		"Operator.ByName",
 		handlers.GetByNameParams{Name: name},
 		&operator,
 	)
