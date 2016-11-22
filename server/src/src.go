@@ -1,7 +1,7 @@
 package src
 
 // server has metrics, config app
-// and handles rpc method to get content url by campaign hash
+// and handles rpc method to get smth by smth
 // and another method to update cache on demand (CQR)
 // anyway, there is a http method to catch metrics
 import (
@@ -24,7 +24,7 @@ func Run() {
 
 	service.Init(
 		appConfig.Name,
-		appConfig.UniqueDays,
+		appConfig.Service,
 		appConfig.DbConf,
 	)
 
@@ -61,6 +61,8 @@ func runRPC(appConfig config.AppConfig) {
 	server.RegisterName("Service", &handlers.Service{})
 	server.RegisterName("SentContent", &handlers.ContentSent{})
 	server.RegisterName("Content", &handlers.Content{})
+	server.RegisterName("Operator", &handlers.Operator{})
+	server.RegisterName("IPInfo", &handlers.IPInfo{})
 
 	for {
 		if conn, err := l.Accept(); err == nil {

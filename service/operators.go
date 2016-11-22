@@ -13,7 +13,7 @@ import (
 
 type Operators struct {
 	sync.RWMutex
-	ByCode map[int64]*Operator
+	ByCode map[int64]Operator
 }
 
 type Operator struct {
@@ -63,9 +63,9 @@ func (ops *Operators) Reload() error {
 		return err
 	}
 
-	ops.ByCode = make(map[int64]*Operator, len(operators))
+	ops.ByCode = make(map[int64]Operator, len(operators))
 	for _, op := range operators {
-		ops.ByCode[op.Code] = &op
+		ops.ByCode[op.Code] = op
 	}
 	return nil
 }

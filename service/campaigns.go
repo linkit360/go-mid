@@ -3,9 +3,13 @@ package service
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/gin-gonic/gin"
+
+	"github.com/vostrok/dispatcherd/src/utils"
 )
 
 // Tasks:
@@ -23,6 +27,12 @@ type Campaign struct {
 	PageWelcome string
 	Id          int64
 	ServiceId   int64
+	Content     []byte
+}
+
+func (campaign Campaign) Serve(c *gin.Context) {
+	// todo metrics
+	utils.ServeBytes(campaign.Content, c)
 }
 
 func (s *Campaigns) Reload() (err error) {
@@ -56,6 +66,19 @@ func (s *Campaigns) Reload() (err error) {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
+
+		filePath := Svc.conf.StaticPath +
+			"campaign/" + record.Hash + "/" +
+			record.PageWelcome + ".html"
+		record.Content, err = ioutil.ReadFile(filePath)
+		if err != nil {
+			//loadCampaignError = true
+			//m.LoadCampaignError.Set(1.)
+			err := fmt.Errorf("ioutil.ReadFile: %s", err.Error())
+			log.WithField("error", err.Error()).Error("ioutil.ReadFile serve file error")
+			err = nil
+		}
+
 		records = append(records, record)
 	}
 	if rows.Err() != nil {

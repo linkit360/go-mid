@@ -81,7 +81,33 @@ redo:
 	}
 	return nil
 }
-
+func GetOperatorByCode(code int64) (service.Operator, error) {
+	var operator service.Operator
+	err := Call(
+		"Operator.ByCode",
+		handlers.GetByCodeParams{Code: code},
+		&operator,
+	)
+	return operator, err
+}
+func GetIPInfoByMsisdn(msisdn string) (service.IPInfo, error) {
+	var ipInfo service.IPInfo
+	err := Call(
+		"IPInfo.ByMsisdn",
+		handlers.GetByMsisdnParams{Msisdn: msisdn},
+		&ipInfo,
+	)
+	return ipInfo, err
+}
+func GetIPInfoByIps(ips []net.IP) ([]service.IPInfo, error) {
+	var res handlers.GetByIPsResponse
+	err := Call(
+		"IPInfo.ByIP",
+		handlers.GetByIPsParams{IPs: ips},
+		&res,
+	)
+	return res.IPInfos, err
+}
 func GetCampaignByHash(hash string) (service.Campaign, error) {
 	var campaign service.Campaign
 	err := Call(
@@ -90,6 +116,24 @@ func GetCampaignByHash(hash string) (service.Campaign, error) {
 		&campaign,
 	)
 	return campaign, err
+}
+func GetCampaignByLink(link string) (service.Campaign, error) {
+	var campaign service.Campaign
+	err := Call(
+		"Campaign.ByLink",
+		handlers.GetByLinkParams{Link: link},
+		&campaign,
+	)
+	return campaign, err
+}
+func GetAllCampaigns() (map[string]service.Campaign, error) {
+	var campaigns map[string]service.Campaign
+	err := Call(
+		"Campaign.All",
+		handlers.GetAllParams{},
+		&campaigns,
+	)
+	return campaigns, err
 }
 
 func GetServiceById(serviceId int64) (service.Service, error) {

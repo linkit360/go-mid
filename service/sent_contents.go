@@ -59,7 +59,7 @@ func (s *SentContents) Reload() (err error) {
 		"id_content "+
 		"FROM %scontent_sent "+
 		"WHERE sent_at > (CURRENT_TIMESTAMP - INTERVAL '"+
-		strconv.Itoa(Svc.UniqueDays)+" days')",
+		strconv.Itoa(Svc.conf.UniqueDays)+" days')",
 		Svc.dbConf.TablePrefix)
 
 	var rows *sql.Rows

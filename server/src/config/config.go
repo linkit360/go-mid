@@ -9,6 +9,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/jinzhu/configor"
 
+	"github.com/vostrok/inmem/service"
 	"github.com/vostrok/utils/db"
 )
 
@@ -17,10 +18,10 @@ type ServerConfig struct {
 	HttpPort string `default:"50302" yaml:"http_port"`
 }
 type AppConfig struct {
-	Name       string            `yaml:"name"`
-	Server     ServerConfig      `yaml:"server"`
-	UniqueDays int               `default:"10" yaml:"unique_days"`
-	DbConf     db.DataBaseConfig `yaml:"db"`
+	Name    string            `yaml:"name"`
+	Server  ServerConfig      `yaml:"server"`
+	Service service.Config    `yaml:"service"`
+	DbConf  db.DataBaseConfig `yaml:"db"`
 }
 
 func LoadConfig() AppConfig {

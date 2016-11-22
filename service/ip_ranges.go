@@ -15,6 +15,16 @@ type IpRanges struct {
 	ByOperatorCode map[int64]IpRange
 }
 
+type IPInfo struct {
+	IP            string
+	CountryCode   int64
+	OperatorCode  int64
+	MsisdnHeaders []string
+	Supported     bool
+	Local         bool
+	Range         IpRange
+}
+
 type IpRange struct {
 	Id            int64    `json:"id,omitempty" yaml:"-"`
 	OperatorCode  int64    `json:"operator_code,omitempty" yaml:"-"`
@@ -98,4 +108,25 @@ func (ipRanges *IpRanges) Reload() (err error) {
 		ipRanges.ByOperatorCode[v.OperatorCode] = v
 	}
 	return nil
+}
+
+func IsPrivateSubnet(ipAddress net.IP) bool {
+	if ipCheck := ipAddress.To4(); ipCheck != nil {
+		for _, r := range Svc.privateIPRanges {
+			if r.In(ipAddress) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func GetSupportedIPInfo(infos []IPInfo) IPInfo {
+	for _, v := range infos {
+		if !v.Supported {
+			continue
+		}
+		return v
+	}
+	return IPInfo{Supported: false}
 }

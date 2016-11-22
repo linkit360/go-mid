@@ -9,27 +9,35 @@ import (
 	"github.com/vostrok/utils/cqr"
 	"github.com/vostrok/utils/db"
 	m "github.com/vostrok/utils/metrics"
+	"net"
 )
 
 var Svc MemService
 
 type MemService struct {
-	db           *sql.DB
-	dbConf       db.DataBaseConfig
-	UniqueDays   int
-	cqrConfig    []cqr.CQRConfig
-	Campaigns    *Campaigns
-	Services     *Services
-	Contents     *Contents
-	SentContents *SentContents
-	IpRanges     *IpRanges
-	Operators    *Operators
-	Prefixes     *Prefixes
+	db              *sql.DB
+	dbConf          db.DataBaseConfig
+	conf            Config
+	cqrConfig       []cqr.CQRConfig
+	privateIPRanges []IpRange
+	Campaigns       *Campaigns
+	Services        *Services
+	Contents        *Contents
+	SentContents    *SentContents
+	IpRanges        *IpRanges
+	Operators       *Operators
+	Prefixes        *Prefixes
+}
+
+type Config struct {
+	UniqueDays      int       `yaml:"unique_days" default:"10"`
+	StaticPath      string    `yaml:"static_path" default:""`
+	PrivateIpRanges []IpRange `yaml:"private_networks"`
 }
 
 func Init(
 	appName string,
-	uniqueDays int,
+	svcConf Config,
 	dbConf db.DataBaseConfig,
 
 ) {
@@ -37,8 +45,9 @@ func Init(
 
 	Svc.db = db.Init(dbConf)
 	Svc.dbConf = dbConf
-	Svc.UniqueDays = uniqueDays
+	Svc.conf = svcConf
 	m.Init(appName)
+	Svc.privateIPRanges = loadPrivateIpRanges(svcConf.PrivateIpRanges)
 
 	Svc.Campaigns = &Campaigns{}
 	Svc.Services = &Services{}
@@ -87,4 +96,14 @@ func AddCQRHandlers(r *gin.Engine) {
 }
 func reloadCQRFunc(c *gin.Context) {
 	cqr.CQRReloadFunc(Svc.cqrConfig, c)(c)
+}
+func loadPrivateIpRanges(ipConf []IpRange) []IpRange {
+	var ipRanges []IpRange
+	for _, v := range ipConf {
+		v.Start = net.ParseIP(v.IpFrom)
+		v.End = net.ParseIP(v.IpTo)
+		ipRanges = append(ipRanges, v)
+	}
+	log.WithField("privateNetworks", ipRanges).Info("private networks loaded")
+	return ipRanges
 }
