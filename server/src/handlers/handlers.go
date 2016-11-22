@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"net"
 	"strings"
 
@@ -9,8 +8,6 @@ import (
 
 	"github.com/vostrok/inmem/service"
 )
-
-var errNotFound = errors.New("Not found")
 
 type GetAllParams struct {
 }
@@ -66,7 +63,7 @@ func (rpc *Campaign) ByHash(
 
 	campaign, ok := service.Svc.Campaigns.ByHash[req.Hash]
 	if !ok {
-		return errNotFound
+		return nil
 	}
 	*res = campaign
 	return nil
@@ -76,7 +73,7 @@ func (rpc *Campaign) ByLink(
 
 	campaign, ok := service.Svc.Campaigns.ByLink[req.Link]
 	if !ok {
-		return errNotFound
+		return nil
 	}
 	*res = campaign
 	return nil
@@ -97,8 +94,9 @@ func (rpc *BlackList) ByMsisdn(
 	_, ok := service.Svc.BlackList.ByMsisdn[req.Msisdn]
 	if ok {
 		*res = BoolResponse{Result: true}
+	} else {
+		*res = BoolResponse{Result: false}
 	}
-	*res = BoolResponse{Result: false}
 	return nil
 }
 
@@ -110,8 +108,9 @@ func (rpc *PostPaid) ByMsisdn(
 	_, ok := service.Svc.PostPaid.ByMsisdn[req.Msisdn]
 	if ok {
 		*res = BoolResponse{Result: true}
+	} else {
+		*res = BoolResponse{Result: false}
 	}
-	*res = BoolResponse{Result: false}
 	return nil
 }
 func (rpc *PostPaid) Push(
@@ -131,7 +130,7 @@ func (rpc *Service) ById(
 
 	svc, ok := service.Svc.Services.ById[req.Id]
 	if !ok {
-		return errNotFound
+		return nil
 	}
 	*res = svc
 	return nil
@@ -145,7 +144,7 @@ func (rpc *PixelSetting) ByKey(
 
 	svc, ok := service.Svc.PixelSettings.ByKey[req.Key]
 	if !ok {
-		return errNotFound
+		return nil
 	}
 	*res = *svc
 	return nil
@@ -155,7 +154,7 @@ func (rpc *PixelSetting) GetWithRatio(
 
 	ps, err := service.Svc.PixelSettings.GetWithRatio(req.Key)
 	if err != nil {
-		return errNotFound
+		return nil
 	}
 	*res = ps
 	return nil
@@ -169,7 +168,7 @@ func (rpc *Content) ById(
 
 	content, ok := service.Svc.Contents.ById[req.Id]
 	if !ok {
-		return errNotFound
+		return nil
 	}
 	*res = content
 	return nil
@@ -204,7 +203,7 @@ func (rpc *Operator) ByCode(
 
 	operator, ok := service.Svc.Operators.ByCode[req.Code]
 	if !ok {
-		return errNotFound
+		return nil
 	}
 	*res = operator
 	return nil
@@ -214,7 +213,7 @@ func (rpc *Operator) ByName(
 
 	operator, ok := service.Svc.Operators.ByName[strings.ToLower(req.Name)]
 	if !ok {
-		return errNotFound
+		return nil
 	}
 	*res = operator
 	return nil
@@ -243,7 +242,7 @@ func (rpc *IPInfo) ByMsisdn(
 			return nil
 		}
 	}
-	return errNotFound
+	return nil
 }
 func (rpc *IPInfo) ByIP(
 	req GetByIPsParams, res *GetByIPsResponse) error {
