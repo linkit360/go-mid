@@ -22,16 +22,17 @@ type Campaigns struct {
 	ByLink map[string]Campaign
 }
 type Campaign struct {
-	Hash        string
-	Link        string
-	PageWelcome string
-	Id          int64
-	ServiceId   int64
-	Content     []byte
+	Hash             string
+	Link             string
+	PageWelcome      string
+	Id               int64
+	ServiceId        int64
+	AutoClickRatio   int64
+	AutoClickEnabled bool
+	Content          []byte
 }
 
 func (campaign Campaign) Serve(c *gin.Context) {
-	// todo metrics
 	utils.ServeBytes(campaign.Content, c)
 }
 
@@ -41,7 +42,9 @@ func (s *Campaigns) Reload() (err error) {
 		"hash, "+
 		"link, "+
 		"page_welcome, "+
-		"service_id_1 "+
+		"service_id_1, "+
+		"autoclick_enabled, "+
+		"autoclick_ratio "+
 		"FROM %scampaigns "+
 		"WHERE status = $1",
 		Svc.dbConf.TablePrefix)
@@ -62,6 +65,8 @@ func (s *Campaigns) Reload() (err error) {
 			&record.Link,
 			&record.PageWelcome,
 			&record.ServiceId,
+			&record.AutoClickEnabled,
+			&record.AutoClickRatio,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
@@ -72,8 +77,7 @@ func (s *Campaigns) Reload() (err error) {
 			record.PageWelcome + ".html"
 		record.Content, err = ioutil.ReadFile(filePath)
 		if err != nil {
-			//loadCampaignError = true
-			//m.LoadCampaignError.Set(1.)
+			loadCampaignError.Set(1.)
 			err := fmt.Errorf("ioutil.ReadFile: %s", err.Error())
 			log.WithField("error", err.Error()).Error("ioutil.ReadFile serve file error")
 			err = nil

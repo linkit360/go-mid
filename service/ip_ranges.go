@@ -71,6 +71,7 @@ func (ipRanges *IpRanges) Reload() (err error) {
 	}
 	defer rows.Close()
 
+	operatorLoadHeaderError := false
 	var records []IpRange
 	for rows.Next() {
 		record := IpRange{}
@@ -89,8 +90,7 @@ func (ipRanges *IpRanges) Reload() (err error) {
 		}
 		decodedHeaders := make([]string, 0)
 		if err := json.Unmarshal([]byte(headers), &decodedHeaders); err != nil {
-			// todo metric and alert
-			// do not fail
+			operatorLoadHeaderError = true
 		}
 		record.MsisdnHeaders = decodedHeaders
 		record.Start = net.ParseIP(record.IpFrom)
@@ -101,12 +101,18 @@ func (ipRanges *IpRanges) Reload() (err error) {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return
 	}
-	ipRanges.Data = records
+	if operatorLoadHeaderError == false {
+		loadOperatorHeaderError.Set(0.)
+	} else {
+		loadOperatorHeaderError.Set(1.)
+	}
 
+	ipRanges.Data = records
 	ipRanges.ByOperatorCode = make(map[int64]IpRange)
 	for _, v := range records {
 		ipRanges.ByOperatorCode[v.OperatorCode] = v
 	}
+
 	return nil
 }
 

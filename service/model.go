@@ -6,6 +6,7 @@ import (
 	"net"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/gin-gonic/gin"
 	"github.com/vostrok/utils/cqr"
@@ -46,11 +47,12 @@ func Init(
 
 ) {
 	log.SetLevel(log.DebugLevel)
+	initMetrics(appName)
 
 	Svc.db = db.Init(dbConf)
 	Svc.dbConf = dbConf
 	Svc.conf = svcConf
-	m.Init(appName)
+
 	Svc.privateIPRanges = loadPrivateIpRanges(svcConf.PrivateIpRanges)
 
 	Svc.Campaigns = &Campaigns{}
@@ -141,4 +143,17 @@ func loadPrivateIpRanges(ipConf []IpRange) []IpRange {
 	}
 	log.WithField("privateNetworks", ipRanges).Info("private networks loaded")
 	return ipRanges
+}
+
+var (
+	loadCampaignError       prometheus.Gauge
+	loadOperatorHeaderError prometheus.Gauge
+)
+
+func initMetrics(appName string) {
+
+	m.Init(appName)
+
+	loadCampaignError = m.PrometheusGauge("campaign", "load", "error", "load campaign error")
+	loadOperatorHeaderError = m.PrometheusGauge("operator", "load_headers", "error", "operator load headers error")
 }

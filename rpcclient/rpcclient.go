@@ -15,10 +15,14 @@ import (
 
 	"github.com/vostrok/inmem/server/src/handlers"
 	"github.com/vostrok/inmem/service"
+	m "github.com/vostrok/utils/metrics"
 )
 
 var errNotFound = errors.New("Not found")
 var cli *Client
+
+var rpcConnectError = m.NewGauge("rpc", "inmem", "errors", "RPC call errors")
+var rpcSuccess = m.NewGauge("rpc", "inmem", "success", "RPC call success")
 
 type Client struct {
 	connection *rpc.Client
@@ -64,6 +68,8 @@ func Call(rpcName string, req interface{}, res interface{}) error {
 	}
 redo:
 	if err := cli.connection.Call(rpcName, req, &res); err != nil {
+		rpcConnectError.Inc()
+
 		log.WithFields(log.Fields{
 			"call": rpcName,
 			"msg":  err.Error(),
@@ -80,6 +86,7 @@ redo:
 		}).Error("redial did't help")
 		return err
 	}
+	rpcSuccess.Inc()
 	return nil
 }
 func GetOperatorByCode(code int64) (service.Operator, error) {

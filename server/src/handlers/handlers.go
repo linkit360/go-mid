@@ -260,6 +260,7 @@ func (rpc *IPInfo) ByMsisdn(
 	notFound.Inc()
 	return nil
 }
+
 func (rpc *IPInfo) ByIP(
 	req GetByIPsParams, res *GetByIPsResponse) error {
 
