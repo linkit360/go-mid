@@ -12,7 +12,7 @@ import (
 type GetAllParams struct {
 }
 type GetAllCampaignsResponse struct {
-	Campaigns map[string]service.Campaign `json:"campaigns,omitempty"`
+	Campaigns map[string]*service.Campaign `json:"campaigns,omitempty"`
 }
 type GetByNameParams struct {
 	Name string `json:"name,omitempty"`
@@ -67,6 +67,18 @@ func (rpc *Campaign) ByHash(
 		campaignNotFound.Inc()
 		return nil
 	}
+	*res = *campaign
+	return nil
+}
+func (rpc *Campaign) ByHashWithRatio(
+	req GetByHashParams, res *service.Campaign) error {
+
+	campaign, err := service.Svc.Campaigns.ByHashWithRatio(req.Hash)
+	if err != nil {
+		notFound.Inc()
+		campaignNotFound.Inc()
+		return nil
+	}
 	*res = campaign
 	return nil
 }
@@ -79,7 +91,7 @@ func (rpc *Campaign) ByLink(
 		campaignNotFound.Inc()
 		return nil
 	}
-	*res = campaign
+	*res = *campaign
 	return nil
 }
 func (rpc *Campaign) All(
@@ -156,10 +168,10 @@ func (rpc *PixelSetting) ByKey(
 	*res = *svc
 	return nil
 }
-func (rpc *PixelSetting) GetWithRatio(
+func (rpc *PixelSetting) GyKeyWithRatio(
 	req GetByKeyParams, res *service.PixelSetting) error {
 
-	ps, err := service.Svc.PixelSettings.GetWithRatio(req.Key)
+	ps, err := service.Svc.PixelSettings.GyKeyWithRatio(req.Key)
 	if err != nil {
 		notFound.Inc()
 		pixelSettingNotFound.Inc()

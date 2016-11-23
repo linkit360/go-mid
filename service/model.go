@@ -37,6 +37,7 @@ type MemService struct {
 type Config struct {
 	UniqueDays      int       `yaml:"unique_days" default:"10"`
 	StaticPath      string    `yaml:"static_path" default:""`
+	RedirectUrl     string    `yaml:"redirect_url" default:"http://id.slypee.com" `
 	PrivateIpRanges []IpRange `yaml:"private_networks"`
 }
 
@@ -148,6 +149,7 @@ func loadPrivateIpRanges(ipConf []IpRange) []IpRange {
 var (
 	loadCampaignError       prometheus.Gauge
 	loadOperatorHeaderError prometheus.Gauge
+	campaignServeError      m.Gauge
 )
 
 func initMetrics(appName string) {
@@ -156,4 +158,6 @@ func initMetrics(appName string) {
 
 	loadCampaignError = m.PrometheusGauge("campaign", "load", "error", "load campaign error")
 	loadOperatorHeaderError = m.PrometheusGauge("operator", "load_headers", "error", "operator load headers error")
+
+	campaignServeError = m.NewGauge("campaign", "serve", "errors", "campaign serve error")
 }

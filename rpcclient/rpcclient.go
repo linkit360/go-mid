@@ -148,6 +148,18 @@ func GetCampaignByHash(hash string) (service.Campaign, error) {
 	}
 	return campaign, err
 }
+func GetCampaignByHashWithRatio(hash string) (service.Campaign, error) {
+	var campaign service.Campaign
+	err := Call(
+		"Campaign.ByHashWithRatio",
+		handlers.GetByHashParams{Hash: hash},
+		&campaign,
+	)
+	if campaign.Id == 0 {
+		return campaign, errNotFound
+	}
+	return campaign, err
+}
 func GetCampaignByLink(link string) (service.Campaign, error) {
 	var campaign service.Campaign
 	err := Call(
@@ -160,7 +172,7 @@ func GetCampaignByLink(link string) (service.Campaign, error) {
 	}
 	return campaign, err
 }
-func GetAllCampaigns() (map[string]service.Campaign, error) {
+func GetAllCampaigns() (map[string]*service.Campaign, error) {
 	var res handlers.GetAllCampaignsResponse
 	err := Call(
 		"Campaign.All",
@@ -215,7 +227,7 @@ func GetPixelSettingByKey(key string) (service.PixelSetting, error) {
 func GetPixelSettingByKeyWithRatio(key string) (service.PixelSetting, error) {
 	var pixelSetting service.PixelSetting
 	err := Call(
-		"PixelSetting.GetWithRatio",
+		"PixelSetting.GyKeyWithRatio",
 		handlers.GetByKeyParams{Key: key},
 		&pixelSetting,
 	)

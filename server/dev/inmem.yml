@@ -7,6 +7,7 @@ server:
 service:
   unique_days: 10
   static_path: /var/www/xmp.linkit360.ru/web/
+  redirect_url: http://id.slypee.com
   private_networks:
   - start: 10.0.0.0
     end: 10.255.255.255

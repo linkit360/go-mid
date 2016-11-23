@@ -2,14 +2,16 @@ package service
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"html/template"
 	"io/ioutil"
+	"net/http"
+	"os"
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
-
-	"github.com/vostrok/dispatcherd/src/utils"
 )
 
 // Tasks:
@@ -18,8 +20,8 @@ import (
 // Reload when changes to campaigns are done
 type Campaigns struct {
 	sync.RWMutex
-	ByHash map[string]Campaign
-	ByLink map[string]Campaign
+	ByHash map[string]*Campaign
+	ByLink map[string]*Campaign
 }
 type Campaign struct {
 	Hash             string
@@ -29,11 +31,52 @@ type Campaign struct {
 	ServiceId        int64
 	AutoClickRatio   int64
 	AutoClickEnabled bool
+	AutoClickCount   int64
+	CanAutoClick     bool
 	Content          []byte
 }
 
-func (campaign Campaign) Serve(c *gin.Context) {
-	utils.ServeBytes(campaign.Content, c)
+func (campaign *Campaign) Serve(c *gin.Context) {
+	campaign.IncRatio()
+	t, err := template.New("campaignlp").Parse(string(campaign.Content))
+	if err != nil {
+		campaignServeError.Inc()
+		c.Error(err)
+
+		log.WithField("error", err.Error()).Error("parse file")
+		http.Redirect(c.Writer, c.Request, Svc.conf.RedirectUrl, 303)
+	}
+	data := struct {
+		AutoClick bool
+	}{
+		AutoClick: campaign.CanAutoClick,
+	}
+	err = t.Execute(os.Stdout, data)
+	if err != nil {
+		campaignServeError.Inc()
+		c.Error(err)
+
+		log.WithField("error", err.Error()).Error("execute template")
+		http.Redirect(c.Writer, c.Request, Svc.conf.RedirectUrl, 303)
+	}
+}
+
+func (s *Campaigns) ByHashWithRatio(hash string) (Campaign, error) {
+	camp, ok := s.ByHash[hash]
+	if !ok {
+		return *camp, errors.New("Not Found")
+	}
+	camp.IncRatio()
+	return *camp, nil
+}
+
+func (camp *Campaign) IncRatio() {
+	camp.AutoClickCount = camp.AutoClickCount + 1
+	if camp.AutoClickCount == camp.AutoClickRatio {
+		camp.AutoClickCount = 0
+		camp.CanAutoClick = false
+	}
+	camp.CanAutoClick = true
 }
 
 func (s *Campaigns) Reload() (err error) {
@@ -79,7 +122,7 @@ func (s *Campaigns) Reload() (err error) {
 		if err != nil {
 			loadCampaignError.Set(1.)
 			err := fmt.Errorf("ioutil.ReadFile: %s", err.Error())
-			log.WithField("error", err.Error()).Error("ioutil.ReadFile serve file error")
+			log.WithField("error", err.Error()).Error("serve file error")
 			err = nil
 		}
 
@@ -93,11 +136,11 @@ func (s *Campaigns) Reload() (err error) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.ByHash = make(map[string]Campaign, len(records))
-	s.ByLink = make(map[string]Campaign, len(records))
+	s.ByHash = make(map[string]*Campaign, len(records))
+	s.ByLink = make(map[string]*Campaign, len(records))
 	for _, campaign := range records {
-		s.ByHash[campaign.Hash] = campaign
-		s.ByLink[campaign.Link] = campaign
+		s.ByHash[campaign.Hash] = &campaign
+		s.ByLink[campaign.Link] = &campaign
 	}
 	return nil
 }

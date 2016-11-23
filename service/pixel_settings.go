@@ -29,15 +29,15 @@ type PixelSetting struct {
 	CanIgnore    bool
 }
 
-func (pss *PixelSettings) GetWithRatio(key string) (PixelSetting, error) {
+func (pss *PixelSettings) GyKeyWithRatio(key string) (PixelSetting, error) {
 	ps, ok := pss.ByKey[key]
 	if !ok {
 		return *ps, errors.New("Not Found")
 	}
-	ps.setIgnore()
+	ps.setRatio()
 	return *ps, nil
 }
-func (ps *PixelSetting) setIgnore() {
+func (ps *PixelSetting) setRatio() {
 	ps.Count = ps.Count + 1
 	if ps.Count == ps.Ratio {
 		ps.Count = 0
