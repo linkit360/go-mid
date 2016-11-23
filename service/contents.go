@@ -21,6 +21,9 @@ type Content struct {
 }
 
 func (s *Contents) Reload() (err error) {
+	s.Lock()
+	defer s.Unlock()
+
 	query := fmt.Sprintf("SELECT "+
 		"id, "+
 		"object, "+
@@ -54,9 +57,6 @@ func (s *Contents) Reload() (err error) {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return
 	}
-
-	s.Lock()
-	defer s.Unlock()
 
 	s.ById = make(map[int64]Content)
 	for _, content := range contents {

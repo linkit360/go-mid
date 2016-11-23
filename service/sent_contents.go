@@ -53,6 +53,9 @@ func (t ContentSentProperties) key() string {
 // Load sent contents to filter content that had been seen by the msisdn.
 // created at == before date specified in config
 func (s *SentContents) Reload() (err error) {
+	s.Lock()
+	defer s.Unlock()
+
 	query := fmt.Sprintf("SELECT "+
 		"msisdn, "+
 		"id_service, "+
@@ -88,9 +91,6 @@ func (s *SentContents) Reload() (err error) {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return
 	}
-
-	s.Lock()
-	defer s.Unlock()
 
 	s.ByKey = make(map[string]map[int64]struct{})
 	for _, sentContent := range records {

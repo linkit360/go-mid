@@ -12,7 +12,6 @@ type BlackList struct {
 }
 
 func (bl *BlackList) Reload() error {
-	var err error
 	bl.Lock()
 	defer bl.Unlock()
 
@@ -20,6 +19,7 @@ func (bl *BlackList) Reload() error {
 		"msisdn "+
 		"FROM %smsisdn_blacklist",
 		Svc.dbConf.TablePrefix)
+	var err error
 	var rows *sql.Rows
 	rows, err = Svc.db.Query(query)
 	if err != nil {

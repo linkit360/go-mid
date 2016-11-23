@@ -12,13 +12,15 @@ type PostPaid struct {
 }
 
 func (pp *PostPaid) Reload() error {
-	var err error
 	pp.Lock()
 	defer pp.Unlock()
+
 	query := fmt.Sprintf("SELECT"+
 		" msisdn "+
 		"FROM %smsisdn_postpaid",
 		Svc.dbConf.TablePrefix)
+
+	var err error
 	var rows *sql.Rows
 	rows, err = Svc.db.Query(query)
 	if err != nil {
@@ -51,4 +53,10 @@ func (pp *PostPaid) Push(msisdn string) {
 	pp.Lock()
 	defer pp.Unlock()
 	pp.ByMsisdn[msisdn] = struct{}{}
+}
+
+func (pp *PostPaid) Remove(msisdn string) {
+	pp.Lock()
+	defer pp.Unlock()
+	delete(pp.ByMsisdn, msisdn)
 }

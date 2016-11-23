@@ -2,12 +2,9 @@ package service
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"net/http"
-	"os"
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
@@ -20,57 +17,31 @@ import (
 // Reload when changes to campaigns are done
 type Campaigns struct {
 	sync.RWMutex
-	ByHash map[string]*Campaign
-	ByLink map[string]*Campaign
+	ByHash map[string]Campaign
+	ByLink map[string]Campaign
 }
 type Campaign struct {
-	Hash             string
-	Link             string
-	PageWelcome      string
-	Id               int64
-	ServiceId        int64
-	AutoClickRatio   int64
-	AutoClickEnabled bool
-	AutoClickCount   int64
-	CanAutoClick     bool
-	Content          []byte
+	Hash             string `json:"hash"`
+	Link             string `json:"link"`
+	PageWelcome      string `json:"page_welcome"`
+	Id               int64  `json:"id"`
+	ServiceId        int64  `json:"service_id"`
+	AutoClickRatio   int64  `json:"auto_click_ratio"`
+	AutoClickEnabled bool   `json:"auto_click_enabled"`
+	AutoClickCount   int64  `json:"auto_click_count"`
+	CanAutoClick     bool   `json:"can_auto_click"`
 }
 
-func (campaign *Campaign) Serve(c *gin.Context) {
-	campaign.IncRatio()
-	t, err := template.New("campaignlp").Parse(string(campaign.Content))
-	if err != nil {
-		campaignServeError.Inc()
-		c.Error(err)
-
-		log.WithField("error", err.Error()).Error("parse file")
-		http.Redirect(c.Writer, c.Request, Svc.conf.RedirectUrl, 303)
-	}
+func (campaign Campaign) Serve(c *gin.Context) {
 	data := struct {
 		AutoClick bool
 	}{
 		AutoClick: campaign.CanAutoClick,
 	}
-	err = t.Execute(os.Stdout, data)
-	if err != nil {
-		campaignServeError.Inc()
-		c.Error(err)
-
-		log.WithField("error", err.Error()).Error("execute template")
-		http.Redirect(c.Writer, c.Request, Svc.conf.RedirectUrl, 303)
-	}
+	c.HTML(http.StatusOK, campaign.PageWelcome+".html", data)
 }
 
-func (s *Campaigns) ByHashWithRatio(hash string) (Campaign, error) {
-	camp, ok := s.ByHash[hash]
-	if !ok {
-		return *camp, errors.New("Not Found")
-	}
-	camp.IncRatio()
-	return *camp, nil
-}
-
-func (camp *Campaign) IncRatio() {
+func (camp Campaign) IncRatio() {
 	camp.AutoClickCount = camp.AutoClickCount + 1
 	if camp.AutoClickCount == camp.AutoClickRatio {
 		camp.AutoClickCount = 0
@@ -80,6 +51,9 @@ func (camp *Campaign) IncRatio() {
 }
 
 func (s *Campaigns) Reload() (err error) {
+	s.Lock()
+	defer s.Unlock()
+
 	query := fmt.Sprintf("SELECT "+
 		"id, "+
 		"hash, "+
@@ -99,6 +73,7 @@ func (s *Campaigns) Reload() (err error) {
 	}
 	defer rows.Close()
 
+	loadCampaignErrorFlag := false
 	var records []Campaign
 	for rows.Next() {
 		record := Campaign{}
@@ -118,11 +93,12 @@ func (s *Campaigns) Reload() (err error) {
 		filePath := Svc.conf.StaticPath +
 			"campaign/" + record.Hash + "/" +
 			record.PageWelcome + ".html"
-		record.Content, err = ioutil.ReadFile(filePath)
+
+		_, err := template.ParseFiles(filePath)
 		if err != nil {
-			loadCampaignError.Set(1.)
-			err := fmt.Errorf("ioutil.ReadFile: %s", err.Error())
-			log.WithField("error", err.Error()).Error("serve file error")
+			loadCampaignErrorFlag = true
+			err := fmt.Errorf("template.ParseFiles: %s", err.Error())
+			log.WithField("error", err.Error()).Error("template parse file error")
 			err = nil
 		}
 
@@ -133,14 +109,17 @@ func (s *Campaigns) Reload() (err error) {
 		return
 	}
 
-	s.Lock()
-	defer s.Unlock()
+	if loadCampaignErrorFlag == true {
+		loadCampaignError.Set(1.)
+	} else {
+		loadCampaignError.Set(0.)
+	}
 
-	s.ByHash = make(map[string]*Campaign, len(records))
-	s.ByLink = make(map[string]*Campaign, len(records))
+	s.ByHash = make(map[string]Campaign, len(records))
+	s.ByLink = make(map[string]Campaign, len(records))
 	for _, campaign := range records {
-		s.ByHash[campaign.Hash] = &campaign
-		s.ByLink[campaign.Link] = &campaign
+		s.ByHash[campaign.Hash] = campaign
+		s.ByLink[campaign.Link] = campaign
 	}
 	return nil
 }

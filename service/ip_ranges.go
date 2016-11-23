@@ -48,6 +48,9 @@ func (r IpRange) In(ip net.IP) bool {
 
 // msisdn could be in many headers
 func (ipRanges *IpRanges) Reload() (err error) {
+	ipRanges.Lock()
+	defer ipRanges.Unlock()
+
 	query := fmt.Sprintf(""+
 		"SELECT "+
 		"id, "+

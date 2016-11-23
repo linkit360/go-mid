@@ -42,6 +42,7 @@ func Init(contentdClientConf RPCClientConfig) {
 		log.WithField("error", err.Error()).Error("inmem rpc client unavialable")
 		return
 	}
+	log.WithField("conf", fmt.Sprintf("%#v", contentdClientConf)).Info("inmem rpc client init done")
 }
 
 func (c *Client) dial() error {
@@ -49,8 +50,13 @@ func (c *Client) dial() error {
 		_ = c.connection.Close()
 	}
 
-	conn, err := net.DialTimeout("tcp", c.conf.DSN, time.Duration(c.conf.Timeout)*time.Second)
+	conn, err := net.DialTimeout(
+		"tcp",
+		c.conf.DSN,
+		time.Duration(c.conf.Timeout)*time.Second,
+	)
 	if err != nil {
+		log.WithField("error", err.Error()).Error("dialing inmem")
 		return err
 	}
 	kaConn, _ := tcpkeepalive.EnableKeepAlive(conn)
@@ -58,6 +64,7 @@ func (c *Client) dial() error {
 	kaConn.SetKeepAliveCount(4)
 	kaConn.SetKeepAliveInterval(5 * time.Second)
 	c.connection = jsonrpc.NewClient(kaConn)
+	log.Debug("dialing done")
 	return nil
 }
 
@@ -148,18 +155,6 @@ func GetCampaignByHash(hash string) (service.Campaign, error) {
 	}
 	return campaign, err
 }
-func GetCampaignByHashWithRatio(hash string) (service.Campaign, error) {
-	var campaign service.Campaign
-	err := Call(
-		"Campaign.ByHashWithRatio",
-		handlers.GetByHashParams{Hash: hash},
-		&campaign,
-	)
-	if campaign.Id == 0 {
-		return campaign, errNotFound
-	}
-	return campaign, err
-}
 func GetCampaignByLink(link string) (service.Campaign, error) {
 	var campaign service.Campaign
 	err := Call(
@@ -172,7 +167,7 @@ func GetCampaignByLink(link string) (service.Campaign, error) {
 	}
 	return campaign, err
 }
-func GetAllCampaigns() (map[string]*service.Campaign, error) {
+func GetAllCampaigns() (map[string]service.Campaign, error) {
 	var res handlers.GetAllCampaignsResponse
 	err := Call(
 		"Campaign.All",
@@ -266,15 +261,6 @@ func SentContentGet(msisdn string, serviceId int64) (map[int64]struct{}, error) 
 	)
 	return res.ContentdIds, err
 }
-func PostPaidPush(msisdn string) error {
-	var res handlers.Response
-	err := Call(
-		"PostPaid.Push",
-		handlers.GetByMsisdnParams{Msisdn: msisdn},
-		&res,
-	)
-	return err
-}
 
 func IsBlackListed(msisdn string) (bool, error) {
 	var res handlers.BoolResponse
@@ -285,7 +271,6 @@ func IsBlackListed(msisdn string) (bool, error) {
 	)
 	return res.Result, err
 }
-
 func IsPostPaid(msisdn string) (bool, error) {
 	var res handlers.BoolResponse
 	err := Call(
@@ -294,4 +279,26 @@ func IsPostPaid(msisdn string) (bool, error) {
 		&res,
 	)
 	return res.Result, err
+}
+
+func PostPaidPush(msisdn string) error {
+	var res handlers.Response
+	err := Call(
+		"PostPaid.Push",
+		handlers.GetByMsisdnParams{Msisdn: msisdn},
+		&res,
+	)
+	return err
+}
+
+// for tests only!
+// do not removes from database!
+func PostPaidRemove(msisdn string) error {
+	var res handlers.Response
+	err := Call(
+		"PostPaid.Remove",
+		handlers.GetByMsisdnParams{Msisdn: msisdn},
+		&res,
+	)
+	return err
 }

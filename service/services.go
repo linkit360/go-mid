@@ -32,6 +32,9 @@ type ServiceContent struct {
 }
 
 func (s *Services) Reload() (err error) {
+	s.Lock()
+	defer s.Unlock()
+
 	query := fmt.Sprintf("SELECT "+
 		"id, "+
 		"price, "+
@@ -111,9 +114,6 @@ func (s *Services) Reload() (err error) {
 		err = fmt.Errorf("rows.Error: %s", err.Error())
 		return
 	}
-
-	s.Lock()
-	defer s.Unlock()
 
 	s.ById = make(map[int64]Service)
 
