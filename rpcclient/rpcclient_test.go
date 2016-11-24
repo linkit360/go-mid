@@ -2,10 +2,10 @@ package rpcclient
 
 import (
 	"fmt"
-	"github.com/vostrok/inmem/service"
 	"testing"
 	//"github.com/vostrok/inmem/server/src/handlers"
 	"github.com/stretchr/testify/assert"
+	"github.com/vostrok/inmem/service"
 )
 
 func init() {
@@ -16,17 +16,28 @@ func init() {
 	Init(c)
 }
 
-//
-//func TestGetOperator(t *testing.T) {
-//	res, err := GetOperatorByCode(40501)
-//	fmt.Printf("%#v %#v", res, err)
-//
-//
-//
-//	res, err = GetOperatorByName("mobilink")
-//	fmt.Printf("%#v %#v", res, err)
-//}
-//
+func TestGetOperator(t *testing.T) {
+	res, err := GetOperatorByCode(41001)
+	fmt.Printf("%#v %#v\n", res, err)
+	assert.Nil(t, err)
+	expected := service.Operator{
+		Name:     "mobilink",
+		Rps:      10,
+		Settings: "{}",
+		Code:     41001,
+	}
+	if !assert.ObjectsAreEqual(expected, res) {
+		assert.Equal(t, expected, res, "operators differ")
+	}
+
+	res, err = GetOperatorByName("mobilink")
+	fmt.Printf("%#v %#v\n", res, err)
+	assert.Nil(t, err)
+	if !assert.ObjectsAreEqual(expected, res) {
+		assert.Equal(t, expected, res, "operators differ")
+	}
+}
+
 //func TestGetIPInfo(t *testing.T) {
 //	res, err := GetIPInfoByMsisdn("923005557326")
 //	fmt.Printf("%#v %#v", res, err)
@@ -34,7 +45,7 @@ func init() {
 //	res, err = GetIPInfoByIps([]net.IP{})
 //	fmt.Printf("%#v %#v", res, err)
 //}
-
+//
 func TestGetCampaign(t *testing.T) {
 	res, err := GetCampaignByHash("f90f2aca5c640289d0a29417bcb63a37")
 	fmt.Printf("%#v %#v\n", res, err)
