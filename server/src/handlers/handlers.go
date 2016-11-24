@@ -90,6 +90,7 @@ func (rpc *Campaign) All(
 	return nil
 }
 
+// BlackList
 type BlackList struct{}
 
 func (rpc *BlackList) ByMsisdn(
@@ -104,6 +105,7 @@ func (rpc *BlackList) ByMsisdn(
 	return nil
 }
 
+// PostPaid
 type PostPaid struct{}
 
 func (rpc *PostPaid) ByMsisdn(

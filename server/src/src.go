@@ -1,9 +1,8 @@
 package src
 
-// server has metrics, config app
-// and handles rpc method to get smth by smth
-// and another method to update cache on demand (CQR)
-// anyway, there is a http method to catch metrics
+// The main purpose of the inmem:
+// keep in memory and handle all CQR requests in one place
+// http://localhost:50308/tables - get all unique tables that could be CQR-ed
 import (
 	"net"
 	"net/rpc"

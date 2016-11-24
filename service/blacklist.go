@@ -1,5 +1,7 @@
 package service
 
+// very large table.
+// probably, need another type of searching blacklisted numbers
 import (
 	"database/sql"
 	"fmt"

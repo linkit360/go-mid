@@ -2,7 +2,6 @@ package service
 
 // im-memory pixel settings
 // kept by key fmt.Sprintf("%d-%d-%s", ps.CampaignId, ps.OperatorCode, ps.Publisher)
-
 import (
 	"database/sql"
 	"errors"
@@ -17,16 +16,16 @@ type PixelSettings struct {
 }
 
 type PixelSetting struct {
-	Id           int64
-	CampaignId   int64
-	OperatorCode int64
-	Publisher    string
-	Endpoint     string
-	Timeout      int
-	Enabled      bool
-	Ratio        int
-	Count        int
-	CanIgnore    bool
+	Id            int64
+	CampaignId    int64
+	OperatorCode  int64
+	Publisher     string
+	Endpoint      string
+	Timeout       int
+	Enabled       bool
+	Ratio         int
+	Count         int
+	SkipPixelSend bool
 }
 
 func (pss *PixelSettings) GyKeyWithRatio(key string) (PixelSetting, error) {
@@ -34,16 +33,14 @@ func (pss *PixelSettings) GyKeyWithRatio(key string) (PixelSetting, error) {
 	if !ok {
 		return *ps, errors.New("Not Found")
 	}
-	ps.setRatio()
-	return *ps, nil
-}
-func (ps *PixelSetting) setRatio() {
 	ps.Count = ps.Count + 1
 	if ps.Count == ps.Ratio {
 		ps.Count = 0
-		ps.CanIgnore = false
+		ps.SkipPixelSend = false
+	} else {
+		ps.SkipPixelSend = true
 	}
-	ps.CanIgnore = true
+	return *ps, nil
 }
 
 func (ps *PixelSetting) Key() string {

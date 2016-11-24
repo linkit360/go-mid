@@ -45,9 +45,10 @@ func (camp Campaign) IncRatio() {
 	camp.AutoClickCount = camp.AutoClickCount + 1
 	if camp.AutoClickCount == camp.AutoClickRatio {
 		camp.AutoClickCount = 0
+		camp.CanAutoClick = true
+	} else {
 		camp.CanAutoClick = false
 	}
-	camp.CanAutoClick = true
 }
 
 func (s *Campaigns) Reload() (err error) {
