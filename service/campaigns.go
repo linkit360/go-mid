@@ -32,16 +32,22 @@ type Campaign struct {
 	CanAutoClick     bool   `json:"can_auto_click"`
 }
 
-func (campaign Campaign) Serve(c *gin.Context) {
+func (campaign *Campaign) Serve(c *gin.Context) {
 	data := struct {
 		AutoClick bool
 	}{
 		AutoClick: campaign.CanAutoClick,
 	}
+	campaign.incRatio()
+	log.WithFields(log.Fields{
+		"count":     campaign.AutoClickCount,
+		"ratio":     campaign.AutoClickRatio,
+		"autoclick": campaign.CanAutoClick,
+	}).Debug("campaign")
 	c.HTML(http.StatusOK, campaign.PageWelcome+".html", data)
 }
 
-func (camp Campaign) IncRatio() {
+func (camp *Campaign) incRatio() {
 	camp.AutoClickCount = camp.AutoClickCount + 1
 	if camp.AutoClickCount == camp.AutoClickRatio {
 		camp.AutoClickCount = 0
@@ -49,6 +55,11 @@ func (camp Campaign) IncRatio() {
 	} else {
 		camp.CanAutoClick = false
 	}
+	log.WithFields(log.Fields{
+		"count":     camp.AutoClickCount,
+		"ratio":     camp.AutoClickRatio,
+		"autoclick": camp.CanAutoClick,
+	}).Debug("campaign")
 }
 
 func (s *Campaigns) Reload() (err error) {
