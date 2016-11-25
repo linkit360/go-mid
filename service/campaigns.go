@@ -48,6 +48,10 @@ func (campaign *Campaign) Serve(c *gin.Context) {
 }
 
 func (camp *Campaign) incRatio() {
+	if !camp.AutoClickEnabled {
+		camp.CanAutoClick = false
+		return
+	}
 	camp.AutoClickCount = camp.AutoClickCount + 1
 	if camp.AutoClickCount == camp.AutoClickRatio {
 		camp.AutoClickCount = 0

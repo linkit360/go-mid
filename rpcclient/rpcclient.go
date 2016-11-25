@@ -21,8 +21,8 @@ import (
 var errNotFound = errors.New("Not found")
 var cli *Client
 
-var rpcConnectError = m.NewGauge("rpc", "inmem", "errors", "RPC call errors")
-var rpcSuccess = m.NewGauge("rpc", "inmem", "success", "RPC call success")
+var rpcConnectError m.Gauge
+var rpcSuccess m.Gauge
 
 type Client struct {
 	connection *rpc.Client
@@ -44,6 +44,15 @@ func Init(contentdClientConf RPCClientConfig) error {
 		return err
 	}
 	log.WithField("conf", fmt.Sprintf("%#v", contentdClientConf)).Info("inmem rpc client init done")
+
+	rpcConnectError = m.NewGauge("rpc", "inmem", "errors", "RPC call errors")
+	rpcSuccess = m.NewGauge("rpc", "inmem", "success", "RPC call success")
+	go func() {
+		for range time.Tick(time.Minute) {
+			rpcConnectError.Update()
+			rpcSuccess.Update()
+		}
+	}()
 	return nil
 }
 
