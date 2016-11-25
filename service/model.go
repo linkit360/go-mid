@@ -91,7 +91,7 @@ func Init(
 			Data:   Svc.IpRanges,
 		},
 		{
-			Tables: []string{"operators"},
+			Tables: []string{"operators", "countries"},
 			Data:   Svc.Operators,
 		},
 		{

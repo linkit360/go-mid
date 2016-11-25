@@ -33,16 +33,18 @@ type RPCClientConfig struct {
 	Timeout int    `default:"10" yaml:"timeout"`
 }
 
-func Init(contentdClientConf RPCClientConfig) {
+func Init(contentdClientConf RPCClientConfig) error {
 	var err error
 	cli = &Client{
 		conf: contentdClientConf,
 	}
 	if err = cli.dial(); err != nil {
-		log.WithField("error", err.Error()).Error("inmem rpc client unavialable")
-		return
+		err = fmt.Errorf("cli.dial: %s", err.Error())
+		log.WithField("error", err.Error()).Error("in mem rpc client unavialable")
+		return err
 	}
 	log.WithField("conf", fmt.Sprintf("%#v", contentdClientConf)).Info("inmem rpc client init done")
+	return nil
 }
 
 func (c *Client) dial() error {

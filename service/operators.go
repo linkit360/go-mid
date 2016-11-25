@@ -18,10 +18,11 @@ type Operators struct {
 }
 
 type Operator struct {
-	Name     string
-	Rps      int
-	Settings string
-	Code     int64
+	Name        string
+	Rps         int
+	Settings    string
+	Code        int64
+	CountryName string
 }
 
 func (ops *Operators) Reload() error {
@@ -33,9 +34,13 @@ func (ops *Operators) Reload() error {
 		"name, "+
 		"code,  "+
 		"rps, "+
-		"settings "+
+		"settings, "+
+		"( SELECT %scountries.name as country_name FROM %scountries WHERE country_code = code ) "+
 		"FROM %soperators",
-		Svc.dbConf.TablePrefix)
+		Svc.dbConf.TablePrefix,
+		Svc.dbConf.TablePrefix,
+		Svc.dbConf.TablePrefix,
+	)
 	var rows *sql.Rows
 	rows, err = Svc.db.Query(query)
 	if err != nil {
@@ -52,11 +57,13 @@ func (ops *Operators) Reload() error {
 			&operator.Code,
 			&operator.Rps,
 			&operator.Settings,
+			&operator.CountryName,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return err
 		}
 		operator.Name = strings.ToLower(operator.Name)
+		operator.CountryName = strings.ToLower(operator.CountryName)
 		operators = append(operators, operator)
 	}
 	if rows.Err() != nil {
