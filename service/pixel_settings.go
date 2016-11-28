@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	//"github.com/Sirupsen/logrus"
 )
 
 type PixelSettings struct {
@@ -28,10 +29,10 @@ type PixelSetting struct {
 	SkipPixelSend bool
 }
 
-func (pss *PixelSettings) GyKeyWithRatio(key string) (PixelSetting, error) {
+func (pss *PixelSettings) ByKeyWithRatio(key string) (PixelSetting, error) {
 	ps, ok := pss.ByKey[key]
 	if !ok {
-		return *ps, errors.New("Not Found")
+		return PixelSetting{}, errors.New("Not Found")
 	}
 	ps.Count = ps.Count + 1
 	if ps.Count == ps.Ratio {
@@ -102,5 +103,6 @@ func (ps *PixelSettings) Reload() (err error) {
 	for _, p := range records {
 		ps.ByKey[p.Key()] = &p
 	}
+	//logrus.Debug(fmt.Sprintf("%#v", ps.ByKey))
 	return nil
 }

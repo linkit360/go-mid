@@ -166,10 +166,10 @@ func (rpc *PixelSetting) ByKey(
 	*res = *svc
 	return nil
 }
-func (rpc *PixelSetting) GyKeyWithRatio(
+func (rpc *PixelSetting) ByKeyWithRatio(
 	req GetByKeyParams, res *service.PixelSetting) error {
 
-	ps, err := service.Svc.PixelSettings.GyKeyWithRatio(req.Key)
+	ps, err := service.Svc.PixelSettings.ByKeyWithRatio(req.Key)
 	if err != nil {
 		notFound.Inc()
 		pixelSettingNotFound.Inc()

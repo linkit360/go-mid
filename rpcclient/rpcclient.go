@@ -5,6 +5,7 @@ package rpcclient
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
@@ -58,7 +59,13 @@ func Init(contentdClientConf RPCClientConfig) error {
 
 func (c *Client) dial() error {
 	if c.connection != nil {
-		_ = c.connection.Close()
+		log.WithFields(log.Fields{}).Debug("closing connection")
+		if err := c.connection.Close(); err != nil {
+			log.WithFields(log.Fields{
+				"dsn":   c.conf.DSN,
+				"error": err.Error(),
+			}).Error("closing conn to inmem")
+		}
 	}
 
 	conn, err := net.DialTimeout(
@@ -67,7 +74,10 @@ func (c *Client) dial() error {
 		time.Duration(c.conf.Timeout)*time.Second,
 	)
 	if err != nil {
-		log.WithField("error", err.Error()).Error("dialing inmem")
+		log.WithFields(log.Fields{
+			"dsn":   c.conf.DSN,
+			"error": err.Error(),
+		}).Error("dialing inmem")
 		return err
 	}
 	kaConn, _ := tcpkeepalive.EnableKeepAlive(conn)
@@ -75,7 +85,9 @@ func (c *Client) dial() error {
 	kaConn.SetKeepAliveCount(4)
 	kaConn.SetKeepAliveInterval(5 * time.Second)
 	c.connection = jsonrpc.NewClient(kaConn)
-	log.Debug("dialing done")
+	log.WithFields(log.Fields{
+		"dsn": c.conf.DSN,
+	}).Debug("dialing inmem")
 	return nil
 }
 
@@ -89,8 +101,8 @@ redo:
 		rpcConnectError.Inc()
 
 		log.WithFields(log.Fields{
-			"call": rpcName,
-			"msg":  err.Error(),
+			"call":  rpcName,
+			"error": err.Error(),
 		}).Debug("rpc client now is unavialable")
 		if !redialed {
 			cli.dial()
@@ -233,7 +245,7 @@ func GetPixelSettingByKey(key string) (service.PixelSetting, error) {
 func GetPixelSettingByKeyWithRatio(key string) (service.PixelSetting, error) {
 	var pixelSetting service.PixelSetting
 	err := Call(
-		"PixelSetting.GyKeyWithRatio",
+		"PixelSetting.ByKeyWithRatio",
 		handlers.GetByKeyParams{Key: key},
 		&pixelSetting,
 	)
