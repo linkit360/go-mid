@@ -5,7 +5,6 @@ package rpcclient
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
@@ -22,22 +21,38 @@ import (
 var errNotFound = errors.New("Not found")
 var cli *Client
 
-var rpcConnectError m.Gauge
-var rpcSuccess m.Gauge
-
 type Client struct {
 	connection *rpc.Client
 	conf       RPCClientConfig
+	m          Metrics
 }
 type RPCClientConfig struct {
 	DSN     string `default:"localhost:50307" yaml:"dsn"`
 	Timeout int    `default:"10" yaml:"timeout"`
 }
+type Metrics struct {
+	RPCConnectError m.Gauge
+	RPCSuccess      m.Gauge
+}
 
+func initMetrics() Metrics {
+	m := Metrics{
+		RPCConnectError: m.NewGauge("rpc", "inmem", "errors", "RPC call errors"),
+		RPCSuccess:      m.NewGauge("rpc", "inmem", "success", "RPC call success"),
+	}
+	go func() {
+		for range time.Tick(time.Minute) {
+			m.RPCConnectError.Update()
+			m.RPCSuccess.Update()
+		}
+	}()
+	return m
+}
 func Init(contentdClientConf RPCClientConfig) error {
 	var err error
 	cli = &Client{
 		conf: contentdClientConf,
+		m:    initMetrics(),
 	}
 	if err = cli.dial(); err != nil {
 		err = fmt.Errorf("cli.dial: %s", err.Error())
@@ -46,20 +61,12 @@ func Init(contentdClientConf RPCClientConfig) error {
 	}
 	log.WithField("conf", fmt.Sprintf("%#v", contentdClientConf)).Info("inmem rpc client init done")
 
-	rpcConnectError = m.NewGauge("rpc", "inmem", "errors", "RPC call errors")
-	rpcSuccess = m.NewGauge("rpc", "inmem", "success", "RPC call success")
-	go func() {
-		for range time.Tick(time.Minute) {
-			rpcConnectError.Update()
-			rpcSuccess.Update()
-		}
-	}()
 	return nil
 }
 
 func (c *Client) dial() error {
 	if c.connection != nil {
-		log.WithFields(log.Fields{}).Debug("closing connection")
+		log.WithFields(log.Fields{}).Debug("closing connection...")
 		if err := c.connection.Close(); err != nil {
 			log.WithFields(log.Fields{
 				"dsn":   c.conf.DSN,
@@ -98,7 +105,7 @@ func Call(rpcName string, req interface{}, res interface{}) error {
 	}
 redo:
 	if err := cli.connection.Call(rpcName, req, &res); err != nil {
-		rpcConnectError.Inc()
+		cli.m.RPCConnectError.Inc()
 
 		log.WithFields(log.Fields{
 			"call":  rpcName,
@@ -116,7 +123,7 @@ redo:
 		}).Error("redial did't help")
 		return err
 	}
-	rpcSuccess.Inc()
+	cli.m.RPCSuccess.Inc()
 	return nil
 }
 func GetOperatorByCode(code int64) (service.Operator, error) {
@@ -245,7 +252,7 @@ func GetPixelSettingByKey(key string) (service.PixelSetting, error) {
 func GetPixelSettingByKeyWithRatio(key string) (service.PixelSetting, error) {
 	var pixelSetting service.PixelSetting
 	err := Call(
-		"PixelSetting.ByKeyWithRatio",
+		"PixelSetting.GyKeyWithRatio",
 		handlers.GetByKeyParams{Key: key},
 		&pixelSetting,
 	)
