@@ -66,6 +66,7 @@ func runRPC(appConfig config.AppConfig) {
 	server.RegisterName("BlackList", &handlers.BlackList{})
 	server.RegisterName("PostPaid", &handlers.PostPaid{})
 	server.RegisterName("PixelSetting", &handlers.PixelSetting{})
+	server.RegisterName("Prefix", &handlers.Prefix{})
 
 	for {
 		if conn, err := l.Accept(); err == nil {

@@ -9,6 +9,7 @@ var (
 	notFound             m.Gauge
 	campaignNotFound     m.Gauge
 	operatorNotFound     m.Gauge
+	unknownPrefix        m.Gauge
 	pixelSettingNotFound m.Gauge
 )
 
@@ -16,6 +17,7 @@ func init() {
 	notFound = m.NewGauge("", "", "nil", "not found")
 	campaignNotFound = m.NewGauge("", "service", "campaign_not_found", "campaign not found")
 	operatorNotFound = m.NewGauge("", "operator", "not_found", "operator not found")
+	unknownPrefix = m.NewGauge("", "prefix", "unknown", "unknown prefix")
 	pixelSettingNotFound = m.NewGauge("", "pixel_setting", "not_found", "pixel setting not found")
 
 	go func() {
@@ -23,6 +25,7 @@ func init() {
 			notFound.Update()
 			campaignNotFound.Update()
 			operatorNotFound.Update()
+			unknownPrefix.Update()
 			pixelSettingNotFound.Update()
 		}
 	}()

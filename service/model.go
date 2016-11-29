@@ -111,7 +111,9 @@ func Init(
 			Data:   Svc.PixelSettings,
 		},
 	}
-	cqr.InitCQR(Svc.cqrConfig)
+	if err := cqr.InitCQR(Svc.cqrConfig); err != nil {
+		log.Fatal("cqr.InitCQR: " + err.Error())
+	}
 }
 
 func AddTablesHandler(r *gin.Engine) {
@@ -154,7 +156,6 @@ var (
 )
 
 func initMetrics(appName string) {
-
 	m.Init(appName)
 
 	loadCampaignError = m.PrometheusGauge("campaign", "load", "error", "load campaign error")

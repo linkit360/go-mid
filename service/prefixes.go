@@ -11,7 +11,7 @@ import (
 // Reload when changes to prefixes are done
 type Prefixes struct {
 	sync.RWMutex
-	ByPrefix map[string]int64
+	OperatorCodeByPrefix map[string]int64
 }
 
 type prefix struct {
@@ -27,7 +27,8 @@ func (pp *Prefixes) Reload() error {
 		"operator_code, "+
 		"prefix "+
 		"FROM %soperator_msisdn_prefix",
-		Svc.dbConf.TablePrefix)
+		Svc.dbConf.TablePrefix,
+	)
 
 	var err error
 	var rows *sql.Rows
@@ -41,7 +42,10 @@ func (pp *Prefixes) Reload() error {
 	var prefixes []prefix
 	for rows.Next() {
 		var p prefix
-		if err = rows.Scan(&p.OperatorCode, &p.Prefix); err != nil {
+		if err = rows.Scan(
+			&p.OperatorCode,
+			&p.Prefix,
+		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return err
 		}
@@ -52,9 +56,9 @@ func (pp *Prefixes) Reload() error {
 		return err
 	}
 
-	pp.ByPrefix = make(map[string]int64, len(prefixes))
+	pp.OperatorCodeByPrefix = make(map[string]int64, len(prefixes))
 	for _, p := range prefixes {
-		pp.ByPrefix[p.Prefix] = p.OperatorCode
+		pp.OperatorCodeByPrefix[p.Prefix] = p.OperatorCode
 	}
 	return nil
 }

@@ -23,6 +23,9 @@ type GetByHashParams struct {
 type GetByCodeParams struct {
 	Code int64 `json:"code,omitempty"`
 }
+type GetByPrefixParams struct {
+	Prefix string `json:"prefix,omitempty"`
+}
 type GetByLinkParams struct {
 	Link string `json:"link,omitempty"`
 }
@@ -244,13 +247,33 @@ func (rpc *Operator) ByName(
 	return nil
 }
 
+type Prefix struct{}
+
+func (rpc *Prefix) GetOperator(
+	req GetByPrefixParams, res *service.Operator) error {
+	operator_code, ok := service.Svc.Prefixes.OperatorCodeByPrefix[req.Prefix]
+	if !ok {
+		notFound.Inc()
+		unknownPrefix.Inc()
+		return nil
+	}
+	operator, ok := service.Svc.Operators.ByCode[operator_code]
+	if !ok {
+		notFound.Inc()
+		operatorNotFound.Inc()
+		return nil
+	}
+	*res = operator
+	return nil
+}
+
 // IpInfo
 type IPInfo struct{}
 
 func (rpc *IPInfo) ByMsisdn(
 	req GetByMsisdnParams, res *service.IPInfo) error {
 
-	for prefix, operatorCode := range service.Svc.Prefixes.ByPrefix {
+	for prefix, operatorCode := range service.Svc.Prefixes.OperatorCodeByPrefix {
 		if strings.HasPrefix(req.Msisdn, prefix) {
 			info := service.IPInfo{
 				Supported:    true,

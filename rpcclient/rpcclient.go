@@ -161,6 +161,18 @@ func GetIPInfoByMsisdn(msisdn string) (service.IPInfo, error) {
 	)
 	return ipInfo, err
 }
+func GetOperatorByPrefix(prefix string) (service.Operator, error) {
+	var operator service.Operator
+	err := Call(
+		"Prefix.GetOperator",
+		handlers.GetByPrefixParams{Prefix: prefix},
+		&operator,
+	)
+	if operator == (service.Operator{}) {
+		return operator, errNotFound
+	}
+	return operator, err
+}
 func GetIPInfoByIps(ips []net.IP) ([]service.IPInfo, error) {
 	var res handlers.GetByIPsResponse
 	err := Call(
