@@ -166,7 +166,7 @@ func (rpc *PixelSetting) ByKey(
 	*res = *svc
 	return nil
 }
-func (rpc *PixelSetting) GyKeyWithRatio(
+func (rpc *PixelSetting) ByKeyWithRatio(
 	req GetByKeyParams, res *service.PixelSetting) error {
 
 	ps, err := service.Svc.PixelSettings.ByKeyWithRatio(req.Key)
@@ -250,7 +250,7 @@ type IPInfo struct{}
 func (rpc *IPInfo) ByMsisdn(
 	req GetByMsisdnParams, res *service.IPInfo) error {
 
-	for prefix, operatorCode := range service.Svc.Prefixes.Map {
+	for prefix, operatorCode := range service.Svc.Prefixes.ByPrefix {
 		if strings.HasPrefix(req.Msisdn, prefix) {
 			info := service.IPInfo{
 				Supported:    true,

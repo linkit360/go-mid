@@ -4,11 +4,9 @@ package service
 // kept by key fmt.Sprintf("%d-%d-%s", ps.CampaignId, ps.OperatorCode, ps.Publisher)
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
-	//"github.com/Sirupsen/logrus"
 )
 
 type PixelSettings struct {
@@ -32,7 +30,7 @@ type PixelSetting struct {
 func (pss *PixelSettings) ByKeyWithRatio(key string) (PixelSetting, error) {
 	ps, ok := pss.ByKey[key]
 	if !ok {
-		return PixelSetting{}, errors.New("Not Found")
+		return PixelSetting{}, fmt.Errorf("Key %s: not found", key)
 	}
 	ps.Count = ps.Count + 1
 	if ps.Count == ps.Ratio {
@@ -101,7 +99,8 @@ func (ps *PixelSettings) Reload() (err error) {
 
 	ps.ByKey = make(map[string]*PixelSetting, len(records))
 	for _, p := range records {
-		ps.ByKey[p.Key()] = &p
+		pixel := p
+		ps.ByKey[p.Key()] = &pixel
 	}
 	//logrus.Debug(fmt.Sprintf("%#v", ps.ByKey))
 	return nil

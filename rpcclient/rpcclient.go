@@ -252,7 +252,7 @@ func GetPixelSettingByKey(key string) (service.PixelSetting, error) {
 func GetPixelSettingByKeyWithRatio(key string) (service.PixelSetting, error) {
 	var pixelSetting service.PixelSetting
 	err := Call(
-		"PixelSetting.GyKeyWithRatio",
+		"PixelSetting.ByKeyWithRatio",
 		handlers.GetByKeyParams{Key: key},
 		&pixelSetting,
 	)

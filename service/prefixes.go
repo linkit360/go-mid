@@ -9,11 +9,9 @@ import (
 // Tasks:
 // Keep in memory all active operator prefixes
 // Reload when changes to prefixes are done
-var MemPrefixes = &Prefixes{}
-
 type Prefixes struct {
 	sync.RWMutex
-	Map map[string]int64
+	ByPrefix map[string]int64
 }
 
 type prefix struct {
@@ -54,9 +52,9 @@ func (pp *Prefixes) Reload() error {
 		return err
 	}
 
-	pp.Map = make(map[string]int64, len(prefixes))
+	pp.ByPrefix = make(map[string]int64, len(prefixes))
 	for _, p := range prefixes {
-		pp.Map[p.Prefix] = p.OperatorCode
+		pp.ByPrefix[p.Prefix] = p.OperatorCode
 	}
 	return nil
 }

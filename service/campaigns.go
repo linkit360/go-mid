@@ -75,7 +75,7 @@ func (s *Campaigns) Reload() (err error) {
 		"hash, "+
 		"link, "+
 		"page_welcome, "+
-		"service_id_1, "+
+		"service_id, "+
 		"autoclick_enabled, "+
 		"autoclick_ratio "+
 		"FROM %scampaigns "+
