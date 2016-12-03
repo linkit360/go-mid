@@ -102,6 +102,5 @@ func (ps *PixelSettings) Reload() (err error) {
 		pixel := p
 		ps.ByKey[p.Key()] = &pixel
 	}
-	//logrus.Debug(fmt.Sprintf("%#v", ps.ByKey))
 	return nil
 }

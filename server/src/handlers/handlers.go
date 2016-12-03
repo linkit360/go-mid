@@ -4,8 +4,6 @@ import (
 	"net"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
-
 	"github.com/vostrok/inmem/service"
 )
 
@@ -282,6 +280,7 @@ func (rpc *IPInfo) ByMsisdn(
 			if ipRange, ok := service.Svc.IpRanges.ByOperatorCode[operatorCode]; ok {
 				info.OperatorCode = ipRange.OperatorCode
 				info.CountryCode = ipRange.CountryCode
+				info.MsisdnHeaders = ipRange.MsisdnHeaders
 				if operatorCode != 0 {
 					info.Supported = true
 				}
@@ -303,12 +302,6 @@ func (rpc *IPInfo) ByIP(
 
 		if service.IsPrivateSubnet(ip) {
 			info.Local = true
-			log.WithFields(log.Fields{
-				"info":  info.IP,
-				"from ": info.Range.IpFrom,
-				"to":    info.Range.IpTo,
-			}).Debug("found local ip info")
-
 			infos = append(infos, info)
 			continue
 		}
@@ -324,14 +317,6 @@ func (rpc *IPInfo) ByIP(
 				}
 			}
 		}
-		log.WithFields(log.Fields{
-			"info":         info.IP,
-			"from":         info.Range.IpFrom,
-			"to":           info.Range.IpTo,
-			"supported":    info.Supported,
-			"operatorCode": info.OperatorCode,
-		}).Debug("found ip info")
-
 		infos = append(infos, info)
 	}
 	*res = GetByIPsResponse{IPInfos: infos}

@@ -35,7 +35,7 @@ type Metrics struct {
 	RPCSuccess      m.Gauge
 }
 
-func initMetrics() Metrics {
+func InitMetrics() Metrics {
 	m := Metrics{
 		RPCConnectError: m.NewGauge("rpc", "inmem", "errors", "RPC call errors"),
 		RPCSuccess:      m.NewGauge("rpc", "inmem", "success", "RPC call success"),
@@ -52,7 +52,7 @@ func Init(contentdClientConf RPCClientConfig) error {
 	var err error
 	cli = &Client{
 		conf: contentdClientConf,
-		m:    initMetrics(),
+		m:    InitMetrics(),
 	}
 	if err = cli.dial(); err != nil {
 		err = fmt.Errorf("cli.dial: %s", err.Error())

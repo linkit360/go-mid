@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 const ACTIVE_STATUS = 1
@@ -109,9 +107,6 @@ func (s *SentContents) Reload() (err error) {
 func (s *SentContents) Get(msisdn string, serviceId int64) (contentIds map[int64]struct{}) {
 	var ok bool
 	t := ContentSentProperties{Msisdn: msisdn, ServiceId: serviceId}
-	log.WithFields(log.Fields{
-		"key": t.key(),
-	}).Debug("get contents")
 	if contentIds, ok = s.ByKey[t.key()]; ok {
 		return contentIds
 	}
@@ -122,9 +117,6 @@ func (s *SentContents) Get(msisdn string, serviceId int64) (contentIds map[int64
 // Breakes after reloading sent content table (on the restart of the application)
 func (s *SentContents) Clear(msisdn string, serviceId int64) {
 	t := ContentSentProperties{Msisdn: msisdn, ServiceId: serviceId}
-	log.WithFields(log.Fields{
-		"key": t.key(),
-	}).Debug("reset cache")
 	delete(s.ByKey, t.key())
 }
 
@@ -133,9 +125,6 @@ func (s *SentContents) Clear(msisdn string, serviceId int64) {
 // and also we need to update in-memory cache of used content id for this msisdn and service id
 func (s *SentContents) Push(msisdn string, serviceId int64, contentId int64) {
 	t := ContentSentProperties{Msisdn: msisdn, ServiceId: serviceId}
-	log.WithFields(log.Fields{
-		"key": t.key(),
-	}).Debug("push contentid")
 	if _, ok := s.ByKey[t.key()]; !ok {
 		s.ByKey[t.key()] = make(map[int64]struct{})
 	}
