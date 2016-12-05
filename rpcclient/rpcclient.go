@@ -24,7 +24,7 @@ var cli *Client
 type Client struct {
 	connection *rpc.Client
 	conf       RPCClientConfig
-	m          Metrics
+	m          *Metrics
 }
 type RPCClientConfig struct {
 	DSN     string `default:"localhost:50307" yaml:"dsn"`
@@ -35,13 +35,14 @@ type Metrics struct {
 	RPCSuccess      m.Gauge
 }
 
-func InitMetrics() Metrics {
-	m := Metrics{
+func initMetrics() *Metrics {
+	m := &Metrics{
 		RPCConnectError: m.NewGauge("rpc", "inmem", "errors", "RPC call errors"),
 		RPCSuccess:      m.NewGauge("rpc", "inmem", "success", "RPC call success"),
 	}
 	go func() {
 		for range time.Tick(time.Minute) {
+			log.WithFields(log.Fields{}).Debug("updating metrics")
 			m.RPCConnectError.Update()
 			m.RPCSuccess.Update()
 		}
@@ -52,7 +53,7 @@ func Init(contentdClientConf RPCClientConfig) error {
 	var err error
 	cli = &Client{
 		conf: contentdClientConf,
-		m:    InitMetrics(),
+		m:    initMetrics(),
 	}
 	if err = cli.dial(); err != nil {
 		err = fmt.Errorf("cli.dial: %s", err.Error())
@@ -98,7 +99,7 @@ func (c *Client) dial() error {
 	return nil
 }
 
-func Call(rpcName string, req interface{}, res interface{}) error {
+func call(rpcName string, req interface{}, res interface{}) error {
 	redialed := false
 	if cli.connection == nil {
 		cli.dial()
@@ -123,12 +124,15 @@ redo:
 		}).Error("redial did't help")
 		return err
 	}
+	log.WithFields(log.Fields{
+		"call": rpcName,
+	}).Debug("rpc success")
 	cli.m.RPCSuccess.Inc()
 	return nil
 }
 func GetOperatorByCode(code int64) (service.Operator, error) {
 	var operator service.Operator
-	err := Call(
+	err := call(
 		"Operator.ByCode",
 		handlers.GetByCodeParams{Code: code},
 		&operator,
@@ -142,7 +146,7 @@ func GetOperatorByCode(code int64) (service.Operator, error) {
 
 func GetOperatorByName(name string) (service.Operator, error) {
 	var operator service.Operator
-	err := Call(
+	err := call(
 		"Operator.ByName",
 		handlers.GetByNameParams{Name: name},
 		&operator,
@@ -154,7 +158,7 @@ func GetOperatorByName(name string) (service.Operator, error) {
 }
 func GetIPInfoByMsisdn(msisdn string) (service.IPInfo, error) {
 	var ipInfo service.IPInfo
-	err := Call(
+	err := call(
 		"IPInfo.ByMsisdn",
 		handlers.GetByMsisdnParams{Msisdn: msisdn},
 		&ipInfo,
@@ -163,7 +167,7 @@ func GetIPInfoByMsisdn(msisdn string) (service.IPInfo, error) {
 }
 func GetOperatorByPrefix(prefix string) (service.Operator, error) {
 	var operator service.Operator
-	err := Call(
+	err := call(
 		"Prefix.GetOperator",
 		handlers.GetByPrefixParams{Prefix: prefix},
 		&operator,
@@ -175,7 +179,7 @@ func GetOperatorByPrefix(prefix string) (service.Operator, error) {
 }
 func GetIPInfoByIps(ips []net.IP) ([]service.IPInfo, error) {
 	var res handlers.GetByIPsResponse
-	err := Call(
+	err := call(
 		"IPInfo.ByIP",
 		handlers.GetByIPsParams{IPs: ips},
 		&res,
@@ -187,7 +191,7 @@ func GetIPInfoByIps(ips []net.IP) ([]service.IPInfo, error) {
 }
 func GetCampaignByHash(hash string) (service.Campaign, error) {
 	var campaign service.Campaign
-	err := Call(
+	err := call(
 		"Campaign.ByHash",
 		handlers.GetByHashParams{Hash: hash},
 		&campaign,
@@ -199,7 +203,7 @@ func GetCampaignByHash(hash string) (service.Campaign, error) {
 }
 func GetCampaignByLink(link string) (service.Campaign, error) {
 	var campaign service.Campaign
-	err := Call(
+	err := call(
 		"Campaign.ByLink",
 		handlers.GetByLinkParams{Link: link},
 		&campaign,
@@ -211,7 +215,7 @@ func GetCampaignByLink(link string) (service.Campaign, error) {
 }
 func GetAllCampaigns() (map[string]service.Campaign, error) {
 	var res handlers.GetAllCampaignsResponse
-	err := Call(
+	err := call(
 		"Campaign.All",
 		handlers.GetAllParams{},
 		&res,
@@ -225,7 +229,7 @@ func GetAllCampaigns() (map[string]service.Campaign, error) {
 
 func GetServiceById(serviceId int64) (service.Service, error) {
 	var svc service.Service
-	err := Call(
+	err := call(
 		"Service.ById",
 		handlers.GetByIdParams{Id: serviceId},
 		&svc,
@@ -238,7 +242,7 @@ func GetServiceById(serviceId int64) (service.Service, error) {
 
 func GetContentById(contentId int64) (service.Content, error) {
 	var content service.Content
-	err := Call(
+	err := call(
 		"Content.ById",
 		handlers.GetByIdParams{Id: contentId},
 		&content,
@@ -251,7 +255,7 @@ func GetContentById(contentId int64) (service.Content, error) {
 
 func GetPixelSettingByKey(key string) (service.PixelSetting, error) {
 	var pixelSetting service.PixelSetting
-	err := Call(
+	err := call(
 		"PixelSetting.ByKey",
 		handlers.GetByKeyParams{Key: key},
 		&pixelSetting,
@@ -263,7 +267,7 @@ func GetPixelSettingByKey(key string) (service.PixelSetting, error) {
 }
 func GetPixelSettingByKeyWithRatio(key string) (service.PixelSetting, error) {
 	var pixelSetting service.PixelSetting
-	err := Call(
+	err := call(
 		"PixelSetting.ByKeyWithRatio",
 		handlers.GetByKeyParams{Key: key},
 		&pixelSetting,
@@ -276,7 +280,7 @@ func GetPixelSettingByKeyWithRatio(key string) (service.PixelSetting, error) {
 
 func SentContentClear(msisdn string, serviceId int64) error {
 	var res handlers.Response
-	err := Call(
+	err := call(
 		"SentContent.Clear",
 		handlers.GetByParams{Msisdn: msisdn, ServiceId: serviceId},
 		&res,
@@ -286,7 +290,7 @@ func SentContentClear(msisdn string, serviceId int64) error {
 
 func SentContentPush(msisdn string, serviceId int64, contentId int64) error {
 	var res handlers.Response
-	err := Call(
+	err := call(
 		"SentContent.Push",
 		handlers.GetByParams{Msisdn: msisdn, ServiceId: serviceId, ContentId: contentId},
 		&res,
@@ -296,7 +300,7 @@ func SentContentPush(msisdn string, serviceId int64, contentId int64) error {
 
 func SentContentGet(msisdn string, serviceId int64) (map[int64]struct{}, error) {
 	var res handlers.GetContentSentResponse
-	err := Call(
+	err := call(
 		"SentContent.Get",
 		handlers.GetByParams{Msisdn: msisdn, ServiceId: serviceId},
 		&res,
@@ -306,7 +310,7 @@ func SentContentGet(msisdn string, serviceId int64) (map[int64]struct{}, error) 
 
 func IsBlackListed(msisdn string) (bool, error) {
 	var res handlers.BoolResponse
-	err := Call(
+	err := call(
 		"BlackList.ByMsisdn",
 		handlers.GetByMsisdnParams{Msisdn: msisdn},
 		&res,
@@ -315,7 +319,7 @@ func IsBlackListed(msisdn string) (bool, error) {
 }
 func IsPostPaid(msisdn string) (bool, error) {
 	var res handlers.BoolResponse
-	err := Call(
+	err := call(
 		"PostPaid.ByMsisdn",
 		handlers.GetByMsisdnParams{Msisdn: msisdn},
 		&res,
@@ -325,7 +329,7 @@ func IsPostPaid(msisdn string) (bool, error) {
 
 func PostPaidPush(msisdn string) error {
 	var res handlers.Response
-	err := Call(
+	err := call(
 		"PostPaid.Push",
 		handlers.GetByMsisdnParams{Msisdn: msisdn},
 		&res,
@@ -337,7 +341,7 @@ func PostPaidPush(msisdn string) error {
 // do not removes from database!
 func PostPaidRemove(msisdn string) error {
 	var res handlers.Response
-	err := Call(
+	err := call(
 		"PostPaid.Remove",
 		handlers.GetByMsisdnParams{Msisdn: msisdn},
 		&res,
