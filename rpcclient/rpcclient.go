@@ -27,8 +27,10 @@ type Client struct {
 	m          *Metrics
 }
 type RPCClientConfig struct {
-	DSN     string `default:"localhost:50307" yaml:"dsn"`
-	Timeout int    `default:"10" yaml:"timeout"`
+	DSN             string `default:"127.0.0.1:50307" yaml:"dsn"`
+	Timeout         int    `default:"10" yaml:"timeout"`
+	RetryCallsPause int    `default:"10" yaml:"retry_calls_sleep"`
+	RetryCallsLimit int    `default:"10" yaml:"retry_calls_limit"`
 }
 type Metrics struct {
 	RPCConnectError m.Gauge
@@ -42,25 +44,24 @@ func initMetrics() *Metrics {
 	}
 	go func() {
 		for range time.Tick(time.Minute) {
-			log.WithFields(log.Fields{}).Debug("updating metrics")
 			m.RPCConnectError.Update()
 			m.RPCSuccess.Update()
 		}
 	}()
 	return m
 }
-func Init(contentdClientConf RPCClientConfig) error {
+func Init(clientConf RPCClientConfig) error {
 	var err error
 	cli = &Client{
-		conf: contentdClientConf,
+		conf: clientConf,
 		m:    initMetrics(),
 	}
 	if err = cli.dial(); err != nil {
 		err = fmt.Errorf("cli.dial: %s", err.Error())
-		log.WithField("error", err.Error()).Error("in mem rpc client unavialable")
+		log.WithField("error", err.Error()).Error("inmem rpc client unavialable")
 		return err
 	}
-	log.WithField("conf", fmt.Sprintf("%#v", contentdClientConf)).Info("inmem rpc client init done")
+	log.WithField("conf", fmt.Sprintf("%#v", clientConf)).Info("inmem rpc client init done")
 
 	return nil
 }
@@ -99,34 +100,36 @@ func (c *Client) dial() error {
 	return nil
 }
 
-func call(rpcName string, req interface{}, res interface{}) error {
-	redialed := false
+func call(funcName string, req interface{}, res interface{}) error {
 	if cli.connection == nil {
 		cli.dial()
 	}
-redo:
-	if err := cli.connection.Call(rpcName, req, &res); err != nil {
+	resendCount := 0
+call:
+	if err := cli.connection.Call(funcName, req, &res); err != nil {
 		cli.m.RPCConnectError.Inc()
+		if resendCount < cli.conf.RetryCallsLimit {
 
-		log.WithFields(log.Fields{
-			"call":  rpcName,
-			"error": err.Error(),
-		}).Debug("rpc client now is unavialable")
-		if !redialed {
+			log.WithFields(log.Fields{
+				"sleep":       cli.conf.RetryCallsPause,
+				"resendCount": resendCount,
+				"func":        funcName,
+				"error":       err.Error(),
+			}).Error("call retry")
+			resendCount = resendCount + 1
+			time.Sleep(time.Duration(cli.conf.RetryCallsPause) * time.Second)
+
 			cli.dial()
-			redialed = true
-			goto redo
+			goto call
 		}
-		err = fmt.Errorf(rpcName+": %s", err.Error())
+		err = fmt.Errorf(funcName+": %s", err.Error())
 		log.WithFields(log.Fields{
-			"call":  rpcName,
-			"error": err.Error(),
-		}).Error("redial did't help")
+			"call":        funcName,
+			"resendCount": resendCount,
+			"error":       err.Error(),
+		}).Error("failed redial")
 		return err
 	}
-	log.WithFields(log.Fields{
-		"call": rpcName,
-	}).Debug("rpc success")
 	cli.m.RPCSuccess.Inc()
 	return nil
 }
