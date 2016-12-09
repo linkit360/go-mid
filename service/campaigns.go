@@ -40,10 +40,13 @@ func (campaign *Campaign) Serve(c *gin.Context) {
 	}
 	campaign.incRatio()
 	log.WithFields(log.Fields{
-		"count":     campaign.AutoClickCount,
-		"ratio":     campaign.AutoClickRatio,
-		"autoclick": campaign.CanAutoClick,
-	}).Debug("campaign")
+		"id":                campaign.Id,
+		"count":             campaign.AutoClickCount,
+		"ratio":             campaign.AutoClickRatio,
+		"autoclick_enabled": campaign.AutoClickEnabled,
+		"autoclick":         campaign.CanAutoClick,
+	}).Debug("serve")
+
 	c.HTML(http.StatusOK, campaign.PageWelcome+".html", data)
 }
 
@@ -59,11 +62,6 @@ func (camp *Campaign) incRatio() {
 	} else {
 		camp.CanAutoClick = false
 	}
-	log.WithFields(log.Fields{
-		"count":     camp.AutoClickCount,
-		"ratio":     camp.AutoClickRatio,
-		"autoclick": camp.CanAutoClick,
-	}).Debug("campaign")
 }
 
 func (s *Campaigns) Reload() (err error) {

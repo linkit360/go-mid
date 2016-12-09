@@ -3,7 +3,6 @@ package rpcclient
 // rpc client for "github.com/vostrok/inmem/server"
 // supports reconnects when disconnected
 import (
-	"errors"
 	"fmt"
 	"net"
 	"net/rpc"
@@ -11,14 +10,16 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/felixge/tcpkeepalive"
 
 	"github.com/vostrok/inmem/server/src/handlers"
 	"github.com/vostrok/inmem/service"
 	m "github.com/vostrok/utils/metrics"
 )
 
-var errNotFound = errors.New("Not found")
+var errNotFound = func(v interface{}) error {
+	cli.m.NotFound.Inc()
+	return fmt.Errorf("%v: not found", v)
+}
 var cli *Client
 
 type Client struct {
@@ -27,7 +28,7 @@ type Client struct {
 	m          *Metrics
 }
 type RPCClientConfig struct {
-	DSN             string `default:"127.0.0.1:50307" yaml:"dsn"`
+	DSN             string `default:":50307" yaml:"dsn"`
 	Timeout         int    `default:"10" yaml:"timeout"`
 	RetryCallsPause int    `default:"10" yaml:"retry_calls_sleep"`
 	RetryCallsLimit int    `default:"10" yaml:"retry_calls_limit"`
@@ -35,17 +36,20 @@ type RPCClientConfig struct {
 type Metrics struct {
 	RPCConnectError m.Gauge
 	RPCSuccess      m.Gauge
+	NotFound        m.Gauge
 }
 
 func initMetrics() *Metrics {
 	m := &Metrics{
 		RPCConnectError: m.NewGauge("rpc", "inmem", "errors", "RPC call errors"),
 		RPCSuccess:      m.NewGauge("rpc", "inmem", "success", "RPC call success"),
+		NotFound:        m.NewGauge("rpc", "inmem", "404_errors", "RPC 404 errors"),
 	}
 	go func() {
 		for range time.Tick(time.Minute) {
 			m.RPCConnectError.Update()
 			m.RPCSuccess.Update()
+			m.NotFound.Update()
 		}
 	}()
 	return m
@@ -68,13 +72,6 @@ func Init(clientConf RPCClientConfig) error {
 
 func (c *Client) dial() error {
 	if c.connection != nil {
-		log.WithFields(log.Fields{}).Debug("closing connection...")
-		if err := c.connection.Close(); err != nil {
-			log.WithFields(log.Fields{
-				"dsn":   c.conf.DSN,
-				"error": err.Error(),
-			}).Error("closing conn to inmem")
-		}
 	}
 
 	conn, err := net.DialTimeout(
@@ -89,11 +86,7 @@ func (c *Client) dial() error {
 		}).Error("dialing inmem")
 		return err
 	}
-	kaConn, _ := tcpkeepalive.EnableKeepAlive(conn)
-	kaConn.SetKeepAliveIdle(30 * time.Second)
-	kaConn.SetKeepAliveCount(4)
-	kaConn.SetKeepAliveInterval(5 * time.Second)
-	c.connection = jsonrpc.NewClient(kaConn)
+	c.connection = jsonrpc.NewClient(conn)
 	log.WithFields(log.Fields{
 		"dsn": c.conf.DSN,
 	}).Debug("dialing inmem")
@@ -104,30 +97,19 @@ func call(funcName string, req interface{}, res interface{}) error {
 	if cli.connection == nil {
 		cli.dial()
 	}
-	resendCount := 0
-call:
 	if err := cli.connection.Call(funcName, req, &res); err != nil {
 		cli.m.RPCConnectError.Inc()
-		if resendCount < cli.conf.RetryCallsLimit {
-
+		if err == rpc.ErrShutdown {
 			log.WithFields(log.Fields{
-				"sleep":       cli.conf.RetryCallsPause,
-				"resendCount": resendCount,
-				"func":        funcName,
-				"error":       err.Error(),
-			}).Error("call retry")
-			resendCount = resendCount + 1
-			time.Sleep(time.Duration(cli.conf.RetryCallsPause) * time.Second)
-
-			cli.dial()
-			goto call
+				"func":  funcName,
+				"error": err.Error(),
+			}).Fatal("call")
 		}
-		err = fmt.Errorf(funcName+": %s", err.Error())
 		log.WithFields(log.Fields{
-			"call":        funcName,
-			"resendCount": resendCount,
-			"error":       err.Error(),
-		}).Error("failed redial")
+			"func":  funcName,
+			"error": err.Error(),
+			"type":  fmt.Sprintf("%T", err),
+		}).Error("call")
 		return err
 	}
 	cli.m.RPCSuccess.Inc()
@@ -141,7 +123,7 @@ func GetOperatorByCode(code int64) (service.Operator, error) {
 		&operator,
 	)
 	if operator == (service.Operator{}) {
-		return operator, errNotFound
+		return operator, errNotFound(code)
 	}
 
 	return operator, err
@@ -155,7 +137,7 @@ func GetOperatorByName(name string) (service.Operator, error) {
 		&operator,
 	)
 	if operator == (service.Operator{}) {
-		return operator, errNotFound
+		return operator, errNotFound(name)
 	}
 	return operator, err
 }
@@ -176,7 +158,7 @@ func GetOperatorByPrefix(prefix string) (service.Operator, error) {
 		&operator,
 	)
 	if operator == (service.Operator{}) {
-		return operator, errNotFound
+		return operator, errNotFound(prefix)
 	}
 	return operator, err
 }
@@ -188,7 +170,7 @@ func GetIPInfoByIps(ips []net.IP) ([]service.IPInfo, error) {
 		&res,
 	)
 	if len(res.IPInfos) == 0 {
-		return res.IPInfos, errNotFound
+		return res.IPInfos, errNotFound(ips)
 	}
 	return res.IPInfos, err
 }
@@ -200,7 +182,7 @@ func GetCampaignByHash(hash string) (service.Campaign, error) {
 		&campaign,
 	)
 	if campaign.Id == 0 {
-		return campaign, errNotFound
+		return campaign, errNotFound(hash)
 	}
 	return campaign, err
 }
@@ -212,7 +194,7 @@ func GetCampaignByLink(link string) (service.Campaign, error) {
 		&campaign,
 	)
 	if campaign.Id == 0 {
-		return campaign, errNotFound
+		return campaign, errNotFound(link)
 	}
 	return campaign, err
 }
@@ -225,7 +207,7 @@ func GetAllCampaigns() (map[string]service.Campaign, error) {
 	)
 
 	if len(res.Campaigns) == 0 {
-		return res.Campaigns, errNotFound
+		return res.Campaigns, errNotFound("")
 	}
 	return res.Campaigns, err
 }
@@ -238,7 +220,7 @@ func GetServiceById(serviceId int64) (service.Service, error) {
 		&svc,
 	)
 	if svc.Id == 0 {
-		return svc, errNotFound
+		return svc, errNotFound(serviceId)
 	}
 	return svc, err
 }
@@ -251,7 +233,7 @@ func GetContentById(contentId int64) (service.Content, error) {
 		&content,
 	)
 	if content.Id == 0 {
-		return content, errNotFound
+		return content, errNotFound(contentId)
 	}
 	return content, err
 }
@@ -264,7 +246,7 @@ func GetPixelSettingByKey(key string) (service.PixelSetting, error) {
 		&pixelSetting,
 	)
 	if pixelSetting == (service.PixelSetting{}) {
-		return pixelSetting, errNotFound
+		return pixelSetting, errNotFound(key)
 	}
 	return pixelSetting, err
 }
@@ -276,7 +258,7 @@ func GetPixelSettingByKeyWithRatio(key string) (service.PixelSetting, error) {
 		&pixelSetting,
 	)
 	if pixelSetting == (service.PixelSetting{}) {
-		return pixelSetting, errNotFound
+		return pixelSetting, errNotFound(key)
 	}
 	return pixelSetting, err
 }

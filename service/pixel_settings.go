@@ -59,8 +59,7 @@ func (ps *PixelSettings) Reload() (err error) {
 		"timeout, "+
 		"enabled, "+
 		"ratio "+
-		"FROM %spixel_settings "+
-		"WHERE enabled = true",
+		"FROM %spixel_settings ",
 		Svc.dbConf.TablePrefix,
 	)
 

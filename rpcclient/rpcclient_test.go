@@ -48,7 +48,7 @@ func TestGetIPInfo(t *testing.T) {
 		IP:            "",
 		CountryCode:   92,
 		OperatorCode:  41001,
-		MsisdnHeaders: []string(nil),
+		MsisdnHeaders: []string{"HTTP_MSISDN"},
 		Supported:     true,
 		Local:         false,
 	}
@@ -73,10 +73,11 @@ func TestGetCampaign(t *testing.T) {
 		Id:               290,
 		ServiceId:        777,
 		AutoClickRatio:   1,
-		AutoClickEnabled: false,
+		AutoClickEnabled: true,
 		AutoClickCount:   0,
 		CanAutoClick:     false,
 	}
+
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "Service differs")
 	}
@@ -202,7 +203,6 @@ func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 	}
 
 	skipPixelSend := !expected.SkipPixelSend
-	count := res.Count + 1
 
 	res, err = GetPixelSettingByKeyWithRatio("290-41001-kimia")
 	expected = service.PixelSetting{
@@ -214,7 +214,7 @@ func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 		Timeout:       30,
 		Enabled:       true,
 		Ratio:         2,
-		Count:         count,
+		Count:         0,
 		SkipPixelSend: skipPixelSend,
 	}
 	assert.NoError(t, err, "Must be no error for correct key")

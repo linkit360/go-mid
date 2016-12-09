@@ -48,7 +48,7 @@ func runGin(appConfig config.AppConfig) {
 
 func runRPC(appConfig config.AppConfig) {
 
-	l, err := net.Listen("tcp", ":"+appConfig.Server.RPCPort)
+	l, err := net.Listen("tcp", "127.0.0.1:"+appConfig.Server.RPCPort)
 	if err != nil {
 		log.Fatal("netListen ", err.Error())
 	} else {
