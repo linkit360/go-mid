@@ -94,6 +94,7 @@ func (c *Client) dial() error {
 }
 
 func call(funcName string, req interface{}, res interface{}) error {
+	begin := time.Now()
 	if cli.connection == nil {
 		cli.dial()
 	}
@@ -112,6 +113,10 @@ func call(funcName string, req interface{}, res interface{}) error {
 		}).Error("call")
 		return err
 	}
+	log.WithFields(log.Fields{
+		"func": funcName,
+		"took": time.Since(begin),
+	}).Debug("rpccall")
 	cli.m.RPCSuccess.Inc()
 	return nil
 }
