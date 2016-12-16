@@ -42,6 +42,9 @@ type GetByIPsResponse struct {
 type GetByKeyParams struct {
 	Key string `json:"key,omitempty"`
 }
+type GetByKeyWordParams struct {
+	Key string `json:"keyword,omitempty"`
+}
 type GetByParams struct {
 	Msisdn    string `json:"msisdn,omitempty"`
 	ServiceId int64  `json:"service_id,omitempty"`
@@ -320,5 +323,24 @@ func (rpc *IPInfo) ByIP(
 		infos = append(infos, info)
 	}
 	*res = GetByIPsResponse{IPInfos: infos}
+	return nil
+}
+
+type CampaignId struct{}
+
+type GetCampaignIdsByKeyWordResponse struct {
+	CampaignIds []int64 `json:"campaign_ids,omitempty"`
+}
+
+func (rpc *CampaignId) ByKeyWord(
+	req GetByKeyWordParams, res *GetCampaignIdsByKeyWordResponse) error {
+
+	campaignIds, ok := service.Svc.KeyWords.ByKeyWord[req.Key]
+	if !ok {
+		notFound.Inc()
+		keyWordNotFound.Inc()
+		return nil
+	}
+	*res = GetCampaignIdsByKeyWordResponse{CampaignIds: campaignIds}
 	return nil
 }

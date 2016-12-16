@@ -32,6 +32,7 @@ type MemService struct {
 	BlackList       *BlackList
 	PostPaid        *PostPaid
 	PixelSettings   *PixelSettings
+	KeyWords        *KeyWords
 }
 
 type Config struct {
@@ -67,6 +68,7 @@ func Init(
 	Svc.BlackList = &BlackList{}
 	Svc.PostPaid = &PostPaid{}
 	Svc.PixelSettings = &PixelSettings{}
+	Svc.KeyWords = &KeyWords{}
 
 	Svc.cqrConfig = []cqr.CQRConfig{
 		{
@@ -109,6 +111,10 @@ func Init(
 		{
 			Tables: []string{"pixel_settings"},
 			Data:   Svc.PixelSettings,
+		},
+		{
+			Tables: []string{"keyword"},
+			Data:   Svc.KeyWords,
 		},
 	}
 	if err := cqr.InitCQR(Svc.cqrConfig); err != nil {

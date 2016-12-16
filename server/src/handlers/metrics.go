@@ -11,6 +11,7 @@ var (
 	operatorNotFound     m.Gauge
 	unknownPrefix        m.Gauge
 	pixelSettingNotFound m.Gauge
+	keyWordNotFound      m.Gauge
 )
 
 func init() {
@@ -19,6 +20,7 @@ func init() {
 	operatorNotFound = m.NewGauge("", "operator", "not_found", "operator not found")
 	unknownPrefix = m.NewGauge("", "prefix", "unknown", "unknown prefix")
 	pixelSettingNotFound = m.NewGauge("", "pixel_setting", "not_found", "pixel setting not found")
+	keyWordNotFound = m.NewGauge("", "keyword", "not_found", "keyword not found")
 
 	go func() {
 		for range time.Tick(time.Minute) {
@@ -27,6 +29,7 @@ func init() {
 			operatorNotFound.Update()
 			unknownPrefix.Update()
 			pixelSettingNotFound.Update()
+			keyWordNotFound.Update()
 		}
 	}()
 }

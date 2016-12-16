@@ -14,6 +14,7 @@ import (
 	"github.com/vostrok/inmem/server/src/handlers"
 	"github.com/vostrok/inmem/service"
 	m "github.com/vostrok/utils/metrics"
+	"github.com/vostrok/utils/rec"
 )
 
 var errNotFound = func(v interface{}) error {
@@ -202,6 +203,19 @@ func GetCampaignByLink(link string) (service.Campaign, error) {
 		return campaign, errNotFound(link)
 	}
 	return campaign, err
+}
+
+func GetRecByKeyWord(keyword string) (rec.Record, error) {
+	var r rec.Record
+	err := call(
+		"Rec.ByKeyWord",
+		handlers.GetByKeyWordParams{Key: keyword},
+		&r,
+	)
+	if r.CampaignId == 0 {
+		return r, errNotFound(keyword)
+	}
+	return r, err
 }
 func GetAllCampaigns() (map[string]service.Campaign, error) {
 	var res handlers.GetAllCampaignsResponse
