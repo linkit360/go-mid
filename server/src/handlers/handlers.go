@@ -86,6 +86,26 @@ func (rpc *Campaign) ByLink(
 	*res = campaign
 	return nil
 }
+
+func (rpc *Campaign) ByKeyWord(
+	req GetByKeyWordParams, res *service.Campaign) error {
+
+	campaignId, ok := service.Svc.KeyWords.ByKeyWord[req.Key]
+	if !ok {
+		notFound.Inc()
+		keyWordNotFound.Inc()
+		return nil
+	}
+	campaign, ok := service.Svc.Campaigns.ById[campaignId]
+	if !ok {
+		notFound.Inc()
+		campaignNotFound.Inc()
+		return nil
+	}
+	*res = campaign
+	return nil
+}
+
 func (rpc *Campaign) All(
 	req GetAllParams, res *GetAllCampaignsResponse) error {
 	*res = GetAllCampaignsResponse{
@@ -162,6 +182,18 @@ func (rpc *PixelSetting) ByKey(
 	req GetByKeyParams, res *service.PixelSetting) error {
 
 	svc, ok := service.Svc.PixelSettings.ByKey[req.Key]
+	if !ok {
+		notFound.Inc()
+		pixelSettingNotFound.Inc()
+		return nil
+	}
+	*res = *svc
+	return nil
+}
+func (rpc *PixelSetting) ByCampaignId(
+	req GetByIdParams, res *service.PixelSetting) error {
+
+	svc, ok := service.Svc.PixelSettings.ByCampaignId[req.Id]
 	if !ok {
 		notFound.Inc()
 		pixelSettingNotFound.Inc()
@@ -323,24 +355,5 @@ func (rpc *IPInfo) ByIP(
 		infos = append(infos, info)
 	}
 	*res = GetByIPsResponse{IPInfos: infos}
-	return nil
-}
-
-type CampaignId struct{}
-
-type GetCampaignIdsByKeyWordResponse struct {
-	CampaignIds []int64 `json:"campaign_ids,omitempty"`
-}
-
-func (rpc *CampaignId) ByKeyWord(
-	req GetByKeyWordParams, res *GetCampaignIdsByKeyWordResponse) error {
-
-	campaignIds, ok := service.Svc.KeyWords.ByKeyWord[req.Key]
-	if !ok {
-		notFound.Inc()
-		keyWordNotFound.Inc()
-		return nil
-	}
-	*res = GetCampaignIdsByKeyWordResponse{CampaignIds: campaignIds}
 	return nil
 }

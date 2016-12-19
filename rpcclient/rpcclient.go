@@ -204,7 +204,18 @@ func GetCampaignByLink(link string) (service.Campaign, error) {
 	}
 	return campaign, err
 }
-
+func GetCampaignByKeyWord(keyWord string) (service.Campaign, error) {
+	var campaign service.Campaign
+	err := call(
+		"Campaign.ByKeyWord",
+		handlers.GetByKeyWordParams{Key: keyWord},
+		&campaign,
+	)
+	if campaign.Id == 0 {
+		return campaign, errNotFound(keyWord)
+	}
+	return campaign, err
+}
 func GetRecByKeyWord(keyword string) (rec.Record, error) {
 	var r rec.Record
 	err := call(
@@ -269,6 +280,19 @@ func GetPixelSettingByKey(key string) (service.PixelSetting, error) {
 	}
 	return pixelSetting, err
 }
+func GetPixelSettingByCampaignId(id int64) (service.PixelSetting, error) {
+	var pixelSetting service.PixelSetting
+	err := call(
+		"PixelSetting.ByKey",
+		handlers.GetByIdParams{Id: id},
+		&pixelSetting,
+	)
+	if pixelSetting == (service.PixelSetting{}) {
+		return pixelSetting, errNotFound(id)
+	}
+	return pixelSetting, err
+}
+
 func GetPixelSettingByKeyWithRatio(key string) (service.PixelSetting, error) {
 	var pixelSetting service.PixelSetting
 	err := call(

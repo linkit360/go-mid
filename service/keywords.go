@@ -10,7 +10,7 @@ import (
 
 type KeyWords struct {
 	sync.RWMutex
-	ByKeyWord map[string][]int64
+	ByKeyWord map[string]int64
 }
 type KeyWord struct {
 	KeyWord    string `json:"key_word"`
@@ -52,12 +52,9 @@ func (kws *KeyWords) Reload() error {
 		return err
 	}
 
-	kws.ByKeyWord = make(map[string][]int64, len(keywords))
+	kws.ByKeyWord = make(map[string]int64, len(keywords))
 	for _, kw := range keywords {
-		if _, ok := kws.ByKeyWord[kw.KeyWord]; !ok {
-			kws.ByKeyWord[kw.KeyWord] = []int64{}
-		}
-		kws.ByKeyWord[kw.KeyWord] = append(kws.ByKeyWord[kw.KeyWord], kw.CampaignId)
+		kws.ByKeyWord[kw.KeyWord] = kw.CampaignId
 	}
 	return nil
 }

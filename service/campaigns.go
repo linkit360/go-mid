@@ -19,6 +19,7 @@ type Campaigns struct {
 	sync.RWMutex
 	ByHash map[string]Campaign
 	ByLink map[string]Campaign
+	ById   map[int64]Campaign
 }
 type Campaign struct {
 	Hash             string `json:"hash"`
@@ -131,9 +132,11 @@ func (s *Campaigns) Reload() (err error) {
 
 	s.ByHash = make(map[string]Campaign, len(records))
 	s.ByLink = make(map[string]Campaign, len(records))
+	s.ById = make(map[int64]Campaign, len(records))
 	for _, campaign := range records {
 		s.ByHash[campaign.Hash] = campaign
 		s.ByLink[campaign.Link] = campaign
+		s.ById[campaign.Id] = campaign
 	}
 	return nil
 }

@@ -11,7 +11,8 @@ import (
 
 type PixelSettings struct {
 	sync.RWMutex
-	ByKey map[string]*PixelSetting
+	ByKey        map[string]*PixelSetting
+	ByCampaignId map[int64]PixelSetting
 }
 
 type PixelSetting struct {
@@ -97,9 +98,11 @@ func (ps *PixelSettings) Reload() (err error) {
 	}
 
 	ps.ByKey = make(map[string]*PixelSetting, len(records))
+	ps.ByCampaignId = make(map[int64]PixelSetting)
 	for _, p := range records {
 		pixel := p
 		ps.ByKey[p.Key()] = &pixel
+		ps.ByCampaignId[p.CampaignId] = p.Publisher
 	}
 	return nil
 }
