@@ -15,14 +15,16 @@ import (
 	"github.com/vostrok/inmem/server/src/config"
 	"github.com/vostrok/inmem/server/src/handlers"
 	"github.com/vostrok/inmem/service"
-	"github.com/vostrok/utils/metrics"
+	m "github.com/vostrok/utils/metrics"
 )
 
 func Run() {
 	appConfig := config.LoadConfig()
 
+	m.Init(appConfig.MetricInstancePrefix)
+	handlers.InitMetrics(appConfig.AppName)
+
 	service.Init(
-		appConfig.Name,
 		appConfig.Service,
 		appConfig.DbConf,
 	)
@@ -40,7 +42,7 @@ func runGin(appConfig config.AppConfig) {
 
 	service.AddCQRHandlers(r)
 	service.AddTablesHandler(r)
-	metrics.AddHandler(r)
+	m.AddHandler(r)
 
 	r.Run(":" + appConfig.Server.HttpPort)
 	log.WithField("port", appConfig.Server.HttpPort).Info("service port")

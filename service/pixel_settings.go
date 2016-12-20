@@ -102,7 +102,7 @@ func (ps *PixelSettings) Reload() (err error) {
 	for _, p := range records {
 		pixel := p
 		ps.ByKey[p.Key()] = &pixel
-		ps.ByCampaignId[p.CampaignId] = p.Publisher
+		ps.ByCampaignId[p.CampaignId] = p
 	}
 	return nil
 }

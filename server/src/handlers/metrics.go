@@ -1,8 +1,9 @@
 package handlers
 
 import (
-	m "github.com/vostrok/utils/metrics"
 	"time"
+
+	m "github.com/vostrok/utils/metrics"
 )
 
 var (
@@ -14,13 +15,17 @@ var (
 	keyWordNotFound      m.Gauge
 )
 
-func init() {
-	notFound = m.NewGauge("", "", "nil", "not found")
-	campaignNotFound = m.NewGauge("", "service", "campaign_not_found", "campaign not found")
-	operatorNotFound = m.NewGauge("", "operator", "not_found", "operator not found")
-	unknownPrefix = m.NewGauge("", "prefix", "unknown", "unknown prefix")
-	pixelSettingNotFound = m.NewGauge("", "pixel_setting", "not_found", "pixel setting not found")
-	keyWordNotFound = m.NewGauge("", "keyword", "not_found", "keyword not found")
+func inmemMetric(appname, name string) m.Gauge {
+	return m.NewGauge("", appname, name, name)
+}
+
+func InitMetrics(appName string) {
+	notFound = inmemMetric(appName, "404")
+	campaignNotFound = inmemMetric(appName, "campaign_not_found")
+	operatorNotFound = inmemMetric(appName, "operator_not_found")
+	unknownPrefix = inmemMetric(appName, "prefix_unknown")
+	pixelSettingNotFound = inmemMetric(appName, "pixel_setting_not_found")
+	keyWordNotFound = inmemMetric(appName, "keyword_not_found")
 
 	go func() {
 		for range time.Tick(time.Minute) {

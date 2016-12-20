@@ -44,13 +44,12 @@ type Config struct {
 }
 
 func Init(
-	appName string,
 	svcConf Config,
 	dbConf db.DataBaseConfig,
 
 ) {
 	log.SetLevel(log.DebugLevel)
-	initMetrics(appName)
+	initMetrics()
 
 	Svc.db = db.Init(dbConf)
 	Svc.dbConf = dbConf
@@ -161,9 +160,7 @@ var (
 	loadOperatorHeaderError prometheus.Gauge
 )
 
-func initMetrics(appName string) {
-	m.Init(appName)
-
+func initMetrics() {
 	loadCampaignError = m.PrometheusGauge("campaign", "load", "error", "load campaign error")
 	loadOperatorHeaderError = m.PrometheusGauge("operator", "load_headers", "error", "operator load headers error")
 }

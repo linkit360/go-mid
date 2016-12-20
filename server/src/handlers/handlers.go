@@ -199,7 +199,7 @@ func (rpc *PixelSetting) ByCampaignId(
 		pixelSettingNotFound.Inc()
 		return nil
 	}
-	*res = *svc
+	*res = svc
 	return nil
 }
 func (rpc *PixelSetting) ByKeyWithRatio(
