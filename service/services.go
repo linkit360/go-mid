@@ -2,10 +2,12 @@ package service
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Tasks:
@@ -16,19 +18,48 @@ type Services struct {
 	sync.RWMutex
 	ById map[int64]Service
 }
+
 type Service struct {
-	Id             int64
-	Price          float64
-	PaidHours      int
-	DelayHours     int
-	KeepDays       int
-	SMSSend        int
-	SMSNotPaidText string
-	ContentIds     []int64
+	Id                      int64
+	Price                   float64
+	PaidHours               int
+	DelayHours              int
+	KeepDays                int
+	SendNotPaidTextEnabled  bool
+	NotPaidText             string
+	PeriodicAllowedFrom     int
+	PeriodicAllowedTo       int
+	SendContentTextTemplate string
+	PeriodicDays            []string
+	ContentIds              []int64
 }
+
 type ServiceContent struct {
 	IdService int64
 	IdContent int64
+}
+
+type AllowedTime struct {
+	From time.Time `json:"from,omitempty"`
+	To   time.Time `json:"to,omitempty"`
+}
+type Days []string
+
+var allowedDays = string{"", "any", "sun", "mon", "tue", "wed", "thu", "fri", "sat"}
+
+func (scd Days) ok(days string) bool {
+	for _, d := range days {
+		found := false
+		for _, ad := range allowedDays {
+			if d == ad {
+				found = true
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Services) Reload() (err error) {
@@ -41,8 +72,12 @@ func (s *Services) Reload() (err error) {
 		"paid_hours, "+
 		"delay_hours, "+
 		"keep_days, "+
-		"sms_send, "+
-		"wording "+
+		"not_paid_text, "+
+		"send_not_paid_text_enabled, "+
+		"allowed_from, "+
+		"allowed_to, "+
+		"text_template, "+
+		"periodic_days "+
 		"FROM %sservices "+
 		"WHERE status = $1",
 		Svc.dbConf.TablePrefix,
@@ -56,6 +91,8 @@ func (s *Services) Reload() (err error) {
 	defer rows.Close()
 
 	var svcs []Service
+	var allowedTime string
+	var days string
 	for rows.Next() {
 		var srv Service
 		if err = rows.Scan(
@@ -64,12 +101,27 @@ func (s *Services) Reload() (err error) {
 			&srv.PaidHours,
 			&srv.DelayHours,
 			&srv.KeepDays,
-			&srv.SMSSend,
-			&srv.SMSNotPaidText,
+			&srv.NotPaidText,
+			&srv.SendNotPaidTextEnabled,
+			&srv.PeriodicAllowedFrom,
+			&srv.PeriodicAllowedTo,
+			&srv.SendContentTextTemplate,
+			&days,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
-			return err
+			return
 		}
+		var days Days
+		if err = json.Unmarshal([]byte(allowedTime), &days); err != nil {
+			err = fmt.Errorf("json.Unmarshal: %s", err.Error())
+			return
+		}
+		if !days.ok(days) {
+			err = fmt.Errorf("send content days: %s, allowed: %s", strings.Join(",", days), strings.Join(", ", allowedDays))
+			return
+		}
+		srv.PeriodicDays = days
+
 		svcs = append(svcs, srv)
 	}
 	if rows.Err() != nil {
@@ -122,19 +174,11 @@ func (s *Services) Reload() (err error) {
 		if !ok {
 			s.ById[serviceContent.IdService] = Service{}
 		}
+		copy(srv, svcMap[serviceContent.IdService])
 
 		srv.ContentIds = append(srv.ContentIds, serviceContent.IdContent)
 
-		svc := svcMap[serviceContent.IdService]
-		srv.Id = serviceContent.IdService
-		srv.Price = svc.Price
-		srv.PaidHours = svc.PaidHours
-		srv.DelayHours = svc.DelayHours
-		srv.KeepDays = svc.KeepDays
-		srv.SMSSend = svc.SMSSend
-		srv.SMSNotPaidText = svc.SMSNotPaidText
 		s.ById[serviceContent.IdService] = srv
-
 	}
 	return nil
 }

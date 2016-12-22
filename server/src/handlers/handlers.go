@@ -69,9 +69,11 @@ func (rpc *Campaign) ByHash(
 	if !ok {
 		notFound.Inc()
 		campaignNotFound.Inc()
+		errors.Inc()
 		return nil
 	}
 	*res = campaign
+	success.Inc()
 	return nil
 }
 func (rpc *Campaign) ByLink(
@@ -81,9 +83,11 @@ func (rpc *Campaign) ByLink(
 	if !ok {
 		notFound.Inc()
 		campaignNotFound.Inc()
+		errors.Inc()
 		return nil
 	}
 	*res = campaign
+	success.Inc()
 	return nil
 }
 
@@ -94,15 +98,18 @@ func (rpc *Campaign) ByKeyWord(
 	if !ok {
 		notFound.Inc()
 		keyWordNotFound.Inc()
+		errors.Inc()
 		return nil
 	}
 	campaign, ok := service.Svc.Campaigns.ById[campaignId]
 	if !ok {
 		notFound.Inc()
 		campaignNotFound.Inc()
+		errors.Inc()
 		return nil
 	}
 	*res = campaign
+	success.Inc()
 	return nil
 }
 
@@ -111,6 +118,7 @@ func (rpc *Campaign) All(
 	*res = GetAllCampaignsResponse{
 		Campaigns: service.Svc.Campaigns.ByLink,
 	}
+	success.Inc()
 	return nil
 }
 
@@ -126,6 +134,7 @@ func (rpc *BlackList) ByMsisdn(
 	} else {
 		*res = BoolResponse{Result: false}
 	}
+	success.Inc()
 	return nil
 }
 
@@ -141,6 +150,7 @@ func (rpc *PostPaid) ByMsisdn(
 	} else {
 		*res = BoolResponse{Result: false}
 	}
+	success.Inc()
 	return nil
 }
 func (rpc *PostPaid) Push(
@@ -148,7 +158,7 @@ func (rpc *PostPaid) Push(
 
 	service.Svc.PostPaid.Push(req.Msisdn)
 	*res = BoolResponse{Result: true}
-
+	success.Inc()
 	return nil
 }
 func (rpc *PostPaid) Remove(
@@ -156,7 +166,7 @@ func (rpc *PostPaid) Remove(
 
 	service.Svc.PostPaid.Remove(req.Msisdn)
 	*res = BoolResponse{Result: true}
-
+	success.Inc()
 	return nil
 }
 
@@ -169,9 +179,11 @@ func (rpc *Service) ById(
 	svc, ok := service.Svc.Services.ById[req.Id]
 	if !ok {
 		notFound.Inc()
+		errors.Inc()
 		return nil
 	}
 	*res = svc
+	success.Inc()
 	return nil
 }
 
@@ -185,9 +197,11 @@ func (rpc *PixelSetting) ByKey(
 	if !ok {
 		notFound.Inc()
 		pixelSettingNotFound.Inc()
+		errors.Inc()
 		return nil
 	}
 	*res = *svc
+	success.Inc()
 	return nil
 }
 func (rpc *PixelSetting) ByCampaignId(
@@ -197,9 +211,11 @@ func (rpc *PixelSetting) ByCampaignId(
 	if !ok {
 		notFound.Inc()
 		pixelSettingNotFound.Inc()
+		errors.Inc()
 		return nil
 	}
 	*res = svc
+	success.Inc()
 	return nil
 }
 func (rpc *PixelSetting) ByKeyWithRatio(
@@ -209,9 +225,11 @@ func (rpc *PixelSetting) ByKeyWithRatio(
 	if err != nil {
 		notFound.Inc()
 		pixelSettingNotFound.Inc()
+		errors.Inc()
 		return nil
 	}
 	*res = ps
+	success.Inc()
 	return nil
 }
 
@@ -224,9 +242,11 @@ func (rpc *Content) ById(
 	content, ok := service.Svc.Contents.ById[req.Id]
 	if !ok {
 		notFound.Inc()
+		errors.Inc()
 		return nil
 	}
 	*res = content
+	success.Inc()
 	return nil
 }
 
@@ -236,6 +256,7 @@ type ContentSent struct{}
 func (rpc *ContentSent) Clear(
 	req GetByParams, res *Response) error {
 	service.Svc.SentContents.Clear(req.Msisdn, req.ServiceId)
+	success.Inc()
 	return nil
 }
 func (rpc *ContentSent) Push(
@@ -248,6 +269,7 @@ func (rpc *ContentSent) Get(
 
 	contentIds := service.Svc.SentContents.Get(req.Msisdn, req.ServiceId)
 	*res = GetContentSentResponse{ContentdIds: contentIds}
+	success.Inc()
 	return nil
 }
 
@@ -261,9 +283,11 @@ func (rpc *Operator) ByCode(
 	if !ok {
 		notFound.Inc()
 		operatorNotFound.Inc()
+		errors.Inc()
 		return nil
 	}
 	*res = operator
+	success.Inc()
 	return nil
 }
 
@@ -274,9 +298,11 @@ func (rpc *Operator) ByName(
 	if !ok {
 		notFound.Inc()
 		operatorNotFound.Inc()
+		errors.Inc()
 		return nil
 	}
 	*res = operator
+	success.Inc()
 	return nil
 }
 
@@ -288,15 +314,18 @@ func (rpc *Prefix) GetOperator(
 	if !ok {
 		notFound.Inc()
 		unknownPrefix.Inc()
+		errors.Inc()
 		return nil
 	}
 	operator, ok := service.Svc.Operators.ByCode[operator_code]
 	if !ok {
 		notFound.Inc()
 		operatorNotFound.Inc()
+		errors.Inc()
 		return nil
 	}
 	*res = operator
+	success.Inc()
 	return nil
 }
 
@@ -321,10 +350,12 @@ func (rpc *IPInfo) ByMsisdn(
 				}
 			}
 			*res = info
+			success.Inc()
 			return nil
 		}
 	}
 	notFound.Inc()
+	errors.Inc()
 	return nil
 }
 
@@ -355,5 +386,6 @@ func (rpc *IPInfo) ByIP(
 		infos = append(infos, info)
 	}
 	*res = GetByIPsResponse{IPInfos: infos}
+	success.Inc()
 	return nil
 }

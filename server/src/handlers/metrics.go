@@ -13,6 +13,8 @@ var (
 	unknownPrefix        m.Gauge
 	pixelSettingNotFound m.Gauge
 	keyWordNotFound      m.Gauge
+	success              m.Gauge
+	errors               m.Gauge
 )
 
 func inmemMetric(appname, name string) m.Gauge {
@@ -20,6 +22,9 @@ func inmemMetric(appname, name string) m.Gauge {
 }
 
 func InitMetrics(appName string) {
+	success = m.NewGauge("", "", "success", "success")
+	errors = m.NewGauge("", "", "errors", "errors")
+
 	notFound = inmemMetric(appName, "404")
 	campaignNotFound = inmemMetric(appName, "campaign_not_found")
 	operatorNotFound = inmemMetric(appName, "operator_not_found")
@@ -29,6 +34,8 @@ func InitMetrics(appName string) {
 
 	go func() {
 		for range time.Tick(time.Minute) {
+			success.Update()
+			errors.Update()
 			notFound.Update()
 			campaignNotFound.Update()
 			operatorNotFound.Update()

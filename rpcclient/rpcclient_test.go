@@ -102,14 +102,14 @@ func TestGetServiceById(t *testing.T) {
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "No error while get service by id")
 	expected := service.Service{
-		Id:             777,
-		Price:          36,
-		PaidHours:      24,
-		DelayHours:     1,
-		KeepDays:       10,
-		SMSSend:        0,
-		SMSNotPaidText: "Thank you for downloading, you will be charged in next ten days",
-		ContentIds:     []int64{56, 61},
+		Id:          777,
+		Price:       36,
+		PaidHours:   24,
+		DelayHours:  1,
+		KeepDays:    10,
+		SMSSend:     0,
+		NotPaidText: "Thank you for downloading, you will be charged in next ten days",
+		ContentIds:  []int64{56, 61},
 	}
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "Services differ")
