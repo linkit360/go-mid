@@ -1,7 +1,5 @@
 package rpcclient
 
-// rpc client for "github.com/vostrok/inmem/server"
-// supports reconnects when disconnected
 import (
 	"fmt"
 	"net"
@@ -16,6 +14,8 @@ import (
 	m "github.com/vostrok/utils/metrics"
 	"github.com/vostrok/utils/rec"
 )
+
+// rpc client for "github.com/vostrok/inmem/server"
 
 var errNotFound = func(v interface{}) error {
 	cli.m.NotFound.Inc()

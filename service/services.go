@@ -30,7 +30,7 @@ type Service struct {
 	PeriodicAllowedFrom     int
 	PeriodicAllowedTo       int
 	SendContentTextTemplate string
-	PeriodicDays            []string
+	PeriodicDays            string
 	ContentIds              []int64
 }
 
@@ -45,9 +45,9 @@ type AllowedTime struct {
 }
 type Days []string
 
-var allowedDays = string{"", "any", "sun", "mon", "tue", "wed", "thu", "fri", "sat"}
+var allowedDays = []string{"", "any", "sun", "mon", "tue", "wed", "thu", "fri", "sat"}
 
-func (scd Days) ok(days string) bool {
+func (scd Days) ok(days []string) bool {
 	for _, d := range days {
 		found := false
 		for _, ad := range allowedDays {
@@ -74,10 +74,10 @@ func (s *Services) Reload() (err error) {
 		"keep_days, "+
 		"not_paid_text, "+
 		"send_not_paid_text_enabled, "+
+		"days, "+
 		"allowed_from, "+
 		"allowed_to, "+
-		"text_template, "+
-		"periodic_days "+
+		"send_content_text_template "+
 		"FROM %sservices "+
 		"WHERE status = $1",
 		Svc.dbConf.TablePrefix,
@@ -91,8 +91,6 @@ func (s *Services) Reload() (err error) {
 	defer rows.Close()
 
 	var svcs []Service
-	var allowedTime string
-	var days string
 	for rows.Next() {
 		var srv Service
 		if err = rows.Scan(
@@ -103,25 +101,24 @@ func (s *Services) Reload() (err error) {
 			&srv.KeepDays,
 			&srv.NotPaidText,
 			&srv.SendNotPaidTextEnabled,
+			&srv.PeriodicDays,
 			&srv.PeriodicAllowedFrom,
 			&srv.PeriodicAllowedTo,
 			&srv.SendContentTextTemplate,
-			&days,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
 		var days Days
-		if err = json.Unmarshal([]byte(allowedTime), &days); err != nil {
+		if err = json.Unmarshal([]byte(srv.PeriodicDays), &days); err != nil {
 			err = fmt.Errorf("json.Unmarshal: %s", err.Error())
 			return
 		}
 		if !days.ok(days) {
-			err = fmt.Errorf("send content days: %s, allowed: %s", strings.Join(",", days), strings.Join(", ", allowedDays))
+			err = fmt.Errorf("send charge days: %s, allowed: %s",
+				strings.Join(days, ","), strings.Join(allowedDays, ","))
 			return
 		}
-		srv.PeriodicDays = days
-
 		svcs = append(svcs, srv)
 	}
 	if rows.Err() != nil {
@@ -174,7 +171,7 @@ func (s *Services) Reload() (err error) {
 		if !ok {
 			s.ById[serviceContent.IdService] = Service{}
 		}
-		copy(srv, svcMap[serviceContent.IdService])
+		copy([]Service{srv}, []Service{svcMap[serviceContent.IdService]})
 
 		srv.ContentIds = append(srv.ContentIds, serviceContent.IdContent)
 
