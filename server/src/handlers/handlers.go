@@ -4,6 +4,7 @@ import (
 	"net"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/vostrok/inmem/service"
 )
 
@@ -94,8 +95,9 @@ func (rpc *Campaign) ByLink(
 func (rpc *Campaign) ByKeyWord(
 	req GetByKeyWordParams, res *service.Campaign) error {
 
-	campaignId, ok := service.Svc.KeyWords.ByKeyWord[req.Key]
+	campaignId, ok := service.Svc.KeyWords.ByKeyWord[strings.ToLower(req.Key)]
 	if !ok {
+		log.Errorf("campaign id not found %#v", req.Key)
 		notFound.Inc()
 		keyWordNotFound.Inc()
 		errors.Inc()
@@ -103,6 +105,7 @@ func (rpc *Campaign) ByKeyWord(
 	}
 	campaign, ok := service.Svc.Campaigns.ById[campaignId]
 	if !ok {
+		log.Errorf("campaign not found %#v", req.Key)
 		notFound.Inc()
 		campaignNotFound.Inc()
 		errors.Inc()

@@ -88,7 +88,7 @@ func Init(
 			Data:   Svc.SentContents,
 		},
 		{
-			Tables: []string{"operator_ip", "operators"},
+			Tables: []string{"operator_ip", "operator"},
 			Data:   Svc.IpRanges,
 		},
 		{
@@ -108,7 +108,7 @@ func Init(
 			Data:   Svc.PostPaid,
 		},
 		{
-			Tables: []string{"pixel_settings"},
+			Tables: []string{"pixel_setting"},
 			Data:   Svc.PixelSettings,
 		},
 		{

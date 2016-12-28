@@ -6,6 +6,9 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
+
+	log "github.com/Sirupsen/logrus"
+	"strings"
 )
 
 type KeyWords struct {
@@ -54,7 +57,8 @@ func (kws *KeyWords) Reload() error {
 
 	kws.ByKeyWord = make(map[string]int64, len(keywords))
 	for _, kw := range keywords {
-		kws.ByKeyWord[kw.KeyWord] = kw.CampaignId
+		kws.ByKeyWord[strings.ToLower(kw.KeyWord)] = kw.CampaignId
 	}
+	log.Debugf("%#v", keywords)
 	return nil
 }

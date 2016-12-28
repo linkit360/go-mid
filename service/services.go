@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // Tasks:
@@ -125,21 +127,21 @@ func (s *Services) Reload() (err error) {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return
 	}
-	svcMap := make(map[int64]Service)
-	for _, v := range svcs {
-		svcMap[v.Id] = v
-	}
+	log.Debugf("len %d, svcs: %#v", len(svcs), svcs)
 
 	serviceIdsStr := []string{}
 	for _, v := range svcs {
 		serviceIdsStr = append(serviceIdsStr, strconv.FormatInt(v.Id, 10))
 	}
+	log.Debugf("get service content ids for: ", strings.Join(serviceIdsStr, ", "))
+
 	query = fmt.Sprintf("SELECT "+
 		"id_service, "+
 		"id_content "+
 		"FROM %sservice_content "+
 		"WHERE status = $1 AND "+
 		"id_service = any($2::integer[])", Svc.dbConf.TablePrefix)
+
 	rows, err = Svc.db.Query(query, ACTIVE_STATUS, "{"+strings.Join(serviceIdsStr, ", ")+"}")
 	if err != nil {
 		err = fmt.Errorf("db.Query: %s, query: %s", err.Error(), query)
@@ -147,7 +149,7 @@ func (s *Services) Reload() (err error) {
 	}
 	defer rows.Close()
 
-	var serviceContentAr []ServiceContent
+	serviceContentIds := make(map[int64][]int64)
 	for rows.Next() {
 		var serviceContent ServiceContent
 		if err = rows.Scan(
@@ -157,7 +159,10 @@ func (s *Services) Reload() (err error) {
 			err = fmt.Errorf("rows.Scan %s", err.Error())
 			return
 		}
-		serviceContentAr = append(serviceContentAr, serviceContent)
+		if _, ok := serviceContentIds[serviceContent.IdService]; !ok {
+			serviceContentIds[serviceContent.IdService] = []int64{}
+		}
+		serviceContentIds[serviceContent.IdService] = append(serviceContentIds[serviceContent.IdService], serviceContent.IdContent)
 	}
 	if rows.Err() != nil {
 		err = fmt.Errorf("rows.Error: %s", err.Error())
@@ -165,20 +170,18 @@ func (s *Services) Reload() (err error) {
 	}
 
 	s.ById = make(map[int64]Service)
-
-	for _, serviceContent := range serviceContentAr {
-		srv, ok := s.ById[serviceContent.IdService]
-		if !ok {
-			s.ById[serviceContent.IdService] = Service{}
+	for _, v := range svcs {
+		if _, ok := serviceContentIds[v.Id]; !ok {
+			v.ContentIds = serviceContentIds[v.Id]
 		}
-		copy([]Service{srv}, []Service{svcMap[serviceContent.IdService]})
-
-		srv.ContentIds = append(srv.ContentIds, serviceContent.IdContent)
-
-		s.ById[serviceContent.IdService] = srv
+		s.ById[v.Id] = v
 	}
+
+	log.Debugf("services: %#v", s.ById)
+
 	return nil
 }
+
 func (s *Services) Get(serviceId int64) (contentIds []int64) {
 	if svc, ok := s.ById[serviceId]; ok {
 		return svc.ContentIds

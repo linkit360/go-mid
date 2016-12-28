@@ -85,11 +85,15 @@ func TestGetCampaign(t *testing.T) {
 	}
 
 	res, err = GetCampaignByLink("mobilink-p2")
+	assert.Nil(t, err)
+	if !assert.ObjectsAreEqual(expected, res) {
+		assert.Equal(t, expected, res, "Campaigns differs")
+	}
+	res, err = GetCampaignByKeyWord("play1")
 	//fmt.Printf("%#v %#v\n", res, err)
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "Campaigns differs")
 	}
-
 }
 
 func TestGetAllCampaigns(t *testing.T) {
@@ -110,6 +114,9 @@ func TestGetServiceById(t *testing.T) {
 		DelayHours:             1,
 		KeepDays:               10,
 		SendNotPaidTextEnabled: false,
+		PeriodicAllowedFrom:    11,
+		PeriodicAllowedTo:      12,
+		PeriodicDays:           "[]",
 		NotPaidText:            "Thank you for downloading, you will be charged in next ten days",
 		ContentIds:             []int64{56, 61},
 	}
