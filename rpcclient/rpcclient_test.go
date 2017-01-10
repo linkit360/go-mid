@@ -108,17 +108,18 @@ func TestGetServiceById(t *testing.T) {
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "No error while get service by id")
 	expected := service.Service{
-		Id:                     777,
-		Price:                  36,
-		PaidHours:              24,
-		DelayHours:             1,
-		KeepDays:               10,
-		SendNotPaidTextEnabled: false,
-		PeriodicAllowedFrom:    11,
-		PeriodicAllowedTo:      12,
-		PeriodicDays:           "[]",
-		NotPaidText:            "Thank you for downloading, you will be charged in next ten days",
-		ContentIds:             []int64{56, 61},
+		Id:                      777,
+		Price:                   90,
+		PaidHours:               24,
+		DelayHours:              1,
+		KeepDays:                10,
+		SendNotPaidTextEnabled:  false,
+		PeriodicAllowedFrom:     11,
+		PeriodicAllowedTo:       12,
+		PeriodicDays:            "",
+		NotPaidText:             "Thank you for downloading, you will be charged in next ten days",
+		ContentIds:              []int64{56, 61},
+		SendContentTextTemplate: "",
 	}
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "Services differ")
@@ -280,4 +281,13 @@ func TestBlackListed(t *testing.T) {
 	blackListed, err := IsBlackListed("923005557326")
 	assert.Nil(t, err)
 	assert.Equal(t, false, blackListed, "not blacklisted")
+}
+
+func TestRejected(t *testing.T) {
+	err := SetMsisdnCampaignCache(290, "923005557326")
+	assert.Nil(t, err)
+
+	cache, err := GetMsisdnCampaignCache(290, "923005557326")
+	assert.Nil(t, err)
+	assert.NotEqual(t, int64(290), cache, "is rejected")
 }

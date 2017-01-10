@@ -6,6 +6,7 @@ import (
 	"net"
 
 	log "github.com/Sirupsen/logrus"
+	cache "github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/gin-gonic/gin"
@@ -33,9 +34,12 @@ type MemService struct {
 	PostPaid        *PostPaid
 	PixelSettings   *PixelSettings
 	KeyWords        *KeyWords
+	Rejected        *cache.Cache
+	UrlCache        *UniqueUrlCache
 }
 
 type Config struct {
+	OperatorCode    int64     `yaml:"operator_code" default:"41001"`
 	UniqueDays      int       `yaml:"unique_days" default:"10"`
 	StaticPath      string    `yaml:"static_path" default:""`
 	RedirectUrl     string    `yaml:"redirect_url" default:"http://id.slypee.com" `
@@ -54,6 +58,9 @@ func Init(
 	Svc.db = db.Init(dbConf)
 	Svc.dbConf = dbConf
 	Svc.conf = svcConf
+
+	initPrevSubscriptionsCache()
+	Svc.UrlCache.init()
 
 	Svc.privateIPRanges = loadPrivateIpRanges(svcConf.PrivateIpRanges)
 

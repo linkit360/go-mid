@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 )
 
 const ACTIVE_STATUS = 1
@@ -12,23 +13,25 @@ const ACTIVE_STATUS = 1
 // sent content Data that neded to build in-memory cache of used content-ids
 // and alos need for recording "got content"
 type ContentSentProperties struct {
-	Msisdn         string `json:"msisdn"`
-	Tid            string `json:"tid"`
-	Price          int    `json:"price"`
-	ContentPath    string `json:"content_path"`
-	ContentName    string `json:"content_name"`
-	CapmaignHash   string `json:"capmaign_hash"`
-	CampaignId     int64  `json:"campaign_id"`
-	ContentId      int64  `json:"content_id"`
-	ServiceId      int64  `json:"service_id"`
-	SubscriptionId int64  `json:"subscription_id"`
-	CountryCode    int64  `json:"country_code"`
-	OperatorCode   int64  `json:"operator_code"`
-	PaidHours      int    `json:"paid_hours"`
-	DelayHours     int    `json:"delay_hours"`
-	Publisher      string `json:"publisher"`
-	Pixel          string `json:"pixel"`
-	Error          string `json:"error"`
+	SentAt         time.Time `json:"sent_at,omitempty"`
+	Msisdn         string    `json:"msisdn,omitempty"`
+	Tid            string    `json:"tid,omitempty"`
+	Price          int       `json:"price,omitempty"`
+	UniqueUrl      string    `json:"unique_url,omitempty"`
+	ContentPath    string    `json:"content_path,omitempty"`
+	ContentName    string    `json:"content_name,omitempty"`
+	CapmaignHash   string    `json:"capmaign_hash,omitempty"`
+	CampaignId     int64     `json:"campaign_id,omitempty"`
+	ContentId      int64     `json:"content_id,omitempty"`
+	ServiceId      int64     `json:"service_id,omitempty"`
+	SubscriptionId int64     `json:"subscription_id,omitempty"`
+	CountryCode    int64     `json:"country_code,omitempty"`
+	OperatorCode   int64     `json:"operator_code,omitempty"`
+	PaidHours      int       `json:"paid_hours,omitempty"`
+	DelayHours     int       `json:"delay_hours,omitempty"`
+	Publisher      string    `json:"publisher,omitempty"`
+	Pixel          string    `json:"pixel,omitempty"`
+	Error          string    `json:"error,omitempty"`
 }
 
 // When updating from database, reading is forbidden
@@ -45,7 +48,7 @@ type SentContents struct {
 // when key == msisdn, then uniq content exactly
 // when key == msisdn + service+id, then unique content per sevice
 func (t ContentSentProperties) key() string {
-	return t.Msisdn + "-" + strconv.FormatInt(t.ServiceId, 10)
+	return t.Msisdn + "-" + strconv.FormatInt(t.CampaignId, 10)
 }
 
 // Load sent contents to filter content that had been seen by the msisdn.

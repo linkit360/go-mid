@@ -51,8 +51,12 @@ type GetByParams struct {
 	ServiceId int64  `json:"service_id,omitempty"`
 	ContentId int64  `json:"content_id,omitempty"`
 }
-type Response struct {
+type RejectedParams struct {
+	Msisdn     string `json:"msisdn,omitempty"`
+	CampaignId int64  `json:"campaign_id,omitempty"`
 }
+type Response struct{}
+
 type GetContentSentResponse struct {
 	ContentdIds map[int64]struct{} `json:"content_ids,omitempty"`
 }
@@ -81,6 +85,20 @@ func (rpc *Campaign) ByLink(
 	req GetByLinkParams, res *service.Campaign) error {
 
 	campaign, ok := service.Svc.Campaigns.ByLink[req.Link]
+	if !ok {
+		notFound.Inc()
+		campaignNotFound.Inc()
+		errors.Inc()
+		return nil
+	}
+	*res = campaign
+	success.Inc()
+	return nil
+}
+func (rpc *Campaign) ById(
+	req GetByIdParams, res *service.Campaign) error {
+
+	campaign, ok := service.Svc.Campaigns.ById[req.Id]
 	if !ok {
 		notFound.Inc()
 		campaignNotFound.Inc()
@@ -169,6 +187,26 @@ func (rpc *PostPaid) Remove(
 
 	service.Svc.PostPaid.Remove(req.Msisdn)
 	*res = BoolResponse{Result: true}
+	success.Inc()
+	return nil
+}
+
+// Rejected
+type Rejected struct{}
+
+func (rpc *Rejected) Set(
+	req RejectedParams, res *BoolResponse) error {
+
+	service.SetMsisdnCampaignCache(req.CampaignId, req.Msisdn)
+	success.Inc()
+	return nil
+}
+
+func (rpc *Rejected) Get(
+	req RejectedParams, res *int64) error {
+
+	campaignId := service.GetMsisdnCampaignCache(req.CampaignId, req.Msisdn)
+	*res = campaignId
 	success.Inc()
 	return nil
 }
@@ -389,6 +427,32 @@ func (rpc *IPInfo) ByIP(
 		infos = append(infos, info)
 	}
 	*res = GetByIPsResponse{IPInfos: infos}
+	success.Inc()
+	return nil
+}
+
+type UniqueUrls struct{}
+
+func (rpc *UniqueUrls) Get(req GetByKeyParams, res *service.ContentSentProperties) error {
+	properties, err := service.Svc.UrlCache.Get(req.Key)
+	if err != nil {
+		notFound.Inc()
+		urlCacheNotFound.Inc()
+		errors.Inc()
+		return nil
+	}
+	*res = properties
+	success.Inc()
+	return nil
+}
+
+func (rpc *UniqueUrls) Set(req service.ContentSentProperties, res *Response) error {
+	service.Svc.UrlCache.Set(req)
+	success.Inc()
+	return nil
+}
+func (rpc *UniqueUrls) Delete(req service.ContentSentProperties, res *Response) error {
+	service.Svc.UrlCache.Delete(req)
 	success.Inc()
 	return nil
 }

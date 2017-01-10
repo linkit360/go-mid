@@ -215,6 +215,18 @@ func GetCampaignByKeyWord(keyWord string) (service.Campaign, error) {
 	}
 	return campaign, err
 }
+func GetCampaignById(id int64) (service.Campaign, error) {
+	var campaign service.Campaign
+	err := call(
+		"Campaign.ById",
+		handlers.GetByIdParams{Id: id},
+		&campaign,
+	)
+	if campaign.Id == 0 {
+		return campaign, errNotFound(id)
+	}
+	return campaign, err
+}
 func GetAllCampaigns() (map[string]service.Campaign, error) {
 	var res handlers.GetAllCampaignsResponse
 	err := call(
@@ -359,6 +371,53 @@ func PostPaidRemove(msisdn string) error {
 	err := call(
 		"PostPaid.Remove",
 		handlers.GetByMsisdnParams{Msisdn: msisdn},
+		&res,
+	)
+	return err
+}
+
+func GetMsisdnCampaignCache(campaignId int64, msisdn string) (int64, error) {
+	var res int64
+	err := call(
+		"Rejected.Get",
+		handlers.RejectedParams{Msisdn: msisdn, CampaignId: campaignId},
+		&res,
+	)
+	return res, err
+}
+func SetMsisdnCampaignCache(campaignId int64, msisdn string) error {
+	var res handlers.BoolResponse
+	err := call(
+		"Rejected.Set",
+		handlers.RejectedParams{Msisdn: msisdn, CampaignId: campaignId},
+		&res,
+	)
+	return err
+}
+
+func SetUniqueUrlCache(req service.ContentSentProperties) error {
+	var res handlers.Response
+	err := call(
+		"UniqueUrls.Set",
+		req,
+		&res,
+	)
+	return err
+}
+func GetUniqueUrlCache(uniqueUrl string) (service.ContentSentProperties, error) {
+	var res service.ContentSentProperties
+	err := call(
+		"UniqueUrls.Get",
+		handlers.GetByKeyParams{Key: uniqueUrl},
+		&res,
+	)
+	return res, err
+}
+func DeleteUniqueUrlCache(req service.ContentSentProperties) error {
+	var res handlers.Response
+	err := call(
+		"UniqueUrls.Delete",
+		req,
 		&res,
 	)
 	return err
