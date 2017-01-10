@@ -133,7 +133,7 @@ func (s *Services) Reload() (err error) {
 	for _, v := range svcs {
 		serviceIdsStr = append(serviceIdsStr, strconv.FormatInt(v.Id, 10))
 	}
-	log.Debugf("get service content ids for: ", strings.Join(serviceIdsStr, ", "))
+	log.Debugf("get service content ids for: %s", strings.Join(serviceIdsStr, ", "))
 
 	query = fmt.Sprintf("SELECT "+
 		"id_service, "+
@@ -171,8 +171,8 @@ func (s *Services) Reload() (err error) {
 
 	s.ById = make(map[int64]Service)
 	for _, v := range svcs {
-		if _, ok := serviceContentIds[v.Id]; !ok {
-			v.ContentIds = serviceContentIds[v.Id]
+		if contentIds, ok := serviceContentIds[v.Id]; ok {
+			v.ContentIds = contentIds
 		}
 		s.ById[v.Id] = v
 	}
