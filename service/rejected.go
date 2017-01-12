@@ -17,28 +17,32 @@ func initPrevSubscriptionsCache() {
 	log.WithField("count", len(prev)).Debug("loaded previous subscriptions")
 	Svc.Rejected = cache.New(24*time.Hour, time.Minute)
 	for _, v := range prev {
-		Svc.Rejected.Set(v.Msisdn, struct{}{}, time.Now().Sub(v.CreatedAt))
+		key := v.Msisdn + strconv.FormatInt(v.CampaignId, 10)
+		Svc.Rejected.Set(key, struct{}{}, time.Now().Sub(v.CreatedAt))
 	}
 }
 
 func SetMsisdnCampaignCache(campaignId int64, msisdn string) {
 	key := msisdn + strconv.FormatInt(campaignId, 10)
 	Svc.Rejected.Set(key, struct{}{}, 24*time.Hour)
+	log.WithField("key", key).Debug("rejected set")
 }
 
 func GetMsisdnCampaignCache(campaignId int64, msisdn string) int64 {
 	key := msisdn + strconv.FormatInt(campaignId, 10)
 	_, found := Svc.Rejected.Get(key)
 	if !found {
+		log.WithFields(log.Fields{"id": campaignId, "key": key}).Debug("rejected get")
 		return campaignId
 	}
-
 	for id, _ := range Svc.Campaigns.ById {
 		_, found := Svc.Rejected.Get(msisdn + strconv.FormatInt(id, 10))
 		if !found {
+			log.WithFields(log.Fields{"id": id, "key": key}).Debug("rejected get")
 			return id
 		}
 	}
+	log.WithFields(log.Fields{"id": 0, "key": key}).Debug("rejected get")
 	return 0
 }
 
