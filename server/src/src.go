@@ -21,7 +21,6 @@ import (
 func Run() {
 	appConfig := config.LoadConfig()
 
-	m.Init(appConfig.MetricInstancePrefix)
 	handlers.InitMetrics(appConfig.AppName)
 
 	service.Init(

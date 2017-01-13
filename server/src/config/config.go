@@ -18,11 +18,10 @@ type ServerConfig struct {
 	HttpPort string `default:"50308" yaml:"http_port"`
 }
 type AppConfig struct {
-	MetricInstancePrefix string            `yaml:"metric_instance_prefix"`
-	AppName              string            `yaml:"app_name"`
-	Server               ServerConfig      `yaml:"server"`
-	Service              service.Config    `yaml:"service"`
-	DbConf               db.DataBaseConfig `yaml:"db"`
+	AppName string            `yaml:"app_name"`
+	Server  ServerConfig      `yaml:"server"`
+	Service service.Config    `yaml:"service"`
+	DbConf  db.DataBaseConfig `yaml:"db"`
 }
 
 func LoadConfig() AppConfig {
@@ -41,13 +40,6 @@ func LoadConfig() AppConfig {
 	}
 	if strings.Contains(appConfig.AppName, "-") {
 		log.Fatal("app name must be without '-' : it's not a valid metric name")
-	}
-
-	if appConfig.MetricInstancePrefix == "" {
-		log.Fatal("metric_instance_prefix be defiled as <host>_<name>")
-	}
-	if strings.Contains(appConfig.MetricInstancePrefix, "-") {
-		log.Fatal("metric_instance_prefix be without '-' : it's not a valid metric name")
 	}
 
 	appConfig.Server.RPCPort = envString("PORT", appConfig.Server.RPCPort)
