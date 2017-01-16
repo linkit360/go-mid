@@ -14,19 +14,20 @@ type UniqueUrlCache struct {
 	cache *cache.Cache
 }
 
-func (uuc *UniqueUrlCache) init() {
+func initUniqueUrlCache() (uuc *UniqueUrlCache) {
+	uuc = &UniqueUrlCache{
+		cache: cache.New(8760*time.Hour, time.Hour),
+	}
 	prev, err := uuc.loadUniqueUrls()
 	if err != nil {
 		log.WithField("error", err.Error()).Fatal("cannot load uniq urls")
 	}
 	log.WithField("count", len(prev)).Debug("loaded uniq urls")
-	uuc = &UniqueUrlCache{
-		cache: cache.New(8760*time.Hour, time.Hour),
-	}
 	for _, v := range prev {
 		key := v.Msisdn + strconv.FormatInt(v.ServiceId, 10)
 		uuc.cache.Set(key, v, 8760*time.Hour)
 	}
+	return uuc
 }
 
 func (uuc *UniqueUrlCache) Get(uniqueUrl string) (ContentSentProperties, error) {
@@ -45,6 +46,9 @@ func (uuc *UniqueUrlCache) Get(uniqueUrl string) (ContentSentProperties, error) 
 }
 
 func (uuc *UniqueUrlCache) Set(r ContentSentProperties) {
+	log.WithFields(log.Fields{
+		"cache": uuc,
+	}).Debug("set url cache")
 	_, found := uuc.cache.Get(r.UniqueUrl)
 	if !found {
 		uuc.cache.Set(r.UniqueUrl, r, 8760*time.Hour)
@@ -153,8 +157,10 @@ func (uuc *UniqueUrlCache) loadUniqueUrl(uniqueUrl string) (p ContentSentPropert
 		"id_campaign, "+
 		"id_service, "+
 		"operator_code, "+
-		"country_code, "+
-		"FROM %scontent_unique_urls WHERE unique_url = $1 LIMIT 1",
+		"country_code "+
+		"FROM %scontent_unique_urls "+
+		"WHERE unique_url = $1 "+
+		"LIMIT 1",
 		Svc.dbConf.TablePrefix)
 
 	rows, err := Svc.db.Query(query, uniqueUrl)

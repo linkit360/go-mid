@@ -28,10 +28,8 @@ type Client struct {
 	m          *Metrics
 }
 type RPCClientConfig struct {
-	DSN             string `default:":50307" yaml:"dsn"`
-	Timeout         int    `default:"10" yaml:"timeout"`
-	RetryCallsPause int    `default:"10" yaml:"retry_calls_sleep"`
-	RetryCallsLimit int    `default:"10" yaml:"retry_calls_limit"`
+	DSN     string `default:":50307" yaml:"dsn"`
+	Timeout int    `default:"10" yaml:"timeout"`
 }
 type Metrics struct {
 	RPCConnectError m.Gauge
@@ -120,6 +118,7 @@ func call(funcName string, req interface{}, res interface{}) error {
 	cli.m.RPCSuccess.Inc()
 	return nil
 }
+
 func GetOperatorByCode(code int64) (service.Operator, error) {
 	var operator service.Operator
 	err := call(

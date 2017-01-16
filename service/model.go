@@ -60,7 +60,7 @@ func Init(
 	Svc.conf = svcConf
 
 	initPrevSubscriptionsCache()
-	Svc.UrlCache.init()
+	Svc.UrlCache = initUniqueUrlCache()
 
 	Svc.privateIPRanges = loadPrivateIpRanges(svcConf.PrivateIpRanges)
 

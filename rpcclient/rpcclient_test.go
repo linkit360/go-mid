@@ -7,11 +7,9 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/vostrok/inmem/service"
-	m "github.com/vostrok/utils/metrics"
 )
 
 func init() {
-	m.Init("test")
 	c := RPCClientConfig{
 		DSN:     "localhost:50307",
 		Timeout: 10,
@@ -81,18 +79,18 @@ func TestGetCampaign(t *testing.T) {
 	}
 
 	if !assert.ObjectsAreEqual(expected, res) {
-		assert.Equal(t, expected, res, "Service differs")
+		assert.Equal(t, expected, res, "GetCampaignByHash")
 	}
 
 	res, err = GetCampaignByLink("mobilink-p2")
 	assert.Nil(t, err)
 	if !assert.ObjectsAreEqual(expected, res) {
-		assert.Equal(t, expected, res, "Campaigns differs")
+		assert.Equal(t, expected, res, "GetCampaignByLink")
 	}
-	res, err = GetCampaignByKeyWord("play1")
+	res, err = GetCampaignByKeyWord("play on")
 	//fmt.Printf("%#v %#v\n", res, err)
 	if !assert.ObjectsAreEqual(expected, res) {
-		assert.Equal(t, expected, res, "Campaigns differs")
+		assert.Equal(t, expected, res, "GetCampaignByKeyWord")
 	}
 }
 
@@ -100,7 +98,7 @@ func TestGetAllCampaigns(t *testing.T) {
 	res, err := GetAllCampaigns()
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "No error to get all campaigns")
-	assert.Equal(t, 10, len(res), "campaigns count")
+	assert.Equal(t, 2, len(res), "campaigns count")
 }
 
 func TestGetServiceById(t *testing.T) {
@@ -109,7 +107,7 @@ func TestGetServiceById(t *testing.T) {
 	assert.NoError(t, err, "No error while get service by id")
 	expected := service.Service{
 		Id:                      777,
-		Price:                   90,
+		Price:                   10,
 		PaidHours:               24,
 		DelayHours:              1,
 		KeepDays:                10,
@@ -119,7 +117,7 @@ func TestGetServiceById(t *testing.T) {
 		PeriodicDays:            `["any"]`,
 		NotPaidText:             "Thank you for downloading, you will be charged in next ten days",
 		ContentIds:              []int64{56, 61},
-		SendContentTextTemplate: "%s",
+		SendContentTextTemplate: "Ta-dam! You can got it here: %s",
 	}
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "Services differ")
@@ -290,4 +288,33 @@ func TestRejected(t *testing.T) {
 	cache, err := GetMsisdnCampaignCache(290, "923005557326")
 	assert.Nil(t, err)
 	assert.NotEqual(t, int64(290), cache, "is rejected")
+}
+
+func TestUniqUrl(t *testing.T) {
+	req := service.ContentSentProperties{
+		Msisdn:       "79997777777",
+		Tid:          "test tid",
+		ServiceId:    777,
+		CampaignId:   290,
+		OperatorCode: 410,
+		CountryCode:  92,
+		UniqueUrl:    "cz3twmoynbq5",
+	}
+	err := SetUniqueUrlCache(req)
+	//fmt.Printf("%#v %#v\n", res, err)
+	assert.Nil(t, err)
+
+	got, err := GetUniqueUrlCache("cz3twmoynbq5")
+	assert.Nil(t, err)
+
+	req.SentAt = got.SentAt
+	if !assert.ObjectsAreEqual(req, got) {
+		assert.Equal(t, req, got, "ContentSentProperties differs")
+	}
+
+	err = DeleteUniqueUrlCache(req)
+	assert.Nil(t, err)
+
+	got, err = GetUniqueUrlCache("cz3twmoynbq5")
+	assert.Nil(t, err)
 }
