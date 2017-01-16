@@ -317,4 +317,5 @@ func TestUniqUrl(t *testing.T) {
 
 	got, err = GetUniqueUrlCache("cz3twmoynbq5")
 	assert.Nil(t, err)
+	assert.True(t, !assert.ObjectsAreEqual(req, got), "Removed")
 }
