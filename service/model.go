@@ -42,7 +42,6 @@ type Config struct {
 	OperatorCode    int64     `yaml:"operator_code" default:"41001"`
 	UniqueDays      int       `yaml:"unique_days" default:"10"`
 	StaticPath      string    `yaml:"static_path" default:""`
-	RedirectUrl     string    `yaml:"redirect_url" default:"http://id.slypee.com" `
 	CampaignWebHook string    `yaml:"campaign_web_hook" default:"http://localhost:50300/updateTemplates"`
 	PrivateIpRanges []IpRange `yaml:"private_networks"`
 }

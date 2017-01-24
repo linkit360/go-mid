@@ -15,6 +15,7 @@ import (
 )
 
 // rpc client for "github.com/vostrok/inmem/server"
+// fails on disconnect
 
 var errNotFound = func(v interface{}) error {
 	cli.m.NotFound.Inc()
