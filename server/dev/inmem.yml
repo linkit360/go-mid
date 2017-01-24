@@ -1,5 +1,4 @@
 app_name: inmem
-metric_instance_prefix: pk_mobilink1
 
 server:
   rpc_port: 50307

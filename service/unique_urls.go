@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -11,6 +12,7 @@ import (
 
 // cache for unique urls
 type UniqueUrlCache struct {
+	sync.RWMutex
 	cache *cache.Cache
 }
 
@@ -69,6 +71,9 @@ func (uuc *UniqueUrlCache) Delete(r ContentSentProperties) {
 
 // warm cache for unique urls
 func (uuc *UniqueUrlCache) loadUniqueUrls() (prop []ContentSentProperties, err error) {
+	uuc.Lock()
+	defer uuc.Unlock()
+
 	begin := time.Now()
 	defer func() {
 		defer func() {

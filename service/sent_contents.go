@@ -119,6 +119,9 @@ func (s *SentContents) Get(msisdn string, serviceId int64) (contentIds map[int64
 // When there is no content avialabe for the msisdn, reset the content counter
 // Breakes after reloading sent content table (on the restart of the application)
 func (s *SentContents) Clear(msisdn string, serviceId int64) {
+	s.Lock()
+	defer s.Unlock()
+
 	t := ContentSentProperties{Msisdn: msisdn, ServiceId: serviceId}
 	delete(s.ByKey, t.key())
 }
@@ -127,6 +130,9 @@ func (s *SentContents) Clear(msisdn string, serviceId int64) {
 // we notice it in sent content table (another place)
 // and also we need to update in-memory cache of used content id for this msisdn and service id
 func (s *SentContents) Push(msisdn string, serviceId int64, contentId int64) {
+	s.Lock()
+	defer s.Unlock()
+
 	t := ContentSentProperties{Msisdn: msisdn, ServiceId: serviceId}
 	if _, ok := s.ByKey[t.key()]; !ok {
 		s.ByKey[t.key()] = make(map[int64]struct{})

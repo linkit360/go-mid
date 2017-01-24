@@ -117,7 +117,7 @@ func TestGetServiceById(t *testing.T) {
 		PeriodicDays:            `["any"]`,
 		NotPaidText:             "Thank you for downloading, you will be charged in next ten days",
 		ContentIds:              []int64{56, 61},
-		SendContentTextTemplate: "Ta-dam! You can got it here: %s",
+		SendContentTextTemplate: "Ta-dam! You can got it here:",
 	}
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "Services differ")
