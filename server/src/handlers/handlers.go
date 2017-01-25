@@ -434,7 +434,7 @@ func (rpc *IPInfo) ByIP(
 type UniqueUrls struct{}
 
 func (rpc *UniqueUrls) Get(req GetByKeyParams, res *service.ContentSentProperties) error {
-	properties, err := service.Svc.UrlCache.Get(req.Key)
+	properties, err := service.Svc.UniqueUrls.Get(req.Key)
 	if err != nil {
 		notFound.Inc()
 		urlCacheNotFound.Inc()
@@ -447,12 +447,12 @@ func (rpc *UniqueUrls) Get(req GetByKeyParams, res *service.ContentSentPropertie
 }
 
 func (rpc *UniqueUrls) Set(req service.ContentSentProperties, res *Response) error {
-	service.Svc.UrlCache.Set(req)
+	service.Svc.UniqueUrls.Set(req)
 	success.Inc()
 	return nil
 }
 func (rpc *UniqueUrls) Delete(req service.ContentSentProperties, res *Response) error {
-	service.Svc.UrlCache.Delete(req)
+	service.Svc.UniqueUrls.Delete(req)
 	success.Inc()
 	return nil
 }

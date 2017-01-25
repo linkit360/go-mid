@@ -35,7 +35,7 @@ type MemService struct {
 	PixelSettings   *PixelSettings
 	KeyWords        *KeyWords
 	Rejected        *cache.Cache
-	UrlCache        *UniqueUrlCache
+	UniqueUrls      *UniqueUrls
 }
 
 type Config struct {
@@ -59,7 +59,6 @@ func Init(
 	Svc.conf = svcConf
 
 	initPrevSubscriptionsCache()
-	Svc.UrlCache = initUniqueUrlCache()
 
 	Svc.privateIPRanges = loadPrivateIpRanges(svcConf.PrivateIpRanges)
 
@@ -74,6 +73,7 @@ func Init(
 	Svc.PostPaid = &PostPaid{}
 	Svc.PixelSettings = &PixelSettings{}
 	Svc.KeyWords = &KeyWords{}
+	Svc.UniqueUrls = &UniqueUrls{}
 
 	Svc.cqrConfig = []cqr.CQRConfig{
 		{
@@ -120,6 +120,10 @@ func Init(
 		{
 			Tables: []string{"keyword"},
 			Data:   Svc.KeyWords,
+		},
+		{
+			Tables: []string{"content_unique_urls"},
+			Data:   Svc.UniqueUrls,
 		},
 	}
 	if err := cqr.InitCQR(Svc.cqrConfig); err != nil {

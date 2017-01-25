@@ -2,38 +2,19 @@ package service
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	cache "github.com/patrickmn/go-cache"
 )
 
-// cache for unique urls
-type UniqueUrlCache struct {
+type UniqueUrls struct {
 	sync.RWMutex
-	cache *cache.Cache
+	ByUrl map[string]ContentSentProperties
 }
 
-func initUniqueUrlCache() (uuc *UniqueUrlCache) {
-	uuc = &UniqueUrlCache{
-		cache: cache.New(8760*time.Hour, time.Hour),
-	}
-	prev, err := uuc.loadUniqueUrls()
-	if err != nil {
-		log.WithField("error", err.Error()).Fatal("cannot load uniq urls")
-	}
-	log.WithField("count", len(prev)).Debug("loaded uniq urls")
-	for _, v := range prev {
-		key := v.Msisdn + strconv.FormatInt(v.ServiceId, 10)
-		uuc.cache.Set(key, v, 8760*time.Hour)
-	}
-	return uuc
-}
-
-func (uuc *UniqueUrlCache) Get(uniqueUrl string) (ContentSentProperties, error) {
-	v, found := uuc.cache.Get(uniqueUrl)
+func (uuc *UniqueUrls) Get(uniqueUrl string) (ContentSentProperties, error) {
+	v, found := uuc.ByUrl[uniqueUrl]
 	if !found {
 		property, err := uuc.loadUniqueUrl(uniqueUrl)
 		if err != nil {
@@ -41,19 +22,16 @@ func (uuc *UniqueUrlCache) Get(uniqueUrl string) (ContentSentProperties, error) 
 		}
 		return property, nil
 	}
-	if property, ok := v.(ContentSentProperties); ok {
-		return property, nil
-	}
-	return ContentSentProperties{}, fmt.Errorf("Cannot decifer: %s, %v", uniqueUrl, v)
+	return v, nil
 }
 
-func (uuc *UniqueUrlCache) Set(r ContentSentProperties) {
+func (uuc *UniqueUrls) Set(r ContentSentProperties) {
 	log.WithFields(log.Fields{
 		"cache": uuc,
 	}).Debug("set url cache")
-	_, found := uuc.cache.Get(r.UniqueUrl)
+	_, found := uuc.ByUrl[r.UniqueUrl]
 	if !found {
-		uuc.cache.Set(r.UniqueUrl, r, 8760*time.Hour)
+		uuc.ByUrl[r.UniqueUrl] = r
 		log.WithFields(log.Fields{
 			"tid": r.Tid,
 			"key": r.UniqueUrl,
@@ -61,8 +39,8 @@ func (uuc *UniqueUrlCache) Set(r ContentSentProperties) {
 	}
 }
 
-func (uuc *UniqueUrlCache) Delete(r ContentSentProperties) {
-	uuc.cache.Delete(r.UniqueUrl)
+func (uuc *UniqueUrls) Delete(r ContentSentProperties) {
+	delete(uuc.ByUrl, r.UniqueUrl)
 	log.WithFields(log.Fields{
 		"tid": r.Tid,
 		"key": r.UniqueUrl,
@@ -70,7 +48,7 @@ func (uuc *UniqueUrlCache) Delete(r ContentSentProperties) {
 }
 
 // warm cache for unique urls
-func (uuc *UniqueUrlCache) loadUniqueUrls() (prop []ContentSentProperties, err error) {
+func (uuc *UniqueUrls) Reload() (err error) {
 	uuc.Lock()
 	defer uuc.Unlock()
 
@@ -84,7 +62,6 @@ func (uuc *UniqueUrlCache) loadUniqueUrls() (prop []ContentSentProperties, err e
 				fields["error"] = err.Error()
 				log.WithFields(fields).Error("load uniq urls failed")
 			} else {
-				fields["count"] = len(prop)
 				log.WithFields(fields).Debug("load uniq urls ")
 			}
 		}()
@@ -93,39 +70,44 @@ func (uuc *UniqueUrlCache) loadUniqueUrls() (prop []ContentSentProperties, err e
 		"sent_at, "+
 		"msisdn, "+
 		"tid, "+
-		"content_path, "+
-		"unique_url, "+
-		"content_name, "+
 		"id_campaign, "+
 		"id_service, "+
+		"id_content, "+
+		"id_subscription, "+
+		"country_code, "+
 		"operator_code, "+
-		"country_code "+
+		"content_path, "+
+		"content_name, "+
+		"unique_url "+
 		"FROM %scontent_unique_urls",
 		Svc.dbConf.TablePrefix)
 
 	rows, err := Svc.db.Query(query)
 	if err != nil {
 		err = fmt.Errorf("db.Query: %s, query: %s", err.Error(), query)
-		return prop, err
+		return
 	}
 	defer rows.Close()
 
+	prop := []ContentSentProperties{}
 	for rows.Next() {
 		var p ContentSentProperties
-		if err := rows.Scan(
+		if err = rows.Scan(
 			&p.SentAt,
 			&p.Msisdn,
 			&p.Tid,
-			&p.ContentPath,
-			&p.UniqueUrl,
-			&p.ContentName,
 			&p.CampaignId,
 			&p.ServiceId,
-			&p.OperatorCode,
+			&p.ContentId,
+			&p.SubscriptionId,
 			&p.CountryCode,
+			&p.OperatorCode,
+			&p.ContentPath,
+			&p.ContentName,
+			&p.UniqueUrl,
 		); err != nil {
 			err = fmt.Errorf("Rows.Next: %s", err.Error())
-			return prop, err
+			return
 		}
 		prop = append(prop, p)
 	}
@@ -134,9 +116,15 @@ func (uuc *UniqueUrlCache) loadUniqueUrls() (prop []ContentSentProperties, err e
 		err = fmt.Errorf("Rows.Err: %s", err.Error())
 		return
 	}
+
+	uuc.ByUrl = make(map[string]ContentSentProperties, len(prop))
+	log.WithField("count", len(prop)).Debug("loaded uniq urls")
+	for _, r := range prop {
+		uuc.ByUrl[r.UniqueUrl] = r
+	}
 	return
 }
-func (uuc *UniqueUrlCache) loadUniqueUrl(uniqueUrl string) (p ContentSentProperties, err error) {
+func (uuc *UniqueUrls) loadUniqueUrl(uniqueUrl string) (p ContentSentProperties, err error) {
 	begin := time.Now()
 	defer func() {
 		defer func() {
@@ -156,13 +144,15 @@ func (uuc *UniqueUrlCache) loadUniqueUrl(uniqueUrl string) (p ContentSentPropert
 		"sent_at, "+
 		"msisdn, "+
 		"tid, "+
-		"content_path, "+
-		"unique_url, "+
-		"content_name, "+
 		"id_campaign, "+
 		"id_service, "+
+		"id_content, "+
+		"id_subscription, "+
+		"country_code, "+
 		"operator_code, "+
-		"country_code "+
+		"content_path, "+
+		"content_name, "+
+		"unique_url "+
 		"FROM %scontent_unique_urls "+
 		"WHERE unique_url = $1 "+
 		"LIMIT 1",
@@ -180,13 +170,15 @@ func (uuc *UniqueUrlCache) loadUniqueUrl(uniqueUrl string) (p ContentSentPropert
 			&p.SentAt,
 			&p.Msisdn,
 			&p.Tid,
-			&p.ContentPath,
-			&p.UniqueUrl,
-			&p.ContentName,
 			&p.CampaignId,
 			&p.ServiceId,
-			&p.OperatorCode,
+			&p.ContentId,
+			&p.SubscriptionId,
 			&p.CountryCode,
+			&p.OperatorCode,
+			&p.ContentPath,
+			&p.ContentName,
+			&p.UniqueUrl,
 		); err != nil {
 			err = fmt.Errorf("Rows.Next: %s", err.Error())
 			return
