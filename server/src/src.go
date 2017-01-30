@@ -69,6 +69,7 @@ func runRPC(appConfig config.AppConfig) {
 	server.RegisterName("Rejected", &handlers.Rejected{})
 	server.RegisterName("PostPaid", &handlers.PostPaid{})
 	server.RegisterName("PixelSetting", &handlers.PixelSetting{})
+	server.RegisterName("Publisher", &handlers.Publisher{})
 	server.RegisterName("Prefix", &handlers.Prefix{})
 
 	for {

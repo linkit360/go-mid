@@ -33,6 +33,7 @@ type MemService struct {
 	BlackList       *BlackList
 	PostPaid        *PostPaid
 	PixelSettings   *PixelSettings
+	Publishers      *Publishers
 	KeyWords        *KeyWords
 	Rejected        *cache.Cache
 	UniqueUrls      *UniqueUrls
@@ -72,6 +73,7 @@ func Init(
 	Svc.BlackList = &BlackList{}
 	Svc.PostPaid = &PostPaid{}
 	Svc.PixelSettings = &PixelSettings{}
+	Svc.Publishers = &Publishers{}
 	Svc.KeyWords = &KeyWords{}
 	Svc.UniqueUrls = &UniqueUrls{}
 
@@ -116,6 +118,10 @@ func Init(
 		{
 			Tables: []string{"pixel_setting"},
 			Data:   Svc.PixelSettings,
+		},
+		{
+			Tables: []string{"publishers"},
+			Data:   Svc.Publishers,
 		},
 		{
 			Tables: []string{"keyword"},
@@ -168,9 +174,11 @@ func loadPrivateIpRanges(ipConf []IpRange) []IpRange {
 var (
 	loadCampaignError       prometheus.Gauge
 	loadOperatorHeaderError prometheus.Gauge
+	loadPublisherRegexError prometheus.Gauge
 )
 
 func initMetrics() {
 	loadCampaignError = m.PrometheusGauge("campaign", "load", "error", "load campaign error")
 	loadOperatorHeaderError = m.PrometheusGauge("operator", "load_headers", "error", "operator load headers error")
+	loadPublisherRegexError = m.PrometheusGauge("publisher", "load_regex", "error", "publisher load regex error")
 }

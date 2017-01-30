@@ -117,7 +117,7 @@ func TestGetServiceById(t *testing.T) {
 		PeriodicDays:            `["any"]`,
 		NotPaidText:             "Thank you for downloading, you will be charged in next ten days",
 		ContentIds:              []int64{56, 61},
-		SendContentTextTemplate: "Ta-dam! You can got it here:",
+		SendContentTextTemplate: "Ta-dam! You can got it here: %s",
 	}
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "Services differ")
@@ -318,4 +318,11 @@ func TestUniqUrl(t *testing.T) {
 	got, err = GetUniqueUrlCache("cz3twmoynbq5")
 	assert.Nil(t, err)
 	assert.True(t, !assert.ObjectsAreEqual(req, got), "Removed")
+}
+
+func TestGetAllPublisher(t *testing.T) {
+	res, err := GetAllPublishers()
+	//fmt.Printf("%#v %#v", res, err)
+	assert.NoError(t, err, "No error to get all publishers")
+	assert.Equal(t, 3, len(res), "publishers count")
 }

@@ -5,8 +5,11 @@ package service
 import (
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 type PixelSettings struct {
@@ -15,6 +18,7 @@ type PixelSettings struct {
 	ByCampaignId map[int64]PixelSetting
 }
 
+//"( SELECT %spublishers.regex as regex FROM %spublishers WHERE id = id_publisher ), "+
 type PixelSetting struct {
 	Id            int64
 	CampaignId    int64
@@ -92,6 +96,7 @@ func (ps *PixelSettings) Reload() (err error) {
 		p.Count = 0
 		records = append(records, p)
 	}
+
 	if rows.Err() != nil {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return
@@ -103,6 +108,79 @@ func (ps *PixelSettings) Reload() (err error) {
 		pixel := p
 		ps.ByKey[p.Key()] = &pixel
 		ps.ByCampaignId[p.CampaignId] = p
+	}
+	return nil
+}
+
+type Publishers struct {
+	sync.RWMutex
+	All map[string]Publisher
+}
+
+type Publisher struct {
+	Name        string
+	RegexString string
+	Regex       *regexp.Regexp
+}
+
+func (p *Publishers) Reload() (err error) {
+	p.Lock()
+	defer p.Unlock()
+
+	query := fmt.Sprintf("SELECT "+
+		"name, "+
+		"regex "+
+		"FROM %spublishers ",
+		Svc.dbConf.TablePrefix,
+	)
+
+	var rows *sql.Rows
+	rows, err = Svc.db.Query(query)
+	if err != nil {
+		err = fmt.Errorf("db.Query: %s, query: %s", err.Error(), query)
+		return
+	}
+	defer rows.Close()
+
+	loadPublisherErrorFlag := false
+	var records []Publisher
+	for rows.Next() {
+		p := Publisher{}
+
+		if err = rows.Scan(
+			&p.Name,
+			&p.RegexString,
+		); err != nil {
+			err = fmt.Errorf("rows.Scan: %s", err.Error())
+			return
+		}
+		p.Name = strings.ToLower(p.Name)
+		p.Regex, err = regexp.Compile(p.RegexString)
+		if err != nil {
+			log.WithField("regex", p.RegexString).Error("wrong regex")
+			loadPublisherErrorFlag = true
+		} else {
+			log.WithField("regex", p.RegexString).Debug("regex ok")
+		}
+		records = append(records, p)
+	}
+
+	if rows.Err() != nil {
+		err = fmt.Errorf("rows.Err: %s", err.Error())
+		return
+	}
+
+	if loadPublisherErrorFlag == true {
+
+		loadCampaignError.Set(1.)
+		return
+	} else {
+		loadCampaignError.Set(0.)
+	}
+
+	p.All = make(map[string]Publisher, len(records))
+	for _, publisher := range records {
+		p.All[publisher.Name] = publisher
 	}
 	return nil
 }

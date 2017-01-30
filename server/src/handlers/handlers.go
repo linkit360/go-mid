@@ -13,6 +13,9 @@ type GetAllParams struct {
 type GetAllCampaignsResponse struct {
 	Campaigns map[string]service.Campaign `json:"campaigns,omitempty"`
 }
+type GetAllPublishersResponse struct {
+	Publishers map[string]service.Publisher `json:"publishers,omitempty"`
+}
 type GetByNameParams struct {
 	Name string `json:"name,omitempty"`
 }
@@ -453,6 +456,17 @@ func (rpc *UniqueUrls) Set(req service.ContentSentProperties, res *Response) err
 }
 func (rpc *UniqueUrls) Delete(req service.ContentSentProperties, res *Response) error {
 	service.Svc.UniqueUrls.Delete(req)
+	success.Inc()
+	return nil
+}
+
+type Publisher struct{}
+
+func (rpc *Publisher) All(
+	req GetAllParams, res *GetAllPublishersResponse) error {
+	*res = GetAllPublishersResponse{
+		Publishers: service.Svc.Publishers.All,
+	}
 	success.Inc()
 	return nil
 }

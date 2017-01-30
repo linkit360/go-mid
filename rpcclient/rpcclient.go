@@ -422,3 +422,17 @@ func DeleteUniqueUrlCache(req service.ContentSentProperties) error {
 	)
 	return err
 }
+
+func GetAllPublishers() (map[string]service.Publisher, error) {
+	var res handlers.GetAllPublishersResponse
+	err := call(
+		"Publisher.All",
+		handlers.GetAllParams{},
+		&res,
+	)
+
+	if len(res.Publishers) == 0 {
+		return res.Publishers, errNotFound("")
+	}
+	return res.Publishers, err
+}
