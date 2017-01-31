@@ -92,6 +92,11 @@ func TestGetCampaign(t *testing.T) {
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "GetCampaignByKeyWord")
 	}
+	serviceKey := "450455555"
+	res, err = GetCampaignByKeyWord(serviceKey[:4])
+	if !assert.ObjectsAreEqual(expected, res) {
+		assert.Equal(t, expected, res, "GetCampaignByKeyWord "+serviceKey[:4])
+	}
 }
 
 func TestGetAllCampaigns(t *testing.T) {

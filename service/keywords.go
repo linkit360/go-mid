@@ -48,6 +48,7 @@ func (kws *KeyWords) Reload() error {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return err
 		}
+		log.Debugf("%#v", kw)
 		keywords = append(keywords, kw)
 	}
 	if rows.Err() != nil {
@@ -59,6 +60,5 @@ func (kws *KeyWords) Reload() error {
 	for _, kw := range keywords {
 		kws.ByKeyWord[strings.ToLower(kw.KeyWord)] = kw.CampaignId
 	}
-	log.Debugf("%#v", keywords)
 	return nil
 }

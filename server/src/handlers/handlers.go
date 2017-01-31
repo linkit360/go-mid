@@ -118,7 +118,7 @@ func (rpc *Campaign) ByKeyWord(
 
 	campaignId, ok := service.Svc.KeyWords.ByKeyWord[strings.ToLower(req.Key)]
 	if !ok {
-		log.Errorf("campaign id not found %#v", req.Key)
+		log.Errorf("campaign id not found, key: %s", req.Key)
 		notFound.Inc()
 		keyWordNotFound.Inc()
 		errors.Inc()
