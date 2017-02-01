@@ -16,6 +16,9 @@ type GetAllCampaignsResponse struct {
 type GetAllPublishersResponse struct {
 	Publishers map[string]service.Publisher `json:"publishers,omitempty"`
 }
+type GetAllTargetsResponse struct {
+	Targets map[string]service.Targets `json:"targets,omitempty"`
+}
 type GetByNameParams struct {
 	Name string `json:"name,omitempty"`
 }

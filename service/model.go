@@ -37,14 +37,33 @@ type MemService struct {
 	KeyWords        *KeyWords
 	Rejected        *cache.Cache
 	UniqueUrls      *UniqueUrls
+	Targets         *Targets
 }
 
 type Config struct {
-	OperatorCode    int64     `yaml:"operator_code" default:"41001"`
-	UniqueDays      int       `yaml:"unique_days" default:"10"`
-	StaticPath      string    `yaml:"static_path" default:""`
-	CampaignWebHook string    `yaml:"campaign_web_hook" default:"http://localhost:50300/updateTemplates"`
-	PrivateIpRanges []IpRange `yaml:"private_networks"`
+	OperatorCode    int64         `yaml:"operator_code" default:"41001"`
+	UniqueDays      int           `yaml:"unique_days" default:"10"`
+	StaticPath      string        `yaml:"static_path" default:""`
+	CampaignWebHook string        `yaml:"campaign_web_hook" default:"http://localhost:50300/updateTemplates"`
+	PrivateIpRanges []IpRange     `yaml:"private_networks"`
+	Enabled         EnabledConfig `yaml:"enabled"`
+}
+
+type EnabledConfig struct {
+	Campaigns     bool `yaml:"campaigns" default:"true"`
+	Services      bool `yaml:"services" default:"true"`
+	Contents      bool `yaml:"contents" default:"true"`
+	SentContents  bool `yaml:"sent_contents" default:"true"`
+	IpRanges      bool `yaml:"ip_ranges" default:"true"`
+	Operators     bool `yaml:"operators" default:"true"`
+	Prefixes      bool `yaml:"prefixes" default:"true"`
+	BlackList     bool `yaml:"blacklist" default:"true"`
+	PostPaid      bool `yaml:"postpaid" default:"true"`
+	PixelSettings bool `yaml:"pixel_settings" default:"true"`
+	Publishers    bool `yaml:"publishers" default:"true"`
+	KeyWords      bool `yaml:"keywords" default:"true"`
+	UniqueUrls    bool `yaml:"unique_urls" default:"true"`
+	Targets       bool `yaml:"targets" default:"false"`
 }
 
 func Init(
@@ -76,62 +95,82 @@ func Init(
 	Svc.Publishers = &Publishers{}
 	Svc.KeyWords = &KeyWords{}
 	Svc.UniqueUrls = &UniqueUrls{}
+	Svc.Targets = &Targets{}
 
 	Svc.cqrConfig = []cqr.CQRConfig{
 		{
 			Tables:  []string{"campaigns"},
 			Data:    Svc.Campaigns,
 			WebHook: Svc.conf.CampaignWebHook,
+			Enabled: Svc.conf.Enabled.Campaigns,
 		},
 		{
-			Tables: []string{"service", "service_content"},
-			Data:   Svc.Services,
+			Tables:  []string{"service", "service_content"},
+			Data:    Svc.Services,
+			Enabled: Svc.conf.Enabled.Services,
 		},
 		{
-			Tables: []string{"content"},
-			Data:   Svc.Contents,
+			Tables:  []string{"content"},
+			Data:    Svc.Contents,
+			Enabled: Svc.conf.Enabled.Contents,
 		},
 		{
-			Tables: []string{"content_sent"},
-			Data:   Svc.SentContents,
+			Tables:  []string{"content_sent"},
+			Data:    Svc.SentContents,
+			Enabled: Svc.conf.Enabled.SentContents,
 		},
 		{
-			Tables: []string{"operator_ip", "operator"},
-			Data:   Svc.IpRanges,
+			Tables:  []string{"operator_ip", "operator"},
+			Data:    Svc.IpRanges,
+			Enabled: Svc.conf.Enabled.IpRanges,
 		},
 		{
-			Tables: []string{"operators", "countries"},
-			Data:   Svc.Operators,
+			Tables:  []string{"operators", "countries"},
+			Data:    Svc.Operators,
+			Enabled: Svc.conf.Enabled.Operators,
 		},
 		{
-			Tables: []string{"operator_msisdn_prefix"},
-			Data:   Svc.Prefixes,
+			Tables:  []string{"operator_msisdn_prefix"},
+			Data:    Svc.Prefixes,
+			Enabled: Svc.conf.Enabled.Prefixes,
 		},
 		{
-			Tables: []string{"msisdn_blacklist"},
-			Data:   Svc.BlackList,
+			Tables:  []string{"msisdn_blacklist"},
+			Data:    Svc.BlackList,
+			Enabled: Svc.conf.Enabled.BlackList,
 		},
 		{
-			Tables: []string{"msisdn_postpaid"},
-			Data:   Svc.PostPaid,
+			Tables:  []string{"msisdn_postpaid"},
+			Data:    Svc.PostPaid,
+			Enabled: Svc.conf.Enabled.PostPaid,
 		},
 		{
-			Tables: []string{"pixel_setting"},
-			Data:   Svc.PixelSettings,
+			Tables:  []string{"pixel_setting"},
+			Data:    Svc.PixelSettings,
+			Enabled: Svc.conf.Enabled.PixelSettings,
 		},
 		{
-			Tables: []string{"publishers"},
-			Data:   Svc.Publishers,
+			Tables:  []string{"publishers"},
+			Data:    Svc.Publishers,
+			Enabled: Svc.conf.Enabled.Publishers,
 		},
 		{
-			Tables: []string{"keyword"},
-			Data:   Svc.KeyWords,
+			Tables:  []string{"keyword"},
+			Data:    Svc.KeyWords,
+			Enabled: Svc.conf.Enabled.KeyWords,
 		},
 		{
-			Tables: []string{"content_unique_urls"},
-			Data:   Svc.UniqueUrls,
+			Tables:  []string{"content_unique_urls"},
+			Data:    Svc.UniqueUrls,
+			Enabled: Svc.conf.Enabled.UniqueUrls,
+		},
+		{
+			Tables:  []string{"partgers", "target"},
+			Data:    Svc.Targets,
+			Enabled: Svc.conf.Enabled.Targets,
 		},
 	}
+
 	if err := cqr.InitCQR(Svc.cqrConfig); err != nil {
 		log.Fatal("cqr.InitCQR: " + err.Error())
 	}

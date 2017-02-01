@@ -8,6 +8,10 @@ service:
   unique_days: 10
   operator_code: 41001
   static_path: /var/www/xmp.linkit360.ru/web/
+
+  enabled:
+    targets: true
+
   private_networks:
   - start: 10.0.0.0
     end: 10.255.255.255
