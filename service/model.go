@@ -18,26 +18,27 @@ import (
 var Svc MemService
 
 type MemService struct {
-	db              *sql.DB
-	dbConf          db.DataBaseConfig
-	conf            Config
-	cqrConfig       []cqr.CQRConfig
-	privateIPRanges []IpRange
-	Campaigns       *Campaigns
-	Services        *Services
-	Contents        *Contents
-	SentContents    *SentContents
-	IpRanges        *IpRanges
-	Operators       *Operators
-	Prefixes        *Prefixes
-	BlackList       *BlackList
-	PostPaid        *PostPaid
-	PixelSettings   *PixelSettings
-	Publishers      *Publishers
-	KeyWords        *KeyWords
-	Rejected        *cache.Cache
-	UniqueUrls      *UniqueUrls
-	Targets         *Targets
+	db                 *sql.DB
+	dbConf             db.DataBaseConfig
+	conf               Config
+	cqrConfig          []cqr.CQRConfig
+	privateIPRanges    []IpRange
+	Campaigns          *Campaigns
+	Services           *Services
+	Contents           *Contents
+	SentContents       *SentContents
+	IpRanges           *IpRanges
+	Operators          *Operators
+	Prefixes           *Prefixes
+	BlackList          *BlackList
+	PostPaid           *PostPaid
+	PixelSettings      *PixelSettings
+	Publishers         *Publishers
+	KeyWords           *KeyWords
+	Rejected           *cache.Cache
+	UniqueUrls         *UniqueUrls
+	Destinations       *Destinations
+	RedirectStatCounts *RedirectStatCounts
 }
 
 type Config struct {
@@ -50,20 +51,21 @@ type Config struct {
 }
 
 type EnabledConfig struct {
-	Campaigns     bool `yaml:"campaigns" default:"true"`
-	Services      bool `yaml:"services" default:"true"`
-	Contents      bool `yaml:"contents" default:"true"`
-	SentContents  bool `yaml:"sent_contents" default:"true"`
-	IpRanges      bool `yaml:"ip_ranges" default:"true"`
-	Operators     bool `yaml:"operators" default:"true"`
-	Prefixes      bool `yaml:"prefixes" default:"true"`
-	BlackList     bool `yaml:"blacklist" default:"true"`
-	PostPaid      bool `yaml:"postpaid" default:"true"`
-	PixelSettings bool `yaml:"pixel_settings" default:"true"`
-	Publishers    bool `yaml:"publishers" default:"true"`
-	KeyWords      bool `yaml:"keywords" default:"true"`
-	UniqueUrls    bool `yaml:"unique_urls" default:"true"`
-	Targets       bool `yaml:"targets" default:"false"`
+	Campaigns          bool `yaml:"campaigns" default:"true"`
+	Services           bool `yaml:"services" default:"true"`
+	Contents           bool `yaml:"contents" default:"true"`
+	SentContents       bool `yaml:"sent_contents" default:"true"`
+	IpRanges           bool `yaml:"ip_ranges" default:"true"`
+	Operators          bool `yaml:"operators" default:"true"`
+	Prefixes           bool `yaml:"prefixes" default:"true"`
+	BlackList          bool `yaml:"blacklist" default:"true"`
+	PostPaid           bool `yaml:"postpaid" default:"true"`
+	PixelSettings      bool `yaml:"pixel_settings" default:"true"`
+	Publishers         bool `yaml:"publishers" default:"true"`
+	KeyWords           bool `yaml:"keywords" default:"true"`
+	UniqueUrls         bool `yaml:"unique_urls" default:"true"`
+	Destinations       bool `yaml:"destinations"`
+	RedirectStatCounts bool `yaml:"redirect_stats_count"`
 }
 
 func Init(
@@ -95,7 +97,8 @@ func Init(
 	Svc.Publishers = &Publishers{}
 	Svc.KeyWords = &KeyWords{}
 	Svc.UniqueUrls = &UniqueUrls{}
-	Svc.Targets = &Targets{}
+	Svc.Destinations = &Destinations{}
+	Svc.RedirectStatCounts = &RedirectStatCounts{}
 
 	Svc.cqrConfig = []cqr.CQRConfig{
 		{
@@ -165,9 +168,14 @@ func Init(
 			Enabled: Svc.conf.Enabled.UniqueUrls,
 		},
 		{
-			Tables:  []string{"partgers", "target"},
-			Data:    Svc.Targets,
-			Enabled: Svc.conf.Enabled.Targets,
+			Tables:  []string{"partners", "destinations"},
+			Data:    Svc.Destinations,
+			Enabled: Svc.conf.Enabled.Destinations,
+		},
+		{
+			Tables:  []string{"destinations", "destinations_hits"},
+			Data:    Svc.RedirectStatCounts,
+			Enabled: Svc.conf.Enabled.RedirectStatCounts,
 		},
 	}
 

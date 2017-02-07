@@ -436,3 +436,40 @@ func GetAllPublishers() (map[string]service.Publisher, error) {
 	}
 	return res.Publishers, err
 }
+
+func GetAllDestinations() ([]service.Destinations, error) {
+	var res handlers.GetAllDestinationsResponse
+	err := call(
+		"Destinations.All",
+		handlers.GetAllParams{},
+		&res,
+	)
+
+	if len(res.Destinations) == 0 {
+		return res.Destinations, errNotFound("")
+	}
+	return res.Destinations, err
+}
+
+func GetAllRedirectStatCounts() (map[int64]*service.StatCount, error) {
+	var res handlers.GetAllRedirectStatCountsResponse
+	err := call(
+		"RedirectStatCounts.All",
+		handlers.GetAllParams{},
+		&res,
+	)
+
+	if len(res.StatCounts) == 0 {
+		return res.StatCounts, errNotFound("")
+	}
+	return res.StatCounts, err
+}
+func IncRedirectStatCounts(destinationId int64) error {
+	var res handlers.Response
+	err := call(
+		"RedirectStatCounts.Inc",
+		handlers.GetByIdParams{Id: destinationId},
+		&res,
+	)
+	return err
+}

@@ -16,8 +16,11 @@ type GetAllCampaignsResponse struct {
 type GetAllPublishersResponse struct {
 	Publishers map[string]service.Publisher `json:"publishers,omitempty"`
 }
-type GetAllTargetsResponse struct {
-	Targets map[string]service.Targets `json:"targets,omitempty"`
+type GetAllDestinationsResponse struct {
+	Destinations []service.Destinations `json:"destinations,omitempty"`
+}
+type GetAllRedirectStatCountsResponse struct {
+	StatCounts map[int64]*service.StatCount `json:"stats,omitempty"`
 }
 type GetByNameParams struct {
 	Name string `json:"name,omitempty"`
@@ -470,6 +473,33 @@ func (rpc *Publisher) All(
 	*res = GetAllPublishersResponse{
 		Publishers: service.Svc.Publishers.All,
 	}
+	success.Inc()
+	return nil
+}
+
+type Destinations struct{}
+
+func (rpc *Destinations) All(
+	req GetAllParams, res *GetAllDestinationsResponse) error {
+	*res = GetAllDestinationsResponse{
+		Destinations: service.Svc.Destinations.ByPrice,
+	}
+	success.Inc()
+	return nil
+}
+
+type RedirectStatCounts struct{}
+
+func (rpc *RedirectStatCounts) All(
+	req GetAllParams, res *GetAllRedirectStatCountsResponse) error {
+	*res = GetAllRedirectStatCountsResponse{
+		StatCounts: service.Svc.RedirectStatCounts.ById,
+	}
+	success.Inc()
+	return nil
+}
+func (rpc *RedirectStatCounts) Inc(req GetByIdParams, res *Response) error {
+	service.Svc.RedirectStatCounts.IncHit(req.Id)
 	success.Inc()
 	return nil
 }
