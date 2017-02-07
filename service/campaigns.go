@@ -22,18 +22,20 @@ type Campaigns struct {
 	ById   map[int64]Campaign
 }
 type Campaign struct {
-	Hash             string `json:"hash"`
-	Link             string `json:"link"`
-	PageWelcome      string `json:"page_welcome"`
-	Id               int64  `json:"id"`
-	ServiceId        int64  `json:"service_id"`
-	AutoClickRatio   int64  `json:"auto_click_ratio"`
-	AutoClickEnabled bool   `json:"auto_click_enabled"`
-	AutoClickCount   int64  `json:"auto_click_count"`
-	CanAutoClick     bool   `json:"can_auto_click"`
+	Hash             string `json:"hash,omitempty"`
+	Link             string `json:"link,omitempty"`
+	PageWelcome      string `json:"page_welcome,omitempty"`
+	Id               int64  `json:"id,omitempty"`
+	ServiceId        int64  `json:"service_id,omitempty"`
+	AutoClickRatio   int64  `json:"auto_click_ratio,omitempty"`
+	AutoClickEnabled bool   `json:"auto_click_enabled,omitempty"`
+	AutoClickCount   int64  `json:"auto_click_count,omitempty"`
+	CanAutoClick     bool   `json:"can_auto_click,omitempty"`
+	PageSuccess      string `json:"page_success,omitempty"`
+	PageError        string `json:"page_error,omitempty"`
 }
 
-func (campaign *Campaign) Serve(c *gin.Context) {
+func (campaign *Campaign) SimpleServe(c *gin.Context) {
 	data := struct {
 		AutoClick bool
 	}{
@@ -74,6 +76,8 @@ func (s *Campaigns) Reload() (err error) {
 		"hash, "+
 		"link, "+
 		"page_welcome, "+
+		"page_success, "+
+		"page_error, "+
 		"service_id, "+
 		"autoclick_enabled, "+
 		"autoclick_ratio "+
@@ -97,6 +101,8 @@ func (s *Campaigns) Reload() (err error) {
 			&record.Hash,
 			&record.Link,
 			&record.PageWelcome,
+			&record.PageSuccess,
+			&record.PageError,
 			&record.ServiceId,
 			&record.AutoClickEnabled,
 			&record.AutoClickRatio,
