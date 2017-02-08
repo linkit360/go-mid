@@ -1,16 +1,14 @@
 package service
 
-// targets - links to redirect rejected traffic
+// destinations - links to redirect rejected traffic
 
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/vostrok/utils/rec"
-	"strconv"
-	"strings"
 )
 
 type Destinations struct {
@@ -22,7 +20,7 @@ type Destinations struct {
 type Destination struct {
 	DestinationId int64   `json:"destination_id,omitempty"`
 	PartnerId     int64   `json:"partner_id,omitempty"`
-	AmountLimit   int64   `json:"amount_limit,omitempty"`
+	AmountLimit   uint64  `json:"amount_limit,omitempty"`
 	Destination   string  `json:"destination,omitempty"`
 	RateLimit     int     `json:"rate_limit,omitempty"`
 	PricePerHit   float64 `json:"price_per_hit,omitempty"`
@@ -100,7 +98,7 @@ type StatCount struct {
 	Limit uint64
 }
 
-func (dh *RedirectStatCounts) Reload() {
+func (dh *RedirectStatCounts) Reload() (err error) {
 	dh.Lock()
 	defer dh.Unlock()
 
@@ -115,12 +113,11 @@ func (dh *RedirectStatCounts) Reload() {
 		" WHERE id_destination IN (" + strings.Join(placeHolders, ", ") +
 		") GROUP BY id_destination"
 
-	var err error
 	var rows *sql.Rows
 	rows, err = Svc.db.Query(query)
 	if err != nil {
 		err = fmt.Errorf("db.Query: %s, query: %s", err.Error(), query)
-		return err
+		return
 	}
 	defer rows.Close()
 
@@ -143,24 +140,28 @@ func (dh *RedirectStatCounts) Reload() {
 		return err
 	}
 
-	dh.ById = make(map[int64]Destination, len(sc))
+	dh.ById = make(map[int64]*StatCount, len(sc))
 	for _, s := range sc {
-		dh.ById[s.Id] = s
+		statCount := s
+		dh.ById[s.Id] = &statCount
 	}
+	return nil
 }
 
-func (dh *RedirectStatCounts) IncHit(id int64) bool {
+func (dh *RedirectStatCounts) IncHit(id int64) (err error) {
 	if _, ok := dh.ById[id]; !ok {
-		if _, ok := Svc.Destinations.ById[id]; !ok {
-			log.Errorf("id %d: is unknown", id)
+		dbid, ok := Svc.Destinations.ById[id]
+		if !ok {
+			err = fmt.Errorf("id %d: is unknown", id)
+			log.Error(err.Error())
 			return
 		}
 		dh.ById[id] = &StatCount{
 			Id:    id,
-			Limit: Svc.Destinations.ById[id].AmountLimit,
+			Limit: dbid.AmountLimit,
 			Count: 0,
 		}
 	}
-	dh.ById[id]++
-	return
+	dh.ById[id].Count++
+	return nil
 }

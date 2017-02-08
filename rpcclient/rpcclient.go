@@ -376,10 +376,11 @@ func PostPaidRemove(msisdn string) error {
 	return err
 }
 
+// Rejected
 func GetMsisdnCampaignCache(campaignId int64, msisdn string) (int64, error) {
 	var res int64
 	err := call(
-		"Rejected.Get",
+		"RejectedByCampaign.Get",
 		handlers.RejectedParams{Msisdn: msisdn, CampaignId: campaignId},
 		&res,
 	)
@@ -388,11 +389,31 @@ func GetMsisdnCampaignCache(campaignId int64, msisdn string) (int64, error) {
 func SetMsisdnCampaignCache(campaignId int64, msisdn string) error {
 	var res handlers.BoolResponse
 	err := call(
-		"Rejected.Set",
+		"RejectedByCampaign.Set",
 		handlers.RejectedParams{Msisdn: msisdn, CampaignId: campaignId},
 		&res,
 	)
 	return err
+}
+
+func SetMsisdnServiceCache(serviceId int64, msisdn string) error {
+	var res handlers.BoolResponse
+	err := call(
+		"RejectedByService.Set",
+		handlers.RejectedParams{Msisdn: msisdn, ServiceId: serviceId},
+		&res,
+	)
+	return err
+}
+
+func IsMsisdnRejectedByService(serviceId int64, msisdn string) (bool, error) {
+	var res handlers.BoolResponse
+	err := call(
+		"RejectedByService.Is",
+		handlers.RejectedParams{Msisdn: msisdn, ServiceId: serviceId},
+		&res,
+	)
+	return res.Result, err
 }
 
 func SetUniqueUrlCache(req service.ContentSentProperties) error {
@@ -437,7 +458,7 @@ func GetAllPublishers() (map[string]service.Publisher, error) {
 	return res.Publishers, err
 }
 
-func GetAllDestinations() ([]service.Destinations, error) {
+func GetAllDestinations() ([]service.Destination, error) {
 	var res handlers.GetAllDestinationsResponse
 	err := call(
 		"Destinations.All",

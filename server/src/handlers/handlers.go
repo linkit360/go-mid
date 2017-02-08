@@ -17,7 +17,7 @@ type GetAllPublishersResponse struct {
 	Publishers map[string]service.Publisher `json:"publishers,omitempty"`
 }
 type GetAllDestinationsResponse struct {
-	Destinations []service.Destinations `json:"destinations,omitempty"`
+	Destinations []service.Destination `json:"destinations,omitempty"`
 }
 type GetAllRedirectStatCountsResponse struct {
 	StatCounts map[int64]*service.StatCount `json:"stats,omitempty"`
@@ -63,6 +63,7 @@ type GetByParams struct {
 type RejectedParams struct {
 	Msisdn     string `json:"msisdn,omitempty"`
 	CampaignId int64  `json:"campaign_id,omitempty"`
+	ServiceId  int64  `json:"service_id,omitempty"`
 }
 type Response struct{}
 
@@ -201,9 +202,9 @@ func (rpc *PostPaid) Remove(
 }
 
 // Rejected
-type Rejected struct{}
+type RejectedByCampaign struct{}
 
-func (rpc *Rejected) Set(
+func (rpc *RejectedByCampaign) Set(
 	req RejectedParams, res *BoolResponse) error {
 
 	service.SetMsisdnCampaignCache(req.CampaignId, req.Msisdn)
@@ -211,11 +212,30 @@ func (rpc *Rejected) Set(
 	return nil
 }
 
-func (rpc *Rejected) Get(
+func (rpc *RejectedByCampaign) Get(
 	req RejectedParams, res *int64) error {
 
 	campaignId := service.GetMsisdnCampaignCache(req.CampaignId, req.Msisdn)
 	*res = campaignId
+	success.Inc()
+	return nil
+}
+
+type RejectedByService struct{}
+
+func (rpc *RejectedByService) Set(
+	req RejectedParams, res *BoolResponse) error {
+
+	service.SetMsisdnServiceCache(req.ServiceId, req.Msisdn)
+	success.Inc()
+	return nil
+}
+
+func (rpc *RejectedByService) Is(
+	req RejectedParams, res *bool) error {
+
+	is := service.IsMsisdnRejectedByService(req.ServiceId, req.Msisdn)
+	*res = is
 	success.Inc()
 	return nil
 }
@@ -499,7 +519,7 @@ func (rpc *RedirectStatCounts) All(
 	return nil
 }
 func (rpc *RedirectStatCounts) Inc(req GetByIdParams, res *Response) error {
-	service.Svc.RedirectStatCounts.IncHit(req.Id)
+	err := service.Svc.RedirectStatCounts.IncHit(req.Id)
 	success.Inc()
-	return nil
+	return err
 }

@@ -35,7 +35,8 @@ type MemService struct {
 	PixelSettings      *PixelSettings
 	Publishers         *Publishers
 	KeyWords           *KeyWords
-	Rejected           *cache.Cache
+	RejectedByCampaign *cache.Cache
+	RejectedByService  *cache.Cache
 	UniqueUrls         *UniqueUrls
 	Destinations       *Destinations
 	RedirectStatCounts *RedirectStatCounts
