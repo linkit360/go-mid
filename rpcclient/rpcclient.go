@@ -127,7 +127,7 @@ func GetOperatorByCode(code int64) (service.Operator, error) {
 		handlers.GetByCodeParams{Code: code},
 		&operator,
 	)
-	if operator == (service.Operator{}) {
+	if operator.Code == 0 {
 		return operator, errNotFound(code)
 	}
 
@@ -141,7 +141,7 @@ func GetOperatorByName(name string) (service.Operator, error) {
 		handlers.GetByNameParams{Name: name},
 		&operator,
 	)
-	if operator == (service.Operator{}) {
+	if operator.Code == 0 {
 		return operator, errNotFound(name)
 	}
 	return operator, err
@@ -162,7 +162,7 @@ func GetOperatorByPrefix(prefix string) (service.Operator, error) {
 		handlers.GetByPrefixParams{Prefix: prefix},
 		&operator,
 	)
-	if operator == (service.Operator{}) {
+	if operator.Code == 0 {
 		return operator, errNotFound(prefix)
 	}
 	return operator, err
@@ -485,7 +485,7 @@ func GetAllRedirectStatCounts() (map[int64]*service.StatCount, error) {
 	}
 	return res.StatCounts, err
 }
-func IncRedirectStatCounts(destinationId int64) error {
+func IncRedirectStatCount(destinationId int64) error {
 	var res handlers.Response
 	err := call(
 		"RedirectStatCounts.Inc",

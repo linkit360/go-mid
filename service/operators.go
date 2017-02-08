@@ -2,6 +2,7 @@ package service
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -18,11 +19,12 @@ type Operators struct {
 }
 
 type Operator struct {
-	Name        string
-	Rps         int
-	Settings    string
-	Code        int64
-	CountryName string
+	Name          string
+	Rps           int
+	Settings      string
+	Code          int64
+	CountryName   string
+	MsisdnHeaders []string
 }
 
 func (ops *Operators) Reload() error {
@@ -35,7 +37,8 @@ func (ops *Operators) Reload() error {
 		"code,  "+
 		"rps, "+
 		"settings, "+
-		"( SELECT %scountries.name as country_name FROM %scountries WHERE country_code = code ) "+
+		"( SELECT %scountries.name as country_name FROM %scountries WHERE country_code = code ), "+
+		"msisdn_headers"+
 		"FROM %soperators",
 		Svc.dbConf.TablePrefix,
 		Svc.dbConf.TablePrefix,
@@ -49,18 +52,28 @@ func (ops *Operators) Reload() error {
 	}
 	defer rows.Close()
 
+	operatorLoadHeaderError := false
 	var operators []Operator
 	for rows.Next() {
 		var operator Operator
+		var headers string
 		if err = rows.Scan(
 			&operator.Name,
 			&operator.Code,
 			&operator.Rps,
 			&operator.Settings,
 			&operator.CountryName,
+			&headers,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return err
+		}
+		decodedHeaders := make([]string, 0)
+		if err := json.Unmarshal([]byte(headers), &decodedHeaders); err != nil {
+			err = fmt.Errorf("json.Unmarshal: %s", err.Error())
+			operatorLoadHeaderError = true
+		} else {
+			operator.MsisdnHeaders = decodedHeaders
 		}
 		operator.Name = strings.ToLower(operator.Name)
 		operator.CountryName = strings.ToLower(operator.CountryName)
@@ -68,6 +81,13 @@ func (ops *Operators) Reload() error {
 	}
 	if rows.Err() != nil {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
+		return err
+	}
+
+	if operatorLoadHeaderError == false {
+		loadOperatorHeaderError.Set(0.)
+	} else {
+		loadOperatorHeaderError.Set(1.)
 		return err
 	}
 

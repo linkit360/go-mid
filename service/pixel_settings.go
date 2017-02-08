@@ -171,11 +171,10 @@ func (p *Publishers) Reload() (err error) {
 	}
 
 	if loadPublisherErrorFlag == true {
-
-		loadCampaignError.Set(1.)
+		loadPublisherRegexError.Set(1.)
 		return
 	} else {
-		loadCampaignError.Set(0.)
+		loadPublisherRegexError.Set(0.)
 	}
 
 	p.All = make(map[string]Publisher, len(records))
