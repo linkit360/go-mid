@@ -54,13 +54,13 @@ func GetMsisdnCampaignCache(campaignId int64, msisdn string) int64 {
 
 func SetMsisdnServiceCache(serviceId int64, msisdn string) {
 	key := msisdn + strconv.FormatInt(serviceId, 10)
-	Svc.RejectedByCampaign.Set(key, struct{}{}, 24*time.Hour)
+	Svc.RejectedByService.Set(key, struct{}{}, 24*time.Hour)
 	log.WithField("key", key).Debug("rejected set")
 }
 
-func IsMsisdnRejectedByService(campaignId int64, msisdn string) bool {
-	key := msisdn + strconv.FormatInt(campaignId, 10)
-	_, found := Svc.RejectedByCampaign.Get(key)
+func IsMsisdnRejectedByService(serviceId int64, msisdn string) bool {
+	key := msisdn + strconv.FormatInt(serviceId, 10)
+	_, found := Svc.RejectedByService.Get(key)
 	return found
 }
 

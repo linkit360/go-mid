@@ -275,10 +275,10 @@ func TestRejected(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotEqual(t, int64(290), cache, "is rejected")
 
-	err = SetMsisdnServiceCache(290, "923005557326")
+	err = SetMsisdnServiceCache(777, "923005557326")
 	assert.Nil(t, err)
 
-	isRejected, err := IsMsisdnRejectedByService(290, "923005557326")
+	isRejected, err := IsMsisdnRejectedByService(777, "923005557326")
 	assert.Nil(t, err)
 	assert.Equal(t, true, isRejected, "is rejected")
 }
