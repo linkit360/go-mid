@@ -24,18 +24,19 @@ func TestGetOperator(t *testing.T) {
 	//fmt.Printf("%#v %#v\n", res, err)
 	assert.Nil(t, err)
 	expected := service.Operator{
-		Name:        "mobilink",
-		Rps:         10,
-		Settings:    "{}",
-		Code:        41001,
-		CountryName: "pakistan",
+		Name:          "mobilink",
+		Rps:           10,
+		Settings:      "{}",
+		Code:          41001,
+		CountryName:   "pakistan",
+		MsisdnHeaders: []string{"HTTP_MSISDN"},
 	}
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "operators differ")
 	}
 
 	res, err = GetOperatorByName("mobilink")
-	//fmt.Printf("%#v %#v\n", res, err)
+
 	assert.Nil(t, err)
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "operators differ")
@@ -293,6 +294,13 @@ func TestRejected(t *testing.T) {
 	cache, err := GetMsisdnCampaignCache(290, "923005557326")
 	assert.Nil(t, err)
 	assert.NotEqual(t, int64(290), cache, "is rejected")
+
+	err = SetMsisdnServiceCache(290, "923005557326")
+	assert.Nil(t, err)
+
+	isRejected, err := IsMsisdnRejectedByService(290, "923005557326")
+	assert.Nil(t, err)
+	assert.Equal(t, true, isRejected, "is rejected")
 }
 
 func TestUniqUrl(t *testing.T) {
@@ -330,4 +338,37 @@ func TestGetAllPublisher(t *testing.T) {
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "No error to get all publishers")
 	assert.Equal(t, 3, len(res), "publishers count")
+}
+
+func TestGetAllDestinations(t *testing.T) {
+	res, err := GetAllDestinations()
+	//fmt.Printf("%#v %#v", res, err)
+	assert.NoError(t, err, "No error to get all destinations")
+	assert.Equal(t, 2, len(res), "destinations count")
+	for _, v := range res {
+		d := service.Destination{
+			DestinationId: 1,
+			PartnerId:     1,
+			AmountLimit:   0x3,
+			Destination:   "http://default",
+			RateLimit:     1,
+			PricePerHit:   1,
+			Score:         1,
+			CountryCode:   62,
+			OperatorCode:  41001,
+		}
+		assert.Equal(t, d, v, "got corect destinations")
+		break
+	}
+
+}
+
+func TestRedirectStatCounts(t *testing.T) {
+	err := IncRedirectStatCount(1)
+	assert.NoError(t, err, "No error at inc dest id")
+
+	res, err := GetAllRedirectStatCounts()
+	assert.NoError(t, err, "No error to get all redirect stats")
+	assert.Equal(t, 1, len(res), "get all redirect stats")
+
 }

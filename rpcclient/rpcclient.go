@@ -407,13 +407,13 @@ func SetMsisdnServiceCache(serviceId int64, msisdn string) error {
 }
 
 func IsMsisdnRejectedByService(serviceId int64, msisdn string) (bool, error) {
-	var res handlers.BoolResponse
+	var res bool
 	err := call(
 		"RejectedByService.Is",
 		handlers.RejectedParams{Msisdn: msisdn, ServiceId: serviceId},
 		&res,
 	)
-	return res.Result, err
+	return res, err
 }
 
 func SetUniqueUrlCache(req service.ContentSentProperties) error {

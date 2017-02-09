@@ -10,7 +10,8 @@ service:
   static_path: /var/www/xmp.linkit360.ru/web/
 
   enabled:
-    targets: true
+    destinations: true
+    redirect_stats_count: true
 
   private_networks:
   - start: 10.0.0.0

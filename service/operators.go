@@ -38,7 +38,7 @@ func (ops *Operators) Reload() error {
 		"rps, "+
 		"settings, "+
 		"( SELECT %scountries.name as country_name FROM %scountries WHERE country_code = code ), "+
-		"msisdn_headers"+
+		"msisdn_headers "+
 		"FROM %soperators",
 		Svc.dbConf.TablePrefix,
 		Svc.dbConf.TablePrefix,

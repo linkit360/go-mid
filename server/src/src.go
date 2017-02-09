@@ -72,6 +72,8 @@ func runRPC(appConfig config.AppConfig) {
 	server.RegisterName("PixelSetting", &handlers.PixelSetting{})
 	server.RegisterName("Publisher", &handlers.Publisher{})
 	server.RegisterName("Prefix", &handlers.Prefix{})
+	server.RegisterName("Destinations", &handlers.Destinations{})
+	server.RegisterName("RedirectStatCounts", &handlers.RedirectStatCounts{})
 
 	for {
 		if conn, err := l.Accept(); err == nil {

@@ -43,8 +43,8 @@ func (ds *Destinations) Reload() error {
 		"score, " +
 		"country_code, " +
 		"operator_code " +
-		"FROM tr.partners_destinations" +
-		"WHERE active IS true" +
+		"FROM tr.partners_destinations " +
+		"WHERE active IS true " +
 		"ORDER BY price_per_hit, score "
 
 	var err error
@@ -102,21 +102,25 @@ func (dh *RedirectStatCounts) Reload() (err error) {
 	dh.Lock()
 	defer dh.Unlock()
 
-	ids := []int64{}
+	if len(Svc.Destinations.ById) == 0 {
+		return nil
+	}
+	ids := []interface{}{}
 	placeHolders := []string{}
 	i := 1
 	for _, v := range Svc.Destinations.ById {
 		ids = append(ids, v.DestinationId)
 		placeHolders = append(placeHolders, fmt.Sprintf("$%d", i))
+		i++
 	}
-	query := "SELECT id_destination, count(*) FROM destinations_hits " +
+	query := "SELECT id_destination, count(*) FROM tr.destinations_hits " +
 		" WHERE id_destination IN (" + strings.Join(placeHolders, ", ") +
 		") GROUP BY id_destination"
 
 	var rows *sql.Rows
-	rows, err = Svc.db.Query(query)
+	rows, err = Svc.db.Query(query, ids...)
 	if err != nil {
-		err = fmt.Errorf("db.Query: %s, query: %s", err.Error(), query)
+		err = fmt.Errorf("db.Query: %s, query: %s, args: %#v", err.Error(), query, ids)
 		return
 	}
 	defer rows.Close()
