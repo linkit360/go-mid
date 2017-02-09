@@ -97,6 +97,11 @@ func TestGetCampaign(t *testing.T) {
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "GetCampaignByKeyWord "+serviceKey[:4])
 	}
+	res, err = GetCampaignByServiceId(777)
+	if !assert.ObjectsAreEqual(expected, res) {
+		assert.Equal(t, expected, res, "GetCampaignByServiceId")
+	}
+
 }
 
 func TestGetAllCampaigns(t *testing.T) {
@@ -342,18 +347,20 @@ func TestGetAllPublisher(t *testing.T) {
 func TestGetAllDestinations(t *testing.T) {
 	res, err := GetAllDestinations()
 	//fmt.Printf("%#v %#v", res, err)
+
 	assert.NoError(t, err, "No error to get all destinations")
 	assert.Equal(t, 2, len(res), "destinations count")
+
 	for _, v := range res {
 		d := service.Destination{
 			DestinationId: 1,
 			PartnerId:     1,
 			AmountLimit:   0x3,
-			Destination:   "http://default",
+			Destination:   "http://linkit360.ru",
 			RateLimit:     1,
 			PricePerHit:   1,
 			Score:         1,
-			CountryCode:   62,
+			CountryCode:   92,
 			OperatorCode:  41001,
 		}
 		assert.Equal(t, d, v, "got corect destinations")

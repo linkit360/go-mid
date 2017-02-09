@@ -17,9 +17,10 @@ import (
 // Reload when changes to campaigns are done
 type Campaigns struct {
 	sync.RWMutex
-	ByHash map[string]Campaign
-	ByLink map[string]Campaign
-	ById   map[int64]Campaign
+	ByHash      map[string]Campaign
+	ByLink      map[string]Campaign
+	ById        map[int64]Campaign
+	ByServiceId map[int64]Campaign
 }
 type Campaign struct {
 	Hash             string `json:"hash,omitempty"`
@@ -82,7 +83,7 @@ func (s *Campaigns) Reload() (err error) {
 		"autoclick_enabled, "+
 		"autoclick_ratio "+
 		"FROM %scampaigns "+
-		"WHERE status = $1",
+		"WHERE status = $1 ORDER BY service_id DESC",
 		Svc.dbConf.TablePrefix)
 	var rows *sql.Rows
 	rows, err = Svc.db.Query(query, ACTIVE_STATUS)
@@ -139,10 +140,12 @@ func (s *Campaigns) Reload() (err error) {
 	s.ByHash = make(map[string]Campaign, len(records))
 	s.ByLink = make(map[string]Campaign, len(records))
 	s.ById = make(map[int64]Campaign, len(records))
+	s.ByServiceId = make(map[int64]Campaign, len(records))
 	for _, campaign := range records {
 		s.ByHash[campaign.Hash] = campaign
 		s.ByLink[campaign.Link] = campaign
 		s.ById[campaign.Id] = campaign
+		s.ByServiceId[campaign.ServiceId] = campaign
 	}
 	return nil
 }

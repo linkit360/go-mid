@@ -119,7 +119,20 @@ func (rpc *Campaign) ById(
 	success.Inc()
 	return nil
 }
+func (rpc *Campaign) ByServiceId(
+	req GetByIdParams, res *service.Campaign) error {
 
+	campaign, ok := service.Svc.Campaigns.ByServiceId[req.Id]
+	if !ok {
+		notFound.Inc()
+		campaignNotFound.Inc()
+		errors.Inc()
+		return nil
+	}
+	*res = campaign
+	success.Inc()
+	return nil
+}
 func (rpc *Campaign) ByKeyWord(
 	req GetByKeyWordParams, res *service.Campaign) error {
 
