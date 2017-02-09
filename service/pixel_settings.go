@@ -1,7 +1,7 @@
 package service
 
 // im-memory pixel settings
-// kept by key fmt.Sprintf("%d-%d-%s", ps.CampaignId, ps.OperatorCode, ps.Publisher)
+// kept by key fmt.Sprintf("%d-%s", ps.CampaignId, ps.Publisher)
 import (
 	"database/sql"
 	"fmt"
@@ -18,7 +18,6 @@ type PixelSettings struct {
 	ByCampaignId map[int64]PixelSetting
 }
 
-//"( SELECT %spublishers.regex as regex FROM %spublishers WHERE id = id_publisher ), "+
 type PixelSetting struct {
 	Id            int64
 	CampaignId    int64
@@ -48,7 +47,7 @@ func (pss *PixelSettings) ByKeyWithRatio(key string) (PixelSetting, error) {
 }
 
 func (ps *PixelSetting) Key() string {
-	return strings.ToLower(fmt.Sprintf("%d-%d-%s", ps.CampaignId, ps.OperatorCode, ps.Publisher))
+	return strings.ToLower(fmt.Sprintf("%d-%s", ps.CampaignId, ps.Publisher))
 }
 
 func (ps *PixelSettings) Reload() (err error) {

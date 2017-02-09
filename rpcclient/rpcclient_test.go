@@ -151,35 +151,11 @@ func TestGetContentById(t *testing.T) {
 	}
 }
 
-func TestGetPixelSettingByKey(t *testing.T) {
-	res, err := GetPixelSettingByKey("mobusi")
-	assert.Error(t, err, "Must be error 'Not found' for incorrect key")
-
-	res, err = GetPixelSettingByKey("290-41001-mobusi")
-	//fmt.Printf("%#v %#v", res, err)
-	expected := service.PixelSetting{
-		Id:            1,
-		CampaignId:    290,
-		OperatorCode:  41001,
-		Publisher:     "Mobusi",
-		Endpoint:      "http://kbgames.net:10001/index.php?pixel=%pixel%&msisdn=%msisdn%&trxid=%trxid%&trxtime=%time%&country=%country_name%&operator=%operator_name%",
-		Timeout:       30,
-		Enabled:       true,
-		Ratio:         1,
-		Count:         0,
-		SkipPixelSend: false,
-	}
-	assert.NoError(t, err, "Must be no error for correct key")
-	if !assert.ObjectsAreEqual(expected, res) {
-		assert.Equal(t, expected, res, "pixel setting differ")
-	}
-}
-
 func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 	res, err := GetPixelSettingByKeyWithRatio("mobusi")
 	assert.Error(t, err, "Must be error 'Not found' for incorrect key")
 
-	res, err = GetPixelSettingByKeyWithRatio("290-41001-mobusi")
+	res, err = GetPixelSettingByKeyWithRatio("290-mobusi")
 	//fmt.Printf("%#v %#v", res, err)
 	expected := service.PixelSetting{
 		Id:            1,
@@ -200,7 +176,7 @@ func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 
 	// in case there are was a pointer error and it return same results
 	// for different keys
-	res, err = GetPixelSettingByKeyWithRatio("290-41001-kimia")
+	res, err = GetPixelSettingByKeyWithRatio("290-kimia")
 	expected = service.PixelSetting{
 		Id:            2,
 		CampaignId:    290,
@@ -222,7 +198,7 @@ func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 
 	skipPixelSend := !expected.SkipPixelSend
 
-	res, err = GetPixelSettingByKeyWithRatio("290-41001-kimia")
+	res, err = GetPixelSettingByKeyWithRatio("290-kimia")
 	expected = service.PixelSetting{
 		Id:            2,
 		CampaignId:    290,

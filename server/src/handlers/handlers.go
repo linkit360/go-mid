@@ -273,20 +273,6 @@ func (rpc *Service) ById(
 // Pixel Setting
 type PixelSetting struct{}
 
-func (rpc *PixelSetting) ByKey(
-	req GetByKeyParams, res *service.PixelSetting) error {
-
-	svc, ok := service.Svc.PixelSettings.ByKey[req.Key]
-	if !ok {
-		notFound.Inc()
-		pixelSettingNotFound.Inc()
-		errors.Inc()
-		return nil
-	}
-	*res = *svc
-	success.Inc()
-	return nil
-}
 func (rpc *PixelSetting) ByCampaignId(
 	req GetByIdParams, res *service.PixelSetting) error {
 

@@ -279,31 +279,6 @@ func GetContentById(contentId int64) (service.Content, error) {
 	return content, err
 }
 
-func GetPixelSettingByKey(key string) (service.PixelSetting, error) {
-	var pixelSetting service.PixelSetting
-	err := call(
-		"PixelSetting.ByKey",
-		handlers.GetByKeyParams{Key: key},
-		&pixelSetting,
-	)
-	if pixelSetting == (service.PixelSetting{}) {
-		return pixelSetting, errNotFound(key)
-	}
-	return pixelSetting, err
-}
-func GetPixelSettingByCampaignId(id int64) (service.PixelSetting, error) {
-	var pixelSetting service.PixelSetting
-	err := call(
-		"PixelSetting.ByKey",
-		handlers.GetByIdParams{Id: id},
-		&pixelSetting,
-	)
-	if pixelSetting == (service.PixelSetting{}) {
-		return pixelSetting, errNotFound(id)
-	}
-	return pixelSetting, err
-}
-
 func GetPixelSettingByKeyWithRatio(key string) (service.PixelSetting, error) {
 	var pixelSetting service.PixelSetting
 	err := call(
