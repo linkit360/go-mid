@@ -53,7 +53,6 @@ func TestGetIPInfo(t *testing.T) {
 		Supported:     true,
 		Local:         false,
 	}
-	//fmt.Printf("%#v %#v", res, err)
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "ip info differ")
 	}

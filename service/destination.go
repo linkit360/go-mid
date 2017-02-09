@@ -93,9 +93,8 @@ type RedirectStatCounts struct {
 }
 
 type StatCount struct {
-	Id    int64
-	Count uint64
-	Limit uint64
+	DestinationId int64
+	Count         uint64
 }
 
 func (dh *RedirectStatCounts) Reload() (err error) {
@@ -129,13 +128,13 @@ func (dh *RedirectStatCounts) Reload() (err error) {
 	for rows.Next() {
 		var s StatCount
 		if err = rows.Scan(
-			&s.Id,
+			&s.DestinationId,
 			&s.Count,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return err
 		}
-		log.Debugf("id %#v: %#v", s.Id, s.Count)
+		log.Debugf("id %#v: %#v", s.DestinationId, s.Count)
 		sc = append(sc, s)
 	}
 
@@ -147,23 +146,23 @@ func (dh *RedirectStatCounts) Reload() (err error) {
 	dh.ById = make(map[int64]*StatCount, len(sc))
 	for _, s := range sc {
 		statCount := s
-		dh.ById[s.Id] = &statCount
+		dh.ById[s.DestinationId] = &statCount
 	}
 	return nil
 }
 
 func (dh *RedirectStatCounts) IncHit(id int64) (err error) {
 	if _, ok := dh.ById[id]; !ok {
-		dbid, ok := Svc.Destinations.ById[id]
+		_, ok := Svc.Destinations.ById[id]
 		if !ok {
+
 			err = fmt.Errorf("id %d: is unknown", id)
 			log.Error(err.Error())
 			return
 		}
 		dh.ById[id] = &StatCount{
-			Id:    id,
-			Limit: dbid.AmountLimit,
-			Count: 0,
+			DestinationId: id,
+			Count:         0,
 		}
 	}
 	dh.ById[id].Count++

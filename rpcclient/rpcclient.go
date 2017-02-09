@@ -479,10 +479,6 @@ func GetAllRedirectStatCounts() (map[int64]*service.StatCount, error) {
 		handlers.GetAllParams{},
 		&res,
 	)
-
-	if len(res.StatCounts) == 0 {
-		return res.StatCounts, errNotFound("")
-	}
 	return res.StatCounts, err
 }
 func IncRedirectStatCount(destinationId int64) error {
