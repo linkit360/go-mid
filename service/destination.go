@@ -56,6 +56,7 @@ func (ds *Destinations) Reload() error {
 	}
 	defer rows.Close()
 
+	var dd []Destination
 	for rows.Next() {
 		var d Destination
 		if err = rows.Scan(
@@ -73,7 +74,7 @@ func (ds *Destinations) Reload() error {
 			return err
 		}
 		log.Debugf("%#v", d)
-		ds.ByPrice = append(ds.ByPrice, d)
+		dd = append(dd, d)
 	}
 	if rows.Err() != nil {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
@@ -81,9 +82,10 @@ func (ds *Destinations) Reload() error {
 	}
 
 	ds.ById = make(map[int64]Destination, len(ds.ByPrice))
-	for _, d := range ds.ByPrice {
+	for _, d := range dd {
 		ds.ById[d.DestinationId] = d
 	}
+	ds.ByPrice = dd
 	return nil
 }
 
