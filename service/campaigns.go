@@ -36,12 +36,7 @@ type Campaign struct {
 	PageError        string `json:"page_error,omitempty"`
 }
 
-func (campaign *Campaign) SimpleServe(c *gin.Context) {
-	data := struct {
-		AutoClick bool
-	}{
-		AutoClick: campaign.CanAutoClick,
-	}
+func (campaign *Campaign) SimpleServe(c *gin.Context, data interface{}) {
 	campaign.incRatio()
 	log.WithFields(log.Fields{
 		"id":                campaign.Id,
