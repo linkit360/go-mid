@@ -8,6 +8,7 @@ service:
   unique_days: 10
   operator_code: 41001
   static_path: /var/www/xmp.linkit360.ru/web/
+  campaign_web_hook: http://localhost:50320/updateTemplates
 
   enabled:
     destinations: true
