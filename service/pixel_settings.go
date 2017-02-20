@@ -107,6 +107,10 @@ func (ps *PixelSettings) Reload() (err error) {
 		pixel := p
 		ps.ByKey[p.Key()] = &pixel
 		ps.ByCampaignId[p.CampaignId] = p
+		log.WithFields(log.Fields{
+			"ratio": p.Ratio,
+			"key":   p.Key(),
+		}).Debug("add key")
 	}
 	return nil
 }
