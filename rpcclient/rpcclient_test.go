@@ -127,11 +127,16 @@ func TestGetServiceById(t *testing.T) {
 		PeriodicDays:            `["any"]`,
 		NotPaidText:             "Thank you for downloading, you will be charged in next ten days",
 		ContentIds:              []int64{56, 61},
-		SendContentTextTemplate: "Ta-dam! You can got it here: %s",
+		SendContentTextTemplate: "Your content here: %s",
 	}
+
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "Services differ")
 	}
+	resps, err := GetAllServices()
+	//fmt.Printf("%#v %#v", res, err)
+	assert.NoError(t, err, "No error to get all services")
+	assert.Equal(t, 3, len(resps), "services count")
 }
 
 func TestGetContentById(t *testing.T) {
@@ -331,7 +336,7 @@ func TestGetAllDestinations(t *testing.T) {
 		d := service.Destination{
 			DestinationId: 1,
 			PartnerId:     1,
-			AmountLimit:   0x3,
+			AmountLimit:   0x1e,
 			Destination:   "http://linkit360.ru",
 			RateLimit:     1,
 			PricePerHit:   1,

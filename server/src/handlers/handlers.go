@@ -13,6 +13,9 @@ type GetAllParams struct {
 type GetAllCampaignsResponse struct {
 	Campaigns map[string]service.Campaign `json:"campaigns,omitempty"`
 }
+type GetAllServicesResponse struct {
+	Services map[int64]service.Service `json:"services,omitempty"`
+}
 type GetAllPublishersResponse struct {
 	Publishers map[string]service.Publisher `json:"publishers,omitempty"`
 }
@@ -255,6 +258,15 @@ func (rpc *RejectedByService) Is(
 
 // Service
 type Service struct{}
+
+func (rpc *Service) All(
+	req GetAllParams, res *GetAllServicesResponse) error {
+	*res = GetAllServicesResponse{
+		Services: service.Svc.Services.ById,
+	}
+	success.Inc()
+	return nil
+}
 
 func (rpc *Service) ById(
 	req GetByIdParams, res *service.Service) error {

@@ -253,6 +253,20 @@ func GetAllCampaigns() (map[string]service.Campaign, error) {
 	return res.Campaigns, err
 }
 
+func GetAllServices() (map[int64]service.Service, error) {
+	var res handlers.GetAllServicesResponse
+	err := call(
+		"Service.All",
+		handlers.GetAllParams{},
+		&res,
+	)
+
+	if len(res.Services) == 0 {
+		return res.Services, errNotFound("")
+	}
+	return res.Services, err
+}
+
 func GetServiceById(serviceId int64) (service.Service, error) {
 	var svc service.Service
 	err := call(
