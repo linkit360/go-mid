@@ -60,6 +60,29 @@ func TestGetIPInfo(t *testing.T) {
 	_, err = GetIPInfoByIps([]net.IP{})
 	assert.Error(t, err, "must be error 'Not found'")
 	//fmt.Printf("%#v %#v", ipInfos, err)
+
+	realIP := net.ParseIP("182.232.47.163")
+	result, err := GetIPInfoByIps([]net.IP{realIP})
+	assert.NoError(t, err, "No error for AIS IP")
+	expected = service.IPInfo{
+		IP:            "182.232.47.163",
+		CountryCode:   66,
+		OperatorCode:  52001,
+		MsisdnHeaders: []string{},
+		Range: service.IpRange{
+			Id:            222,
+			OperatorCode:  52001,
+			CountryCode:   66,
+			IpFrom:        "182.232.0.0",
+			IpTo:          "182.232.255.255",
+			MsisdnHeaders: []string{},
+		},
+		Supported: true,
+		Local:     false,
+	}
+	if !assert.ObjectsAreEqual(expected, result[0]) {
+		assert.Equal(t, expected, result[0], "IP Info NOK")
+	}
 }
 
 func TestGetCampaign(t *testing.T) {
