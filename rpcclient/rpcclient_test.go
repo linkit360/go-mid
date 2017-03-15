@@ -223,7 +223,15 @@ func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "pixel settings differ")
 	}
-
+	// in case there are was a pointer error and it return same results
+	// for different keys
+	res, err = GetPixelSettingByKeyWithRatio("41001-kimia")
+	expected.SkipPixelSend = res.SkipPixelSend
+	expected.Count = res.Count
+	assert.NoError(t, err, "Must be no error for correct key")
+	if !assert.ObjectsAreEqual(expected, res) {
+		assert.Equal(t, expected, res, "pixel settings differ")
+	}
 	skipPixelSend := !expected.SkipPixelSend
 
 	res, err = GetPixelSettingByKeyWithRatio("290-kimia")

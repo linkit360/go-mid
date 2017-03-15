@@ -46,8 +46,11 @@ func (pss *PixelSettings) ByKeyWithRatio(key string) (PixelSetting, error) {
 	return *ps, nil
 }
 
-func (ps *PixelSetting) Key() string {
+func (ps *PixelSetting) CampaignKey() string {
 	return strings.ToLower(fmt.Sprintf("%d-%s", ps.CampaignId, ps.Publisher))
+}
+func (ps *PixelSetting) OperatorKey() string {
+	return strings.ToLower(fmt.Sprintf("%d-%s", ps.OperatorCode, ps.Publisher))
 }
 
 func (ps *PixelSettings) Reload() (err error) {
@@ -101,15 +104,18 @@ func (ps *PixelSettings) Reload() (err error) {
 		return
 	}
 
-	ps.ByKey = make(map[string]*PixelSetting, len(records))
+	ps.ByKey = make(map[string]*PixelSetting, 2*len(records))
 	ps.ByCampaignId = make(map[int64]PixelSetting)
 	for _, p := range records {
 		pixel := p
-		ps.ByKey[p.Key()] = &pixel
+		ps.ByKey[p.CampaignKey()] = &pixel
+		ps.ByKey[p.OperatorKey()] = &pixel
+
 		ps.ByCampaignId[p.CampaignId] = p
 		log.WithFields(log.Fields{
 			"ratio": p.Ratio,
-			"key":   p.Key(),
+			"ckey":  p.CampaignKey(),
+			"opkey": p.OperatorKey(),
 		}).Debug("add key")
 	}
 	return nil
