@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	c := RPCClientConfig{
+	c := ClientConfig{
 		DSN:     "localhost:50307",
 		Timeout: 10,
 	}

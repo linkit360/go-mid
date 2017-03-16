@@ -25,10 +25,10 @@ var cli *Client
 
 type Client struct {
 	connection *rpc.Client
-	conf       RPCClientConfig
+	conf       ClientConfig
 	m          *Metrics
 }
-type RPCClientConfig struct {
+type ClientConfig struct {
 	DSN     string `default:":50307" yaml:"dsn"`
 	Timeout int    `default:"10" yaml:"timeout"`
 }
@@ -53,7 +53,7 @@ func initMetrics() *Metrics {
 	}()
 	return m
 }
-func Init(clientConf RPCClientConfig) error {
+func Init(clientConf ClientConfig) error {
 	var err error
 	cli = &Client{
 		conf: clientConf,

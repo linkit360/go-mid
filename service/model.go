@@ -129,7 +129,7 @@ func Init(
 			Enabled: Svc.conf.Enabled.IpRanges,
 		},
 		{
-			Tables:  []string{"operators", "countries"},
+			Tables:  []string{"operator", "countries"},
 			Data:    Svc.Operators,
 			Enabled: Svc.conf.Enabled.Operators,
 		},
