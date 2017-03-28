@@ -299,6 +299,20 @@ func (rpc *PixelSetting) ByCampaignId(
 	success.Inc()
 	return nil
 }
+func (rpc *PixelSetting) ByKey(
+	req GetByKeyParams, res *service.PixelSetting) error {
+
+	ps, err := service.Svc.PixelSettings.GetByKey(req.Key)
+	if err != nil {
+		notFound.Inc()
+		pixelSettingNotFound.Inc()
+		errors.Inc()
+		return nil
+	}
+	*res = ps
+	success.Inc()
+	return nil
+}
 func (rpc *PixelSetting) ByKeyWithRatio(
 	req GetByKeyParams, res *service.PixelSetting) error {
 

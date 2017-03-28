@@ -40,3 +40,5 @@ db:
   host: linkit.cz3twmoynbq5.eu-central-1.rds.amazonaws.com
   ssl_mode: disable
   table_prefix: xmp_
+
+

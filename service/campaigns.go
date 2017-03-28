@@ -46,6 +46,7 @@ func (campaign *Campaign) SimpleServe(c *gin.Context, data interface{}) {
 		"autoclick":         campaign.CanAutoClick,
 	}).Debug("serve")
 
+	c.Writer.Header().Set("Content-Type", "text/html; charset-utf-8")
 	c.HTML(http.StatusOK, campaign.PageWelcome+".html", data)
 }
 

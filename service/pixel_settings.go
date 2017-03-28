@@ -31,6 +31,14 @@ type PixelSetting struct {
 	SkipPixelSend bool
 }
 
+func (pss *PixelSettings) GetByKey(key string) (PixelSetting, error) {
+	ps, ok := pss.ByKey[key]
+	if !ok {
+		return PixelSetting{}, fmt.Errorf("Key %s: not found", key)
+	}
+	return *ps, nil
+}
+
 func (pss *PixelSettings) ByKeyWithRatio(key string) (PixelSetting, error) {
 	ps, ok := pss.ByKey[key]
 	if !ok {

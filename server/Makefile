@@ -15,7 +15,14 @@ build:
 	export GOOS=linux; export GOARCH=amd64; \
 	sed -i "s/%VERSION%/$(VERSION)/g" /home/centos/vostrok/utils/metrics/metrics.go; \
         go build -ldflags "-s -w" -o bin/inmem-linux-amd64; \
+
+
+cp:
 	cp  bin/inmem-linux-amd64 ~/linkit; cp dev/inmem.yml ~/linkit/
+
+tail:
+	tail -10 /var/log/linkit/inmem.log
+
 
 cqrcampaign:
 	curl http://localhost:50308/cqr?t=campaign
