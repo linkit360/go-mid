@@ -6,6 +6,10 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
+
+	log "github.com/Sirupsen/logrus"
+
+	acceptor_client "github.com/linkit360/go-acceptor/rpcclient"
 )
 
 type BlackList struct {
@@ -13,10 +17,13 @@ type BlackList struct {
 	ByMsisdn map[string]struct{}
 }
 
-func (bl *BlackList) Reload() error {
-	bl.Lock()
-	defer bl.Unlock()
-
+func (bl *BlackList) Add(msisdn string) {
+	bl.ByMsisdn[msisdn] = struct{}{}
+}
+func (bl *BlackList) Delete(msisdn string) {
+	delete(bl.ByMsisdn, msisdn)
+}
+func (bl *BlackList) getBlackListedDBCache() (msisdns []string, err error) {
 	query := fmt.Sprintf("SELECT "+
 		"msisdn "+
 		"FROM %smsisdn_blacklist",
@@ -30,18 +37,43 @@ func (bl *BlackList) Reload() error {
 	}
 	defer rows.Close()
 
-	var blackList []string
 	for rows.Next() {
 		var msisdn string
 		if err = rows.Scan(&msisdn); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return err
 		}
-		blackList = append(blackList, msisdn)
+		msisdns = append(msisdns, msisdn)
 	}
 	if rows.Err() != nil {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return err
+	}
+	return
+}
+
+func (bl *BlackList) getBlackListed() (msisdns []string, err error) {
+	msisdns, err := acceptor_client.GetBlackList(data)
+	if err != nil {
+		err = fmt.Errorf("acceptor_client.GetBlackList: %s", err.Error())
+		log.WithFields(log.Fields{"error": err.Error()}).Error("cannot get blacklist from client")
+		return
+	}
+	return
+}
+
+func (bl *BlackList) Reload() error {
+	bl.Lock()
+	defer bl.Unlock()
+
+	blackList, err := bl.getBlackListed()
+	if err != nil {
+		blackList, err = bl.getBlackListedDBCache()
+		if err != nil {
+			err = fmt.Errorf("bl.getBlackListedDBCache: %s", err.Error())
+			log.WithFields(log.Fields{"error": err.Error()}).Error("cannot get blacklist from db cache")
+			return err
+		}
 	}
 
 	bl.ByMsisdn = make(map[string]struct{}, len(blackList))

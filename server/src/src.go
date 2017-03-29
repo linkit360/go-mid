@@ -26,6 +26,7 @@ func Run() {
 	service.Init(
 		appConfig.Service,
 		appConfig.DbConf,
+		appConfig.AcceptorClientConfig,
 	)
 
 	nuCPU := runtime.NumCPU()

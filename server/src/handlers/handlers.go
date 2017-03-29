@@ -46,6 +46,9 @@ type GetByIdParams struct {
 type GetByMsisdnParams struct {
 	Msisdn string `json:"msisdn,omitempty"`
 }
+type BlackListedParams struct {
+	Msisdns []string `json:"msisdns,omitempty"`
+}
 type GetByIPsParams struct {
 	IPs []net.IP `json:"ips,omitempty"`
 }
@@ -181,6 +184,26 @@ func (rpc *BlackList) ByMsisdn(
 	} else {
 		*res = BoolResponse{Result: false}
 	}
+	success.Inc()
+	return nil
+}
+func (rpc *BlackList) Add(
+	req BlackListedParams, res *BoolResponse) error {
+
+	for _, msisdn := range req.Msisdns {
+		service.Svc.BlackList.Add(msisdn)
+	}
+	*res = BoolResponse{Result: true}
+	success.Inc()
+	return nil
+}
+func (rpc *BlackList) Delete(
+	req BlackListedParams, res *BoolResponse) error {
+
+	for _, msisdn := range req.Msisdns {
+		service.Svc.BlackList.Delete(msisdn)
+	}
+	*res = BoolResponse{Result: true}
 	success.Inc()
 	return nil
 }

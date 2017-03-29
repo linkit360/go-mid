@@ -9,6 +9,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/jinzhu/configor"
 
+	acceptor_client "github.com/linkit360/go-acceptor/rpcclient"
 	"github.com/vostrok/inmem/service"
 	"github.com/vostrok/utils/db"
 )
@@ -18,10 +19,11 @@ type ServerConfig struct {
 	HttpPort string `default:"50308" yaml:"http_port"`
 }
 type AppConfig struct {
-	AppName string            `yaml:"app_name"`
-	Server  ServerConfig      `yaml:"server"`
-	Service service.Config    `yaml:"service"`
-	DbConf  db.DataBaseConfig `yaml:"db"`
+	AppName              string                       `yaml:"app_name"`
+	Server               ServerConfig                 `yaml:"server"`
+	Service              service.Config               `yaml:"service"`
+	DbConf               db.DataBaseConfig            `yaml:"db"`
+	AcceptorClientConfig acceptor_client.ClientConfig `yaml:"acceptor_client"`
 }
 
 func LoadConfig() AppConfig {

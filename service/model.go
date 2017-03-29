@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/gin-gonic/gin"
+	acceptor_client "github.com/linkit360/go-acceptor/rpcclient"
 	"github.com/vostrok/utils/cqr"
 	"github.com/vostrok/utils/db"
 	m "github.com/vostrok/utils/metrics"
@@ -72,8 +73,14 @@ type EnabledConfig struct {
 func Init(
 	svcConf Config,
 	dbConf db.DataBaseConfig,
+	acceptorClientConf acceptor_client.ClientConfig,
 
 ) {
+
+	if err := acceptor_client.Init(acceptorClientConf); err != nil {
+		log.Error("cannot init acceptor client")
+	}
+
 	log.SetLevel(log.DebugLevel)
 	initMetrics()
 
