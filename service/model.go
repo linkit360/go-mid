@@ -6,14 +6,14 @@ import (
 	"net"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/gin-gonic/gin"
 	cache "github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/gin-gonic/gin"
-	acceptor_client "github.com/linkit360/go-acceptor/rpcclient"
-	"github.com/vostrok/utils/cqr"
-	"github.com/vostrok/utils/db"
-	m "github.com/vostrok/utils/metrics"
+	acceptor_client "github.com/linkit360/go-acceptor-client"
+	"github.com/linkit360/go-utils/cqr"
+	"github.com/linkit360/go-utils/db"
+	m "github.com/linkit360/go-utils/metrics"
 )
 
 var Svc MemService

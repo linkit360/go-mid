@@ -9,12 +9,12 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"github.com/vostrok/inmem/server/src/handlers"
-	"github.com/vostrok/inmem/service"
-	m "github.com/vostrok/utils/metrics"
+	"github.com/linkit360/go-inmem/server/src/handlers"
+	"github.com/linkit360/go-inmem/service"
+	m "github.com/linkit360/go-utils/metrics"
 )
 
-// rpc client for "github.com/vostrok/inmem/server"
+// rpc client for "github.com/linkit360/go-inmem/server"
 // fails on disconnect
 
 var errNotFound = func(v interface{}) error {

@@ -9,9 +9,9 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/jinzhu/configor"
 
-	acceptor_client "github.com/linkit360/go-acceptor/rpcclient"
-	"github.com/vostrok/inmem/service"
-	"github.com/vostrok/utils/db"
+	acceptor_client "github.com/linkit360/go-acceptor-client"
+	"github.com/linkit360/go-inmem/service"
+	"github.com/linkit360/go-utils/db"
 )
 
 type ServerConfig struct {

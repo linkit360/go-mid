@@ -3,7 +3,7 @@ package handlers
 import (
 	"time"
 
-	m "github.com/vostrok/utils/metrics"
+	m "github.com/linkit360/go-utils/metrics"
 )
 
 var (

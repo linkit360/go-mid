@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/vostrok/inmem/service"
+	"github.com/linkit360/go-inmem/service"
 )
 
 type GetAllParams struct {

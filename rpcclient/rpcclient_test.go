@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/linkit360/go-inmem/service"
 	"github.com/stretchr/testify/assert"
-	"github.com/vostrok/inmem/service"
 )
 
 func init() {

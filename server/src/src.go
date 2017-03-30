@@ -12,10 +12,10 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 
-	"github.com/vostrok/inmem/server/src/config"
-	"github.com/vostrok/inmem/server/src/handlers"
-	"github.com/vostrok/inmem/service"
-	m "github.com/vostrok/utils/metrics"
+	"github.com/linkit360/go-inmem/server/src/config"
+	"github.com/linkit360/go-inmem/server/src/handlers"
+	"github.com/linkit360/go-inmem/service"
+	m "github.com/linkit360/go-utils/metrics"
 )
 
 func Run() {
