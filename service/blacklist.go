@@ -8,7 +8,8 @@ import (
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
-	//acceptor_client "github.com/linkit360/go-acceptor/rpcclient"
+
+	acceptor_client "github.com/linkit360/go-acceptor-client"
 )
 
 type BlackList struct {
@@ -24,8 +25,7 @@ func (bl *BlackList) Delete(msisdn string) {
 }
 func (bl *BlackList) getBlackListedDBCache() (msisdns []string, err error) {
 	query := fmt.Sprintf("SELECT "+
-		"msisdn "+
-		"FROM %smsisdn_blacklist",
+		"msisdn FROM %smsisdn_blacklist",
 		Svc.dbConf.TablePrefix)
 	var rows *sql.Rows
 	rows, err = Svc.db.Query(query)
@@ -51,13 +51,13 @@ func (bl *BlackList) getBlackListedDBCache() (msisdns []string, err error) {
 }
 
 func (bl *BlackList) getBlackListed() ([]string, error) {
-	//msisdns, err := acceptor_client.GetBlackList(data)
-	//if err != nil {
-	//	err = fmt.Errorf("acceptor_client.GetBlackList: %s", err.Error())
-	//	log.WithFields(log.Fields{"error": err.Error()}).Error("cannot get blacklist from client")
-	//	return
-	//}
-	return []string{}, fmt.Errorf("Not Implemented %s", "")
+	msisdns, err := acceptor_client.BlackListGet(Svc.conf.ProviderName)
+	if err != nil {
+		err = fmt.Errorf("acceptor_client.GetBlackList: %s", err.Error())
+		log.WithFields(log.Fields{"error": err.Error()}).Error("cannot get blacklist from client")
+		return
+	}
+	return msisdns, nil
 }
 
 func (bl *BlackList) Reload() error {
