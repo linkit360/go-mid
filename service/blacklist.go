@@ -55,7 +55,7 @@ func (bl *BlackList) getBlackListed() ([]string, error) {
 	if err != nil {
 		err = fmt.Errorf("acceptor_client.GetBlackList: %s", err.Error())
 		log.WithFields(log.Fields{"error": err.Error()}).Error("cannot get blacklist from client")
-		return
+		return []string{}, err
 	}
 	return msisdns, nil
 }

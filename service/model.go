@@ -44,7 +44,7 @@ type MemService struct {
 }
 
 type Config struct {
-	ProviderName    int64         `yaml:"provider_name"`
+	ProviderName    string        `yaml:"provider_name"`
 	OperatorCode    int64         `yaml:"operator_code" default:"41001"`
 	UniqueDays      int           `yaml:"unique_days" default:"10"`
 	StaticPath      string        `yaml:"static_path" default:""`
