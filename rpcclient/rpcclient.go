@@ -70,9 +70,6 @@ func Init(clientConf ClientConfig) error {
 }
 
 func (c *Client) dial() error {
-	if c.connection != nil {
-	}
-
 	conn, err := net.DialTimeout(
 		"tcp",
 		c.conf.DSN,
@@ -94,7 +91,7 @@ func (c *Client) dial() error {
 
 func call(funcName string, req interface{}, res interface{}) error {
 	begin := time.Now()
-	if cli.connection == nil {
+	if cli == nil || cli.connection == nil {
 		cli.dial()
 	}
 	if err := cli.connection.Call(funcName, req, &res); err != nil {

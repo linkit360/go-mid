@@ -5,10 +5,10 @@ package service
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
-	"strings"
 )
 
 type KeyWords struct {
