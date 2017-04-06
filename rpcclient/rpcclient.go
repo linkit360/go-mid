@@ -354,25 +354,6 @@ func IsBlackListed(msisdn string) (bool, error) {
 	return res.Result, err
 }
 
-func AddBlackList(msisdns []string) (bool, error) {
-	var res handlers.BoolResponse
-	err := call(
-		"BlackList.Add",
-		handlers.BlackListedParams{Msisdns: msisdns},
-		&res,
-	)
-	return res.Result, err
-}
-func DeleteBlackList(msisdns []string) (bool, error) {
-	var res handlers.BoolResponse
-	err := call(
-		"BlackList.Delete",
-		handlers.BlackListedParams{Msisdns: msisdns},
-		&res,
-	)
-	return res.Result, err
-}
-
 func IsPostPaid(msisdn string) (bool, error) {
 	var res handlers.BoolResponse
 	err := call(

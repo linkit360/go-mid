@@ -17,12 +17,6 @@ type BlackList struct {
 	ByMsisdn map[string]struct{}
 }
 
-func (bl *BlackList) Add(msisdn string) {
-	bl.ByMsisdn[msisdn] = struct{}{}
-}
-func (bl *BlackList) Delete(msisdn string) {
-	delete(bl.ByMsisdn, msisdn)
-}
 func (bl *BlackList) getBlackListedDBCache() (msisdns []string, err error) {
 	query := fmt.Sprintf("SELECT "+
 		"msisdn FROM %smsisdn_blacklist",

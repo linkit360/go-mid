@@ -187,26 +187,6 @@ func (rpc *BlackList) ByMsisdn(
 	success.Inc()
 	return nil
 }
-func (rpc *BlackList) Add(
-	req BlackListedParams, res *BoolResponse) error {
-
-	for _, msisdn := range req.Msisdns {
-		service.Svc.BlackList.Add(msisdn)
-	}
-	*res = BoolResponse{Result: true}
-	success.Inc()
-	return nil
-}
-func (rpc *BlackList) Delete(
-	req BlackListedParams, res *BoolResponse) error {
-
-	for _, msisdn := range req.Msisdns {
-		service.Svc.BlackList.Delete(msisdn)
-	}
-	*res = BoolResponse{Result: true}
-	success.Inc()
-	return nil
-}
 
 // PostPaid
 type PostPaid struct{}

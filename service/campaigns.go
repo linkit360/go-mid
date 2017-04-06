@@ -25,7 +25,6 @@ type Campaigns struct {
 type Campaign struct {
 	Hash             string `json:"hash,omitempty"`
 	Link             string `json:"link,omitempty"`
-	PageWelcome      string `json:"page_welcome,omitempty"`
 	Id               int64  `json:"id,omitempty"`
 	ServiceId        int64  `json:"service_id,omitempty"`
 	AutoClickRatio   int64  `json:"auto_click_ratio,omitempty"`
@@ -34,6 +33,8 @@ type Campaign struct {
 	CanAutoClick     bool   `json:"can_auto_click,omitempty"`
 	PageSuccess      string `json:"page_success,omitempty"`
 	PageError        string `json:"page_error,omitempty"`
+	PageThankYou     string `json:"page_thank_you,omitempty"`
+	PageWelcome      string `json:"page_welcome,omitempty"`
 }
 
 func (campaign *Campaign) SimpleServe(c *gin.Context, data interface{}) {
@@ -74,6 +75,7 @@ func (s *Campaigns) Reload() (err error) {
 		"link, "+
 		"page_welcome, "+
 		"page_success, "+
+		"page_thank_you, "+
 		"page_error, "+
 		"service_id, "+
 		"autoclick_enabled, "+
@@ -90,27 +92,28 @@ func (s *Campaigns) Reload() (err error) {
 	defer rows.Close()
 
 	loadCampaignErrorFlag := false
-	var records []Campaign
+	var campaigns []Campaign
 	for rows.Next() {
-		record := Campaign{}
+		campaign := Campaign{}
 		if err = rows.Scan(
-			&record.Id,
-			&record.Hash,
-			&record.Link,
-			&record.PageWelcome,
-			&record.PageSuccess,
-			&record.PageError,
-			&record.ServiceId,
-			&record.AutoClickEnabled,
-			&record.AutoClickRatio,
+			&campaign.Id,
+			&campaign.Hash,
+			&campaign.Link,
+			&campaign.PageWelcome,
+			&campaign.PageSuccess,
+			&campaign.PageThankYou,
+			&campaign.PageError,
+			&campaign.ServiceId,
+			&campaign.AutoClickEnabled,
+			&campaign.AutoClickRatio,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
 
 		filePath := Svc.conf.StaticPath +
-			"campaign/" + record.Hash + "/" +
-			record.PageWelcome + ".html"
+			"campaign/" + campaign.Hash + "/" +
+			campaign.PageWelcome + ".html"
 
 		_, err := template.ParseFiles(filePath)
 		if err != nil {
@@ -120,7 +123,7 @@ func (s *Campaigns) Reload() (err error) {
 			err = nil
 		}
 
-		records = append(records, record)
+		campaigns = append(campaigns, campaign)
 	}
 	if rows.Err() != nil {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
@@ -133,11 +136,11 @@ func (s *Campaigns) Reload() (err error) {
 		loadCampaignError.Set(0.)
 	}
 
-	s.ByHash = make(map[string]Campaign, len(records))
-	s.ByLink = make(map[string]Campaign, len(records))
-	s.ById = make(map[int64]Campaign, len(records))
-	s.ByServiceId = make(map[int64]Campaign, len(records))
-	for _, campaign := range records {
+	s.ByHash = make(map[string]Campaign, len(campaigns))
+	s.ByLink = make(map[string]Campaign, len(campaigns))
+	s.ById = make(map[int64]Campaign, len(campaigns))
+	s.ByServiceId = make(map[int64]Campaign, len(campaigns))
+	for _, campaign := range campaigns {
 		s.ByHash[campaign.Hash] = campaign
 		s.ByLink[campaign.Link] = campaign
 		s.ById[campaign.Id] = campaign
