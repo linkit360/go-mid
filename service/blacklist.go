@@ -18,12 +18,17 @@ type BlackList struct {
 }
 
 type BlackListConfig struct {
-	GetNewPeriodMinutes int `yaml:"period"`
+	Enabled             bool `yaml:"enabled"`
+	GetNewPeriodMinutes int  `yaml:"period"`
 }
 
 func initBlackList(c BlackListConfig) *BlackList {
 	bl := &BlackList{
 		conf: c,
+	}
+
+	if !bl.conf.Enabled {
+		return bl
 	}
 
 	go func() {
@@ -83,6 +88,9 @@ func (bl *BlackList) getBlackListedDBCache() (msisdns []string, err error) {
 }
 
 func (bl *BlackList) getBlackListed() ([]string, error) {
+	if !bl.conf.Enabled {
+		return []string{}, fmt.Errorf("BlackList disabled: %s", Svc.conf.ProviderName)
+	}
 
 	msisdns, err := acceptor_client.BlackListGet(Svc.conf.ProviderName)
 	if err != nil {
