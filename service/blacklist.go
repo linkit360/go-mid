@@ -1,11 +1,10 @@
 package service
 
-// very large table.
-// probably, need another type of searching blacklisted numbers
 import (
 	"database/sql"
 	"fmt"
 	"sync"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -14,7 +13,46 @@ import (
 
 type BlackList struct {
 	sync.RWMutex
+	conf     BlackListConfig
 	ByMsisdn map[string]struct{}
+}
+
+type BlackListConfig struct {
+	GetNewPeriodMinutes int `yaml:"period"`
+}
+
+func initBlackList(c BlackListConfig) *BlackList {
+	bl := &BlackList{
+		conf: c,
+	}
+
+	go func() {
+		lastSuccessFullTime := time.Now()
+		for range time.Tick(time.Duration(bl.conf.GetNewPeriodMinutes) * time.Minute) {
+			msisdns, err := acceptor_client.BlackListGetNew(
+				Svc.conf.ProviderName,
+				time.Now().Add(-time.Now().Sub(lastSuccessFullTime)).Format("2006-01-02 15:04:05"),
+			)
+			if err != nil {
+				err = fmt.Errorf("acceptor_client.BlackListGetNew: %s", err.Error())
+				log.WithFields(log.Fields{
+					"error":        err.Error(),
+					"provide_name": Svc.conf.ProviderName,
+					"time_sent":    time.Now().Add(-time.Now().Sub(lastSuccessFullTime)).Format("2006-01-02 15:04:05"),
+				}).Error("cannot get new blacklist from client")
+			} else {
+				for _, msisdn := range msisdns {
+					bl.ByMsisdn[msisdn] = struct{}{}
+				}
+				if len(msisdns) > 0 {
+					log.WithFields(log.Fields{"len": len(msisdns)}).Debug("updated")
+				}
+				lastSuccessFullTime = time.Now()
+			}
+		}
+	}()
+
+	return bl
 }
 
 func (bl *BlackList) getBlackListedDBCache() (msisdns []string, err error) {
@@ -45,6 +83,7 @@ func (bl *BlackList) getBlackListedDBCache() (msisdns []string, err error) {
 }
 
 func (bl *BlackList) getBlackListed() ([]string, error) {
+
 	msisdns, err := acceptor_client.BlackListGet(Svc.conf.ProviderName)
 	if err != nil {
 		err = fmt.Errorf("acceptor_client.GetBlackList: %s", err.Error())

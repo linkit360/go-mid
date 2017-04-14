@@ -4,11 +4,20 @@ server:
   rpc_port: 50307
   http_port: 50308
 
+acceptor_client:
+  enabled: true
+  dsn: 52.220.50.252:50318
+  timeout: 10
+
 service:
+  provider_name: cheese
   unique_days: 10
   operator_code: 41001
   static_path: /var/www/xmp.linkit360.ru/web/
   campaign_web_hook: http://localhost:50320/updateTemplates
+
+  blacklist:
+    period: 1
 
   enabled:
     destinations: true

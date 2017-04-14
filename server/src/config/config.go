@@ -43,7 +43,9 @@ func LoadConfig() AppConfig {
 	if strings.Contains(appConfig.AppName, "-") {
 		log.Fatal("app name must be without '-' : it's not a valid metric name")
 	}
-
+	if appConfig.Service.ProviderName == "" {
+		log.Fatal("provider name is not specified")
+	}
 	appConfig.Server.RPCPort = envString("PORT", appConfig.Server.RPCPort)
 	appConfig.Server.HttpPort = envString("METRICS_PORT", appConfig.Server.HttpPort)
 

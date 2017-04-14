@@ -44,13 +44,14 @@ type MemService struct {
 }
 
 type Config struct {
-	ProviderName    string        `yaml:"provider_name"`
-	OperatorCode    int64         `yaml:"operator_code" default:"41001"`
-	UniqueDays      int           `yaml:"unique_days" default:"10"`
-	StaticPath      string        `yaml:"static_path" default:""`
-	CampaignWebHook string        `yaml:"campaign_web_hook" default:"http://localhost:50300/updateTemplates"`
-	PrivateIpRanges []IpRange     `yaml:"private_networks"`
-	Enabled         EnabledConfig `yaml:"enabled"`
+	ProviderName    string          `yaml:"provider_name"`
+	OperatorCode    int64           `yaml:"operator_code" default:"41001"`
+	UniqueDays      int             `yaml:"unique_days" default:"10"`
+	StaticPath      string          `yaml:"static_path" default:""`
+	BlackList       BlackListConfig `yaml:"blacklist"`
+	CampaignWebHook string          `yaml:"campaign_web_hook" default:"http://localhost:50300/updateTemplates"`
+	PrivateIpRanges []IpRange       `yaml:"private_networks"`
+	Enabled         EnabledConfig   `yaml:"enabled"`
 }
 
 type EnabledConfig struct {
@@ -100,7 +101,7 @@ func Init(
 	Svc.IpRanges = &IpRanges{}
 	Svc.Operators = &Operators{}
 	Svc.Prefixes = &Prefixes{}
-	Svc.BlackList = &BlackList{}
+	Svc.BlackList = initBlackList(svcConf.BlackList)
 	Svc.PostPaid = &PostPaid{}
 	Svc.PixelSettings = &PixelSettings{}
 	Svc.Publishers = &Publishers{}
