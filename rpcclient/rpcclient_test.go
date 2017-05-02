@@ -251,6 +251,24 @@ func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "pixel settings differ")
 	}
+
+	res, err = GetPixelSettingByKeyWithRatio("41001-kimia")
+	expected = service.PixelSetting{
+		Id:            2,
+		CampaignId:    290,
+		OperatorCode:  41001,
+		Publisher:     "Kimia",
+		Endpoint:      "http://kbgames.net:10001/index.php?pixel=%pixel%&msisdn=%msisdn%&trxid=%trxid%&trxtime=%time%&country=%country_name%&operator=%operator_name%",
+		Timeout:       30,
+		Enabled:       true,
+		Ratio:         2,
+		Count:         0,
+		SkipPixelSend: skipPixelSend,
+	}
+	assert.NoError(t, err, "41001-kimia Must be no error for correct key")
+	if !assert.ObjectsAreEqual(expected, res) {
+		assert.Equal(t, expected, res, "41001-kimia pixel settings differ")
+	}
 }
 
 func TestSentContent(t *testing.T) {

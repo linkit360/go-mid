@@ -22,18 +22,21 @@ type Services struct {
 }
 
 type Service struct {
-	Id                      int64
-	Price                   float64
-	PaidHours               int
-	DelayHours              int
-	KeepDays                int
-	SendNotPaidTextEnabled  bool
-	NotPaidText             string
-	PeriodicAllowedFrom     int
-	PeriodicAllowedTo       int
-	SendContentTextTemplate string
-	PeriodicDays            string
-	ContentIds              []int64
+	Id                      int64   `json:"id,omitempty"`
+	Price                   float64 `json:"price,omitempty"`
+	PaidHours               int     `json:"paid_hours,omitempty"`       // rejected rule
+	DelayHours              int     `json:"delay_hours,omitempty"`      // repeat charge delay
+	KeepDays                int     `json:"keep_days,omitempty"`        // for retries
+	SMSOnUnsubscribe        string  `json:"sms_on_subscribe,omitempty"` // if empty, do not send
+	SMSOnContent            string  `json:"sms_on_content,omitempty"`
+	SendContentTextTemplate string  `json:"sms_content_template,omitempty"`
+	SMSOnSubscribe          string  `json:"sms_on_unsubscribe,omitempty"`
+	PeriodicAllowedFrom     int     `json:"periodic_allowed_from,omitempty"` // send content in sms allowed from and to times.
+	PeriodicAllowedTo       int     `json:"periodic_allowed_to,omitempty"`
+	PeriodicDays            string  `json:"periodic_days,omitempty"` // days of subscription is alive
+	InactiveDays            int     `json:"inactive_days,omitempty"` // days of unsuccessful charge turns subscription into inactive state
+	GraceDays               int     `json:"grace_days,omitempty"`    // days in end of subscription period where always must be charged OK
+	ContentIds              []int64 `json:"content_ids,omitempty"`
 }
 
 type ServiceContent struct {
@@ -74,12 +77,15 @@ func (s *Services) Reload() (err error) {
 		"paid_hours, "+
 		"delay_hours, "+
 		"keep_days, "+
-		"not_paid_text, "+
-		"send_not_paid_text_enabled, "+
+		"sms_on_subscribe, "+
+		"sms_on_content, "+
+		"sms_content_template, "+
+		"sms_on_unsubscribe, "+
 		"days, "+
+		"inactive_days, "+
+		"grace_days, "+
 		"allowed_from, "+
 		"allowed_to, "+
-		"send_content_text_template "+
 		"FROM %sservices "+
 		"WHERE status = $1",
 		Svc.dbConf.TablePrefix,
@@ -101,12 +107,15 @@ func (s *Services) Reload() (err error) {
 			&srv.PaidHours,
 			&srv.DelayHours,
 			&srv.KeepDays,
-			&srv.NotPaidText,
-			&srv.SendNotPaidTextEnabled,
+			&srv.SMSOnSubscribe,
+			&srv.SMSOnContent,
+			&srv.SendContentTextTemplate,
+			&srv.SMSOnUnsubscribe,
 			&srv.PeriodicDays,
+			&srv.InactiveDays,
+			&srv.GraceDays,
 			&srv.PeriodicAllowedFrom,
 			&srv.PeriodicAllowedTo,
-			&srv.SendContentTextTemplate,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return

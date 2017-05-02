@@ -60,6 +60,9 @@ func (ps *PixelSetting) CampaignKey() string {
 func (ps *PixelSetting) OperatorKey() string {
 	return strings.ToLower(fmt.Sprintf("%d-%s", ps.OperatorCode, ps.Publisher))
 }
+func (ps *PixelSetting) CampaignOperatorKey() string {
+	return strings.ToLower(fmt.Sprintf("%d-%d-%s", ps.CampaignId, ps.OperatorCode, ps.Publisher))
+}
 
 func (ps *PixelSettings) Reload() (err error) {
 	ps.Lock()
@@ -112,20 +115,27 @@ func (ps *PixelSettings) Reload() (err error) {
 		return
 	}
 
-	ps.ByKey = make(map[string]*PixelSetting, 2*len(records))
+	ps.ByKey = make(map[string]*PixelSetting)
 	ps.ByCampaignId = make(map[int64]PixelSetting)
 	for _, p := range records {
-		pixel := p
-		ps.ByKey[p.CampaignKey()] = &pixel
-		ps.ByKey[p.OperatorKey()] = &pixel
+		pixelC := p
+		pixelO := p
+		ps.ByKey[p.CampaignKey()] = &pixelC
+		ps.ByKey[p.OperatorKey()] = &pixelO
+		ps.ByKey[p.CampaignOperatorKey()] = &pixelO
 
 		ps.ByCampaignId[p.CampaignId] = p
+
 		log.WithFields(log.Fields{
 			"ratio": p.Ratio,
 			"ckey":  p.CampaignKey(),
 			"opkey": p.OperatorKey(),
+			"cokey": p.CampaignOperatorKey(),
 		}).Debug("add key")
 	}
+	log.WithFields(log.Fields{
+		"bykey": fmt.Sprintf("%#v", ps.ByKey),
+	}).Debug("added")
 	return nil
 }
 
