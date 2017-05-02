@@ -36,6 +36,7 @@ type Service struct {
 	PeriodicAllowedTo   int     `json:"periodic_allowed_to,omitempty"`
 	PeriodicDays        string  `json:"periodic_days,omitempty"` // days of week to charge subscriber
 	ContentIds          []int64 `json:"content_ids,omitempty"`
+	MinimalTouchTimes   int     `json:"minimal_touch_times,omitempty"`
 }
 
 type ServiceContent struct {
@@ -78,6 +79,7 @@ func (s *Services) Reload() (err error) {
 		"grace_days, "+
 		"paid_hours, "+
 		"delay_hours, "+
+		"minimal_touch_times, "+
 		"sms_on_subscribe, "+
 		"sms_on_content, "+
 		"sms_on_unsubscribe, "+
@@ -107,6 +109,7 @@ func (s *Services) Reload() (err error) {
 			&srv.GraceDays,
 			&srv.PaidHours,
 			&srv.DelayHours,
+			&srv.MinimalTouchTimes,
 			&srv.SMSOnSubscribe,
 			&srv.SMSOnContent,
 			&srv.SMSOnUnsubscribe,
