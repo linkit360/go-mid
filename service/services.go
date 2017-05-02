@@ -22,21 +22,20 @@ type Services struct {
 }
 
 type Service struct {
-	Id                      int64   `json:"id,omitempty"`
-	Price                   float64 `json:"price,omitempty"`
-	PaidHours               int     `json:"paid_hours,omitempty"`       // rejected rule
-	DelayHours              int     `json:"delay_hours,omitempty"`      // repeat charge delay
-	KeepDays                int     `json:"keep_days,omitempty"`        // for retries
-	SMSOnUnsubscribe        string  `json:"sms_on_subscribe,omitempty"` // if empty, do not send
-	SMSOnContent            string  `json:"sms_on_content,omitempty"`
-	SendContentTextTemplate string  `json:"sms_content_template,omitempty"`
-	SMSOnSubscribe          string  `json:"sms_on_unsubscribe,omitempty"`
-	PeriodicAllowedFrom     int     `json:"periodic_allowed_from,omitempty"` // send content in sms allowed from and to times.
-	PeriodicAllowedTo       int     `json:"periodic_allowed_to,omitempty"`
-	PeriodicDays            string  `json:"periodic_days,omitempty"` // days of subscription is alive
-	InactiveDays            int     `json:"inactive_days,omitempty"` // days of unsuccessful charge turns subscription into inactive state
-	GraceDays               int     `json:"grace_days,omitempty"`    // days in end of subscription period where always must be charged OK
-	ContentIds              []int64 `json:"content_ids,omitempty"`
+	Id                  int64   `json:"id,omitempty"`
+	Price               float64 `json:"price,omitempty"`
+	RetryDays           int     `json:"retry_days,omitempty"`       // for retries - days to keep retries, for periodic - subscription is alive
+	InactiveDays        int     `json:"inactive_days,omitempty"`    // days of unsuccessful charge turns subscription into inactive state
+	GraceDays           int     `json:"grace_days,omitempty"`       // days in end of subscription period where always must be charged OK
+	PaidHours           int     `json:"paid_hours,omitempty"`       // rejected rule
+	DelayHours          int     `json:"delay_hours,omitempty"`      // repeat charge delay
+	SMSOnUnsubscribe    string  `json:"sms_on_subscribe,omitempty"` // if empty, do not send
+	SMSOnContent        string  `json:"sms_on_content,omitempty"`
+	SMSOnSubscribe      string  `json:"sms_on_unsubscribe,omitempty"`
+	PeriodicAllowedFrom int     `json:"periodic_allowed_from,omitempty"` // send content in sms allowed from and to times.
+	PeriodicAllowedTo   int     `json:"periodic_allowed_to,omitempty"`
+	PeriodicDays        string  `json:"periodic_days,omitempty"` // days of week to charge subscriber
+	ContentIds          []int64 `json:"content_ids,omitempty"`
 }
 
 type ServiceContent struct {
@@ -74,18 +73,17 @@ func (s *Services) Reload() (err error) {
 	query := fmt.Sprintf("SELECT "+
 		"id, "+
 		"price, "+
-		"paid_hours, "+
-		"delay_hours, "+
-		"keep_days, "+
-		"sms_on_subscribe, "+
-		"sms_on_content, "+
-		"sms_content_template, "+
-		"sms_on_unsubscribe, "+
-		"days, "+
+		"retry_days, "+
 		"inactive_days, "+
 		"grace_days, "+
+		"paid_hours, "+
+		"delay_hours, "+
+		"sms_on_subscribe, "+
+		"sms_on_content, "+
+		"sms_on_unsubscribe, "+
+		"days, "+
 		"allowed_from, "+
-		"allowed_to, "+
+		"allowed_to "+
 		"FROM %sservices "+
 		"WHERE status = $1",
 		Svc.dbConf.TablePrefix,
@@ -104,16 +102,15 @@ func (s *Services) Reload() (err error) {
 		if err = rows.Scan(
 			&srv.Id,
 			&srv.Price,
-			&srv.PaidHours,
-			&srv.DelayHours,
-			&srv.KeepDays,
-			&srv.SMSOnSubscribe,
-			&srv.SMSOnContent,
-			&srv.SendContentTextTemplate,
-			&srv.SMSOnUnsubscribe,
-			&srv.PeriodicDays,
+			&srv.RetryDays,
 			&srv.InactiveDays,
 			&srv.GraceDays,
+			&srv.PaidHours,
+			&srv.DelayHours,
+			&srv.SMSOnSubscribe,
+			&srv.SMSOnContent,
+			&srv.SMSOnUnsubscribe,
+			&srv.PeriodicDays,
 			&srv.PeriodicAllowedFrom,
 			&srv.PeriodicAllowedTo,
 		); err != nil {

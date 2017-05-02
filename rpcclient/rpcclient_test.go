@@ -139,18 +139,17 @@ func TestGetServiceById(t *testing.T) {
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "No error while get service by id")
 	expected := service.Service{
-		Id:                      777,
-		Price:                   10,
-		PaidHours:               24,
-		DelayHours:              1,
-		KeepDays:                10,
-		SendNotPaidTextEnabled:  false,
-		PeriodicAllowedFrom:     510,
-		PeriodicAllowedTo:       1410,
-		PeriodicDays:            `["any"]`,
-		NotPaidText:             "Thank you for downloading, you will be charged in next ten days",
-		ContentIds:              []int64{56, 61},
-		SendContentTextTemplate: "Your content here: %s",
+		Id:                  777,
+		Price:               10,
+		InactiveDays:        3,
+		RetryDays:           10,
+		GraceDays:           3,
+		PaidHours:           24,
+		DelayHours:          1,
+		PeriodicAllowedFrom: 510,
+		PeriodicAllowedTo:   1410,
+		PeriodicDays:        `[]`,
+		ContentIds:          []int64{56, 61},
 	}
 
 	if !assert.ObjectsAreEqual(expected, res) {
@@ -159,7 +158,7 @@ func TestGetServiceById(t *testing.T) {
 	resps, err := GetAllServices()
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "No error to get all services")
-	assert.Equal(t, 3, len(resps), "services count")
+	assert.Equal(t, 1, len(resps), "services count")
 }
 
 func TestGetContentById(t *testing.T) {
