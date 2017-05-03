@@ -83,9 +83,6 @@ func (c *Client) dial() error {
 		return err
 	}
 	c.connection = jsonrpc.NewClient(conn)
-	log.WithFields(log.Fields{
-		"dsn": c.conf.DSN,
-	}).Debug("dialing inmem")
 	return nil
 }
 
