@@ -32,6 +32,9 @@ type Service struct {
 	SMSOnUnsubscribe    string  `json:"sms_on_subscribe,omitempty"` // if empty, do not send
 	SMSOnContent        string  `json:"sms_on_content,omitempty"`
 	SMSOnSubscribe      string  `json:"sms_on_unsubscribe,omitempty"`
+	SMSOnRejected       string  `json:"sms_on_rejected,omitempty"`
+	SMSOnBlackListed    string  `json:"sms_on_blacklisted,omitempty"`
+	SMSOnPostPaid       string  `json:"sms_on_postpaid,omitempty"`
 	PeriodicAllowedFrom int     `json:"periodic_allowed_from,omitempty"` // send content in sms allowed from and to times.
 	PeriodicAllowedTo   int     `json:"periodic_allowed_to,omitempty"`
 	PeriodicDays        string  `json:"periodic_days,omitempty"` // days of week to charge subscriber
@@ -83,6 +86,9 @@ func (s *Services) Reload() (err error) {
 		"sms_on_subscribe, "+
 		"sms_on_content, "+
 		"sms_on_unsubscribe, "+
+		"sms_on_rejected, "+
+		"sms_on_blacklisted, "+
+		"sms_on_postpaid, "+
 		"days, "+
 		"allowed_from, "+
 		"allowed_to "+
@@ -113,6 +119,9 @@ func (s *Services) Reload() (err error) {
 			&srv.SMSOnSubscribe,
 			&srv.SMSOnContent,
 			&srv.SMSOnUnsubscribe,
+			&srv.SMSOnRejected,
+			&srv.SMSOnBlackListed,
+			&srv.SMSOnPostPaid,
 			&srv.PeriodicDays,
 			&srv.PeriodicAllowedFrom,
 			&srv.PeriodicAllowedTo,
