@@ -20,10 +20,10 @@ type BlackList interface {
 
 type blackList struct {
 	sync.RWMutex
-	conf               BlackListConfig
-	ByMsisdn           map[string]struct{}
-	loadBlacklistError prometheus.Gauge
-	loadBlacklistCache prometheus.Gauge
+	conf      BlackListConfig
+	ByMsisdn  map[string]struct{}
+	loadError prometheus.Gauge
+	loadCache prometheus.Gauge
 }
 
 type BlackListConfig struct {
@@ -34,15 +34,14 @@ type BlackListConfig struct {
 
 func initBlackList(appName string, c BlackListConfig) *blackList {
 	bl := &blackList{
-		conf: c,
+		conf:      c,
+		loadError: m.PrometheusGauge(appName, "blacklist_load", "error", "load blacklist error"),
+		loadCache: m.PrometheusGauge(appName, "blacklist", "cache", "cache blacklist used"),
 	}
-	bl.loadBlacklistError = m.PrometheusGauge(appName, "blacklist_load", "error", "load blacklist error")
 
 	if !bl.conf.FromControlPanel {
 		return bl
 	}
-
-	bl.loadBlacklistCache = m.PrometheusGauge(appName, "blacklist", "cache", "cache blacklist used")
 
 	go func() {
 		lastSuccessFullTime := time.Now()
@@ -117,15 +116,15 @@ func (bl *blackList) Reload() error {
 	bl.Lock()
 	defer bl.Unlock()
 
-	bl.loadBlacklistCache.Set(.0)
-	bl.loadBlacklistError.Set(.0)
+	bl.loadCache.Set(.0)
+	bl.loadError.Set(.0)
 	blackList, err := bl.getBlackListed()
 	if err != nil {
-		bl.loadBlacklistCache.Set(1.0)
-		bl.loadBlacklistError.Set(.0)
+		bl.loadCache.Set(1.0)
+		bl.loadError.Set(.0)
 		blackList, err = bl.getBlackListedDBCache()
 		if err != nil {
-			bl.loadBlacklistCache.Set(1.0)
+			bl.loadCache.Set(1.0)
 			err = fmt.Errorf("bl.getBlackListedDBCache: %s", err.Error())
 			log.WithFields(log.Fields{"error": err.Error()}).Error("cannot get blacklist from db cache")
 			return err

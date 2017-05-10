@@ -93,7 +93,7 @@ func Init(
 	}
 
 	log.SetLevel(log.DebugLevel)
-	initMetrics(appName)
+	Svc.m = initMetrics(appName)
 
 	Svc.db = db.Init(dbConf)
 	Svc.dbConf = dbConf

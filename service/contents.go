@@ -38,6 +38,7 @@ func initContents(appName string, contentConf ContentConfig) Contents {
 	contentSvc := &contents{
 		conf:      contentConf,
 		loadError: m.PrometheusGauge(appName, "content_load", "error", "load content error"),
+		loadCache: m.PrometheusGauge(appName, "content", "cache", "load content cache"),
 	}
 	if !contentSvc.conf.Enabled {
 		return contentSvc
@@ -46,8 +47,6 @@ func initContents(appName string, contentConf ContentConfig) Contents {
 	if !contentSvc.conf.FromControlPanel {
 		return contentSvc
 	}
-
-	contentSvc.loadCache = m.PrometheusGauge(appName, "content", "cache", "load content cache")
 	return contentSvc
 }
 

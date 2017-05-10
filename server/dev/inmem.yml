@@ -17,7 +17,7 @@ service:
   campaign_web_hook: http://localhost:50320/updateTemplates
 
   blacklist:
-    enabled: false
+    enabled: true
     from_control_panel: false
     period: 60
 
