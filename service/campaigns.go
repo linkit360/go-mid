@@ -131,9 +131,9 @@ func (s *Campaigns) Reload() (err error) {
 	}
 
 	if loadCampaignErrorFlag == true {
-		loadCampaignError.Set(1.)
+		Svc.m.LoadCampaignError.Set(1.)
 	} else {
-		loadCampaignError.Set(0.)
+		Svc.m.LoadCampaignError.Set(0.)
 	}
 
 	s.ByHash = make(map[string]Campaign, len(campaigns))

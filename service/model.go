@@ -2,8 +2,10 @@ package service
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
@@ -18,20 +20,26 @@ import (
 
 var Svc MemService
 
+var errNotFound = func() error {
+	Svc.m.NotFound.Inc()
+	return errors.New("Not found")
+}
+
 type MemService struct {
 	db                 *sql.DB
 	dbConf             db.DataBaseConfig
 	conf               Config
+	m                  *serviceMetrics
 	cqrConfig          []cqr.CQRConfig
 	privateIPRanges    []IpRange
 	Campaigns          *Campaigns
-	Services           *Services
+	Services           Services
 	Contents           *Contents
 	SentContents       *SentContents
 	IpRanges           *IpRanges
 	Operators          *Operators
 	Prefixes           *Prefixes
-	BlackList          *BlackList
+	BlackList          BlackList
 	PostPaid           *PostPaid
 	PixelSettings      *PixelSettings
 	Publishers         *Publishers
@@ -49,6 +57,7 @@ type Config struct {
 	UniqueDays      int             `yaml:"unique_days" default:"10"`
 	StaticPath      string          `yaml:"static_path" default:""`
 	BlackList       BlackListConfig `yaml:"blacklist"`
+	Services        ServicesConfig  `yaml:"services"`
 	CampaignWebHook string          `yaml:"campaign_web_hook" default:"http://localhost:50300/updateTemplates"`
 	PrivateIpRanges []IpRange       `yaml:"private_networks"`
 	Enabled         EnabledConfig   `yaml:"enabled"`
@@ -56,13 +65,11 @@ type Config struct {
 
 type EnabledConfig struct {
 	Campaigns          bool `yaml:"campaigns" default:"true"`
-	Services           bool `yaml:"services" default:"true"`
 	Contents           bool `yaml:"contents" default:"true"`
 	SentContents       bool `yaml:"sent_contents" default:"true"`
 	IpRanges           bool `yaml:"ip_ranges" default:"true"`
 	Operators          bool `yaml:"operators" default:"true"`
 	Prefixes           bool `yaml:"prefixes" default:"true"`
-	BlackList          bool `yaml:"blacklist" default:"true"`
 	PostPaid           bool `yaml:"postpaid" default:"true"`
 	PixelSettings      bool `yaml:"pixel_settings" default:"true"`
 	Publishers         bool `yaml:"publishers" default:"true"`
@@ -96,7 +103,7 @@ func Init(
 	Svc.privateIPRanges = loadPrivateIpRanges(svcConf.PrivateIpRanges)
 
 	Svc.Campaigns = &Campaigns{}
-	Svc.Services = &Services{}
+	Svc.Services = initServices(appName, svcConf.Services)
 	Svc.Contents = &Contents{}
 	Svc.SentContents = &SentContents{}
 	Svc.IpRanges = &IpRanges{}
@@ -121,7 +128,7 @@ func Init(
 		{
 			Tables:  []string{"service", "service_content"},
 			Data:    Svc.Services,
-			Enabled: Svc.conf.Enabled.Services,
+			Enabled: Svc.conf.Services.Enabled,
 		},
 		{
 			Tables:  []string{"content"},
@@ -151,7 +158,7 @@ func Init(
 		{
 			Tables:  []string{"msisdn_blacklist"},
 			Data:    Svc.BlackList,
-			Enabled: Svc.conf.Enabled.BlackList,
+			Enabled: Svc.conf.BlackList.Enabled,
 		},
 		{
 			Tables:  []string{"msisdn_postpaid"},
@@ -229,14 +236,26 @@ func loadPrivateIpRanges(ipConf []IpRange) []IpRange {
 	return ipRanges
 }
 
-var (
-	loadCampaignError       prometheus.Gauge
-	loadOperatorHeaderError prometheus.Gauge
-	loadPublisherRegexError prometheus.Gauge
-)
+type serviceMetrics struct {
+	NotFound                m.Gauge
+	LoadCampaignError       prometheus.Gauge
+	LoadOperatorHeaderError prometheus.Gauge
+	LoadPublisherRegexError prometheus.Gauge
+}
 
-func initMetrics(appName string) {
-	loadCampaignError = m.PrometheusGauge(appName, "campaign_load", "error", "load campaign error")
-	loadOperatorHeaderError = m.PrometheusGauge(appName, "operator_load_headers", "error", "operator load headers error")
-	loadPublisherRegexError = m.PrometheusGauge(appName, "publisher_load_regex", "error", "publisher load regex error")
+func initMetrics(appName string) *serviceMetrics {
+	sm := &serviceMetrics{
+		NotFound:                m.NewGauge(appName, "its", "not_found", "inmemory cann't find something"),
+		LoadCampaignError:       m.PrometheusGauge(appName, "campaign_load", "error", "load campaign error"),
+		LoadOperatorHeaderError: m.PrometheusGauge(appName, "operator_load_headers", "error", "operator load headers error"),
+		LoadPublisherRegexError: m.PrometheusGauge(appName, "publisher_load_regex", "error", "publisher load regex error"),
+	}
+
+	go func() {
+		for range time.Tick(time.Minute) {
+			sm.NotFound.Update()
+		}
+	}()
+
+	return sm
 }

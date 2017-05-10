@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
+
+	acceptor "github.com/linkit360/go-acceptor-structs"
 	"github.com/linkit360/go-inmem/service"
 )
 
@@ -14,7 +16,7 @@ type GetAllCampaignsResponse struct {
 	Campaigns map[string]service.Campaign `json:"campaigns,omitempty"`
 }
 type GetAllServicesResponse struct {
-	Services map[int64]service.Service `json:"services,omitempty"`
+	Services map[int64]acceptor.Service `json:"services,omitempty"`
 }
 type GetAllPublishersResponse struct {
 	Publishers map[string]service.Publisher `json:"publishers,omitempty"`
@@ -178,12 +180,9 @@ type BlackList struct{}
 func (rpc *BlackList) ByMsisdn(
 	req GetByMsisdnParams, res *BoolResponse) error {
 
-	_, ok := service.Svc.BlackList.ByMsisdn[req.Msisdn]
-	if ok {
-		*res = BoolResponse{Result: true}
-	} else {
-		*res = BoolResponse{Result: false}
-	}
+	blackListed := service.Svc.BlackList.IsBlacklisted(req.Msisdn)
+	*res = BoolResponse{Result: blackListed}
+
 	success.Inc()
 	return nil
 }
@@ -265,18 +264,17 @@ type Service struct{}
 func (rpc *Service) All(
 	req GetAllParams, res *GetAllServicesResponse) error {
 	*res = GetAllServicesResponse{
-		Services: service.Svc.Services.ById,
+		Services: service.Svc.Services.GetAll(),
 	}
 	success.Inc()
 	return nil
 }
 
 func (rpc *Service) ById(
-	req GetByIdParams, res *service.Service) error {
+	req GetByIdParams, res *acceptor.Service) error {
 
-	svc, ok := service.Svc.Services.ById[req.Id]
-	if !ok {
-		notFound.Inc()
+	svc, err := service.Svc.Services.Get(req.Id)
+	if err != nil {
 		errors.Inc()
 		return nil
 	}

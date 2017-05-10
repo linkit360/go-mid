@@ -85,9 +85,9 @@ func (ops *Operators) Reload() error {
 	}
 
 	if operatorLoadHeaderError == false {
-		loadOperatorHeaderError.Set(0.)
+		Svc.m.LoadOperatorHeaderError.Set(0.)
 	} else {
-		loadOperatorHeaderError.Set(1.)
+		Svc.m.LoadOperatorHeaderError.Set(1.)
 		return err
 	}
 

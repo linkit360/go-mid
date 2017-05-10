@@ -105,9 +105,9 @@ func (ipRanges *IpRanges) Reload() (err error) {
 		return
 	}
 	if operatorLoadHeaderError == false {
-		loadOperatorHeaderError.Set(0.)
+		Svc.m.LoadOperatorHeaderError.Set(0.)
 	} else {
-		loadOperatorHeaderError.Set(1.)
+		Svc.m.LoadOperatorHeaderError.Set(1.)
 	}
 
 	ipRanges.Data = records

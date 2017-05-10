@@ -198,10 +198,10 @@ func (p *Publishers) Reload() (err error) {
 	}
 
 	if loadPublisherErrorFlag == true {
-		loadPublisherRegexError.Set(1.)
+		Svc.m.LoadPublisherRegexError.Set(1.)
 		return
 	} else {
-		loadPublisherRegexError.Set(0.)
+		Svc.m.LoadPublisherRegexError.Set(0.)
 	}
 
 	p.All = make(map[string]Publisher, len(records))

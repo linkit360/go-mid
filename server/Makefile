@@ -1,9 +1,13 @@
-.PHONY: rm build
+.PHONY: rm build dev
 
 VERSION=$(shell git describe --always --long --dirty)
 
 version:
 	 @echo Version IS $(VERSION)
+
+dev:
+	rm -f bin/inmem;
+	go build -o bin/inmem;
 
 run:
 	./server

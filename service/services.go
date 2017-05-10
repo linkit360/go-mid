@@ -10,36 +10,50 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/prometheus/client_golang/prometheus"
+
+	client "github.com/linkit360/go-acceptor-client"
+	acceptor "github.com/linkit360/go-acceptor-structs"
+	m "github.com/linkit360/go-utils/metrics"
 )
 
 // Tasks:
 // Keep in memory all active service to content mapping
 // Allow to get all content ids of given service id
 // Reload when changes to service_content or service are done
-type Services struct {
-	sync.RWMutex
-	ById map[int64]Service
+
+type Services interface {
+	Reload() error
+	Get(int64) (acceptor.Service, error)
+	GetAll() map[int64]acceptor.Service
 }
 
-type Service struct {
-	Id                  int64   `json:"id,omitempty"`
-	Price               float64 `json:"price,omitempty"`
-	RetryDays           int     `json:"retry_days,omitempty"`       // for retries - days to keep retries, for periodic - subscription is alive
-	InactiveDays        int     `json:"inactive_days,omitempty"`    // days of unsuccessful charge turns subscription into inactive state
-	GraceDays           int     `json:"grace_days,omitempty"`       // days in end of subscription period where always must be charged OK
-	PaidHours           int     `json:"paid_hours,omitempty"`       // rejected rule
-	DelayHours          int     `json:"delay_hours,omitempty"`      // repeat charge delay
-	SMSOnUnsubscribe    string  `json:"sms_on_subscribe,omitempty"` // if empty, do not send
-	SMSOnContent        string  `json:"sms_on_content,omitempty"`
-	SMSOnSubscribe      string  `json:"sms_on_unsubscribe,omitempty"`
-	SMSOnRejected       string  `json:"sms_on_rejected,omitempty"`
-	SMSOnBlackListed    string  `json:"sms_on_blacklisted,omitempty"`
-	SMSOnPostPaid       string  `json:"sms_on_postpaid,omitempty"`
-	PeriodicAllowedFrom int     `json:"periodic_allowed_from,omitempty"` // send content in sms allowed from and to times.
-	PeriodicAllowedTo   int     `json:"periodic_allowed_to,omitempty"`
-	PeriodicDays        string  `json:"periodic_days,omitempty"` // days of week to charge subscriber
-	ContentIds          []int64 `json:"content_ids,omitempty"`
-	MinimalTouchTimes   int     `json:"minimal_touch_times,omitempty"`
+type ServicesConfig struct {
+	Enabled          bool `yaml:"enabled"`
+	FromControlPanel bool `yaml:"from_control_panel"`
+}
+
+type services struct {
+	sync.RWMutex
+	conf              ServicesConfig
+	ById              map[int64]acceptor.Service
+	loadServicesError prometheus.Gauge
+	loadServicesCache prometheus.Gauge
+}
+
+func initServices(appName string, servConfig ServicesConfig) Services {
+	svcs := &services{
+		conf:              servConfig,
+		loadServicesError: m.PrometheusGauge(appName, "services_load", "error", "load services error"),
+		loadServicesCache: m.PrometheusGauge(appName, "services", "cache", "load services cache"),
+	}
+
+	if !svcs.conf.FromControlPanel {
+		return svcs
+	}
+
+	svcs.loadServicesCache = m.PrometheusGauge(appName, "services", "cache", "cache services used")
+	return svcs
 }
 
 type ServiceContent struct {
@@ -70,10 +84,7 @@ func (scd Days) ok(days []string) bool {
 	return true
 }
 
-func (s *Services) Reload() (err error) {
-	s.Lock()
-	defer s.Unlock()
-
+func (s *services) loadFromCache() (err error) {
 	query := fmt.Sprintf("SELECT "+
 		"id, "+
 		"price, "+
@@ -104,9 +115,9 @@ func (s *Services) Reload() (err error) {
 	}
 	defer rows.Close()
 
-	var svcs []Service
+	var svcs []acceptor.Service
 	for rows.Next() {
-		var srv Service
+		var srv acceptor.Service
 		if err = rows.Scan(
 			&srv.Id,
 			&srv.Price,
@@ -186,8 +197,7 @@ func (s *Services) Reload() (err error) {
 		err = fmt.Errorf("rows.Error: %s", err.Error())
 		return
 	}
-
-	s.ById = make(map[int64]Service)
+	s.ById = make(map[int64]acceptor.Service, len(svcs))
 	for _, v := range svcs {
 		if contentIds, ok := serviceContentIds[v.Id]; ok {
 			v.ContentIds = contentIds
@@ -195,14 +205,43 @@ func (s *Services) Reload() (err error) {
 		s.ById[v.Id] = v
 	}
 
-	log.Debugf("services: %#v", s.ById)
-
 	return nil
 }
 
-func (s *Services) Get(serviceId int64) (contentIds []int64) {
-	if svc, ok := s.ById[serviceId]; ok {
-		return svc.ContentIds
+func (s *services) Reload() (err error) {
+	s.Lock()
+	defer s.Unlock()
+
+	defer log.Debugf("services: %#v", s.ById)
+
+	s.loadServicesCache.Set(0)
+	s.loadServicesError.Set(0)
+	if s.conf.FromControlPanel {
+		s.ById, err = client.GetServices(Svc.conf.ProviderName)
+		if err == nil {
+			s.loadServicesCache.Set(0)
+			return
+		}
+		s.loadServicesError.Set(1.0)
+		log.Error(err.Error())
 	}
-	return []int64{}
+
+	s.loadServicesCache.Set(1.0)
+	s.loadServicesError.Set(0)
+	if err = s.loadFromCache(); err != nil {
+		s.loadServicesError.Set(1.0)
+		err = fmt.Errorf("s.getFromCache: %s", err.Error())
+		return
+	}
+	return nil
+}
+func (s *services) Get(serviceId int64) (acceptor.Service, error) {
+	if svc, ok := s.ById[serviceId]; ok {
+		return svc, nil
+	}
+	return acceptor.Service{}, errNotFound()
+}
+
+func (s *services) GetAll() map[int64]acceptor.Service {
+	return s.ById
 }
