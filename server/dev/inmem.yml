@@ -18,7 +18,16 @@ service:
 
   blacklist:
     enabled: false
+    from_control_panel: false
     period: 60
+
+  contents:
+    enabled: true
+    from_control_panel: false
+
+  services:
+    enabled: true
+    from_control_panel: false
 
   enabled:
     destinations: true
