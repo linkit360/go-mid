@@ -4,26 +4,54 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
+
+	"github.com/prometheus/client_golang/prometheus"
+
+	client "github.com/linkit360/go-acceptor-client"
+	acceptor "github.com/linkit360/go-acceptor-structs"
+	m "github.com/linkit360/go-utils/metrics"
 )
 
 // Tasks:
 // Keep in memory all active content_ids mapping to their object string (url path to content)
 // Allow to get object for given content id
 // Reload when changes to content
-type Contents struct {
+type Contents interface {
+	Reload() error
+	Get(int64) (acceptor.Content, error)
+}
+
+type contents struct {
 	sync.RWMutex
-	ById map[int64]Content
-}
-type Content struct {
-	Id   int64
-	Path string
-	Name string
+	conf      ContentConfig
+	ById      map[int64]acceptor.Content
+	loadError prometheus.Gauge
+	loadCache prometheus.Gauge
 }
 
-func (s *Contents) Reload() (err error) {
-	s.Lock()
-	defer s.Unlock()
+type ContentConfig struct {
+	Enabled          bool `yaml:"enabled"`
+	FromControlPanel bool `yaml:"from_control_panel"`
+}
 
+func initContents(appName string, contentConf ContentConfig) Contents {
+	contentSvc := &contents{
+		conf:      contentConf,
+		loadError: m.PrometheusGauge(appName, "content_load", "error", "load content error"),
+	}
+	if !contentSvc.conf.Enabled {
+		return contentSvc
+	}
+
+	if !contentSvc.conf.FromControlPanel {
+		return contentSvc
+	}
+
+	contentSvc.loadCache = m.PrometheusGauge(appName, "content", "cache", "load content cache")
+	return contentSvc
+}
+
+func (s *contents) loadFromCache() (err error) {
 	query := fmt.Sprintf("SELECT "+
 		"id, "+
 		"object, "+
@@ -40,9 +68,9 @@ func (s *Contents) Reload() (err error) {
 	}
 	defer rows.Close()
 
-	var contents []Content
+	var contents []acceptor.Content
 	for rows.Next() {
-		var c Content
+		var c acceptor.Content
 		if err = rows.Scan(
 			&c.Id,
 			&c.Path,
@@ -58,9 +86,42 @@ func (s *Contents) Reload() (err error) {
 		return
 	}
 
-	s.ById = make(map[int64]Content)
+	s.ById = make(map[int64]acceptor.Content)
 	for _, content := range contents {
 		s.ById[content.Id] = content
 	}
 	return nil
+}
+
+func (s *contents) Reload() (err error) {
+	s.Lock()
+	defer s.Unlock()
+	if !s.conf.Enabled {
+		return nil
+	}
+
+	s.loadCache.Set(0)
+	s.loadError.Set(0)
+	if s.conf.FromControlPanel {
+		s.ById, err = client.GetContents(Svc.conf.ProviderName)
+		if err == nil {
+			return
+		}
+	}
+
+	s.loadCache.Set(1.)
+	if err = s.loadFromCache(); err != nil {
+		s.loadError.Set(1.)
+		return
+	}
+
+	return nil
+}
+
+func (s *contents) Get(id int64) (acceptor.Content, error) {
+	c, found := s.ById[id]
+	if !found {
+		return acceptor.Content{}, errNotFound()
+	}
+	return c, nil
 }

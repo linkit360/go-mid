@@ -35,24 +35,24 @@ type ServicesConfig struct {
 
 type services struct {
 	sync.RWMutex
-	conf              ServicesConfig
-	ById              map[int64]acceptor.Service
-	loadServicesError prometheus.Gauge
-	loadServicesCache prometheus.Gauge
+	conf      ServicesConfig
+	ById      map[int64]acceptor.Service
+	loadError prometheus.Gauge
+	loadCache prometheus.Gauge
 }
 
 func initServices(appName string, servConfig ServicesConfig) Services {
 	svcs := &services{
-		conf:              servConfig,
-		loadServicesError: m.PrometheusGauge(appName, "services_load", "error", "load services error"),
-		loadServicesCache: m.PrometheusGauge(appName, "services", "cache", "load services cache"),
+		conf:      servConfig,
+		loadError: m.PrometheusGauge(appName, "services_load", "error", "load services error"),
+		loadCache: m.PrometheusGauge(appName, "services", "cache", "load services cache"),
 	}
 
 	if !svcs.conf.FromControlPanel {
 		return svcs
 	}
 
-	svcs.loadServicesCache = m.PrometheusGauge(appName, "services", "cache", "cache services used")
+	svcs.loadCache = m.PrometheusGauge(appName, "services", "cache", "cache services used")
 	return svcs
 }
 
@@ -214,22 +214,22 @@ func (s *services) Reload() (err error) {
 
 	defer log.Debugf("services: %#v", s.ById)
 
-	s.loadServicesCache.Set(0)
-	s.loadServicesError.Set(0)
+	s.loadCache.Set(0)
+	s.loadError.Set(0)
 	if s.conf.FromControlPanel {
 		s.ById, err = client.GetServices(Svc.conf.ProviderName)
 		if err == nil {
-			s.loadServicesCache.Set(0)
+			s.loadCache.Set(0)
 			return
 		}
-		s.loadServicesError.Set(1.0)
+		s.loadError.Set(1.0)
 		log.Error(err.Error())
 	}
 
-	s.loadServicesCache.Set(1.0)
-	s.loadServicesError.Set(0)
+	s.loadCache.Set(1.0)
+	s.loadError.Set(0)
 	if err = s.loadFromCache(); err != nil {
-		s.loadServicesError.Set(1.0)
+		s.loadError.Set(1.0)
 		err = fmt.Errorf("s.getFromCache: %s", err.Error())
 		return
 	}

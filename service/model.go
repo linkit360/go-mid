@@ -12,7 +12,7 @@ import (
 	cache "github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 
-	acceptor_client "github.com/linkit360/go-acceptor-client"
+	acceptor "github.com/linkit360/go-acceptor-client"
 	"github.com/linkit360/go-utils/cqr"
 	"github.com/linkit360/go-utils/db"
 	m "github.com/linkit360/go-utils/metrics"
@@ -34,7 +34,7 @@ type MemService struct {
 	privateIPRanges    []IpRange
 	Campaigns          *Campaigns
 	Services           Services
-	Contents           *Contents
+	Contents           Contents
 	SentContents       *SentContents
 	IpRanges           *IpRanges
 	Operators          *Operators
@@ -58,6 +58,7 @@ type Config struct {
 	StaticPath      string          `yaml:"static_path" default:""`
 	BlackList       BlackListConfig `yaml:"blacklist"`
 	Services        ServicesConfig  `yaml:"services"`
+	Contents        ContentConfig   `yaml:"contents"`
 	CampaignWebHook string          `yaml:"campaign_web_hook" default:"http://localhost:50300/updateTemplates"`
 	PrivateIpRanges []IpRange       `yaml:"private_networks"`
 	Enabled         EnabledConfig   `yaml:"enabled"`
@@ -83,11 +84,11 @@ func Init(
 	appName string,
 	svcConf Config,
 	dbConf db.DataBaseConfig,
-	acceptorClientConf acceptor_client.ClientConfig,
+	acceptorClientConf acceptor.ClientConfig,
 
 ) {
 
-	if err := acceptor_client.Init(acceptorClientConf); err != nil {
+	if err := acceptor.Init(acceptorClientConf); err != nil {
 		log.Error("cannot init acceptor client")
 	}
 
@@ -104,7 +105,7 @@ func Init(
 
 	Svc.Campaigns = &Campaigns{}
 	Svc.Services = initServices(appName, svcConf.Services)
-	Svc.Contents = &Contents{}
+	Svc.Contents = initContents(appName, svcConf.Contents)
 	Svc.SentContents = &SentContents{}
 	Svc.IpRanges = &IpRanges{}
 	Svc.Operators = &Operators{}

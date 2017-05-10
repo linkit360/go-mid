@@ -333,11 +333,10 @@ func (rpc *PixelSetting) ByKeyWithRatio(
 type Content struct{}
 
 func (rpc *Content) ById(
-	req GetByIdParams, res *service.Content) error {
+	req GetByIdParams, res *acceptor.Content) error {
 
-	content, ok := service.Svc.Contents.ById[req.Id]
-	if !ok {
-		notFound.Inc()
+	content, err := service.Svc.Contents.Get(req.Id)
+	if err != nil {
 		errors.Inc()
 		return nil
 	}
