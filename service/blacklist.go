@@ -7,14 +7,18 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/prometheus/client_golang/prometheus"
 
 	acceptor_client "github.com/linkit360/go-acceptor-client"
+	m "github.com/linkit360/go-utils/metrics"
 )
 
 type BlackList struct {
 	sync.RWMutex
-	conf     BlackListConfig
-	ByMsisdn map[string]struct{}
+	conf               BlackListConfig
+	ByMsisdn           map[string]struct{}
+	loadBlacklistError prometheus.Gauge
+	loadBlacklistCache prometheus.Gauge
 }
 
 type BlackListConfig struct {
@@ -22,14 +26,17 @@ type BlackListConfig struct {
 	GetNewPeriodMinutes int  `yaml:"period"`
 }
 
-func initBlackList(c BlackListConfig) *BlackList {
+func initBlackList(appName string, c BlackListConfig) *BlackList {
 	bl := &BlackList{
 		conf: c,
 	}
+	bl.loadBlacklistError = m.PrometheusGauge(appName, "blacklist_load", "error", "load blacklist error")
 
 	if !bl.conf.Enabled {
 		return bl
 	}
+
+	bl.loadBlacklistCache = m.PrometheusGauge(appName, "blacklist", "cache", "cache blacklist used")
 
 	go func() {
 		lastSuccessFullTime := time.Now()
@@ -61,8 +68,7 @@ func initBlackList(c BlackListConfig) *BlackList {
 }
 
 func (bl *BlackList) getBlackListedDBCache() (msisdns []string, err error) {
-	query := fmt.Sprintf("SELECT "+
-		"msisdn FROM %smsisdn_blacklist",
+	query := fmt.Sprintf("SELECT msisdn FROM %smsisdn_blacklist",
 		Svc.dbConf.TablePrefix)
 	var rows *sql.Rows
 	rows, err = Svc.db.Query(query)
@@ -105,12 +111,15 @@ func (bl *BlackList) Reload() error {
 	bl.Lock()
 	defer bl.Unlock()
 
+	bl.loadBlacklistCache.Set(.0)
 	blackList, err := bl.getBlackListed()
 	if err != nil {
+		bl.loadBlacklistCache.Set(1.0)
 		blackList, err = bl.getBlackListedDBCache()
 		if err != nil {
 			err = fmt.Errorf("bl.getBlackListedDBCache: %s", err.Error())
 			log.WithFields(log.Fields{"error": err.Error()}).Error("cannot get blacklist from db cache")
+			bl.loadBlacklistError.Set(1.0)
 			return err
 		}
 	}
@@ -119,5 +128,6 @@ func (bl *BlackList) Reload() error {
 	for _, msisdn := range blackList {
 		bl.ByMsisdn[msisdn] = struct{}{}
 	}
+	bl.loadBlacklistError.Set(0)
 	return nil
 }

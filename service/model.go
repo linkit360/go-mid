@@ -73,6 +73,7 @@ type EnabledConfig struct {
 }
 
 func Init(
+	appName string,
 	svcConf Config,
 	dbConf db.DataBaseConfig,
 	acceptorClientConf acceptor_client.ClientConfig,
@@ -84,7 +85,7 @@ func Init(
 	}
 
 	log.SetLevel(log.DebugLevel)
-	initMetrics()
+	initMetrics(appName)
 
 	Svc.db = db.Init(dbConf)
 	Svc.dbConf = dbConf
@@ -101,7 +102,7 @@ func Init(
 	Svc.IpRanges = &IpRanges{}
 	Svc.Operators = &Operators{}
 	Svc.Prefixes = &Prefixes{}
-	Svc.BlackList = initBlackList(svcConf.BlackList)
+	Svc.BlackList = initBlackList(appName, svcConf.BlackList)
 	Svc.PostPaid = &PostPaid{}
 	Svc.PixelSettings = &PixelSettings{}
 	Svc.Publishers = &Publishers{}
@@ -234,8 +235,8 @@ var (
 	loadPublisherRegexError prometheus.Gauge
 )
 
-func initMetrics() {
-	loadCampaignError = m.PrometheusGauge("campaign", "load", "error", "load campaign error")
-	loadOperatorHeaderError = m.PrometheusGauge("operator", "load_headers", "error", "operator load headers error")
-	loadPublisherRegexError = m.PrometheusGauge("publisher", "load_regex", "error", "publisher load regex error")
+func initMetrics(appName string) {
+	loadCampaignError = m.PrometheusGauge(appName, "campaign_load", "error", "load campaign error")
+	loadOperatorHeaderError = m.PrometheusGauge(appName, "operator_load_headers", "error", "operator load headers error")
+	loadPublisherRegexError = m.PrometheusGauge(appName, "publisher_load_regex", "error", "publisher load regex error")
 }

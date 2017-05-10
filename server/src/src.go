@@ -24,6 +24,7 @@ func Run() {
 	handlers.InitMetrics(appConfig.AppName)
 
 	service.Init(
+		appConfig.AppName,
 		appConfig.Service,
 		appConfig.DbConf,
 		appConfig.AcceptorClientConfig,
