@@ -9,6 +9,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	acceptor "github.com/linkit360/go-acceptor-structs"
 	"github.com/linkit360/go-inmem/server/src/handlers"
 	"github.com/linkit360/go-inmem/service"
 	m "github.com/linkit360/go-utils/metrics"
@@ -247,7 +248,7 @@ func GetAllCampaigns() (map[string]service.Campaign, error) {
 	return res.Campaigns, err
 }
 
-func GetAllServices() (map[int64]service.Service, error) {
+func GetAllServices() (map[int64]acceptor.Service, error) {
 	var res handlers.GetAllServicesResponse
 	err := call(
 		"Service.All",
@@ -261,8 +262,8 @@ func GetAllServices() (map[int64]service.Service, error) {
 	return res.Services, err
 }
 
-func GetServiceById(serviceId int64) (service.Service, error) {
-	var svc service.Service
+func GetServiceById(serviceId int64) (acceptor.Service, error) {
+	var svc acceptor.Service
 	err := call(
 		"Service.ById",
 		handlers.GetByIdParams{Id: serviceId},
@@ -274,8 +275,8 @@ func GetServiceById(serviceId int64) (service.Service, error) {
 	return svc, err
 }
 
-func GetContentById(contentId int64) (service.Content, error) {
-	var content service.Content
+func GetContentById(contentId int64) (acceptor.Content, error) {
+	var content acceptor.Content
 	err := call(
 		"Content.ById",
 		handlers.GetByIdParams{Id: contentId},
