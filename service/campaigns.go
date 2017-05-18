@@ -165,9 +165,9 @@ func (s *Campaigns) GetContents() {
 	byServiceCode, _ := json.Marshal(s.ByServiceCode)
 
 	log.WithFields(log.Fields{
-		"hash": byHash,
-		"link": byLink,
-		"id":   byId,
-		"sid":  byServiceCode,
+		"hash": string(byHash),
+		"link": string(byLink),
+		"id":   string(byId),
+		"sid":  string(byServiceCode),
 	}).Debug("loaded")
 }

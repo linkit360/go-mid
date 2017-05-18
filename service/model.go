@@ -233,7 +233,7 @@ func loadPrivateIpRanges(ipConf []IpRange) []IpRange {
 		v.End = net.ParseIP(v.IpTo)
 		ipRanges = append(ipRanges, v)
 	}
-	log.WithField("privateNetworks", ipRanges).Info("private networks loaded")
+	log.Info("private networks loaded")
 	return ipRanges
 }
 

@@ -55,13 +55,13 @@ func (pss *PixelSettings) ByKeyWithRatio(key string) (PixelSetting, error) {
 }
 
 func (ps *PixelSetting) CampaignKey() string {
-	return strings.ToLower(fmt.Sprintf("%d-%s", ps.CampaignCode, ps.Publisher))
+	return strings.ToLower(fmt.Sprintf("%s-%s", ps.CampaignCode, ps.Publisher))
 }
 func (ps *PixelSetting) OperatorKey() string {
 	return strings.ToLower(fmt.Sprintf("%d-%s", ps.OperatorCode, ps.Publisher))
 }
 func (ps *PixelSetting) CampaignOperatorKey() string {
-	return strings.ToLower(fmt.Sprintf("%d-%d-%s", ps.CampaignCode, ps.OperatorCode, ps.Publisher))
+	return strings.ToLower(fmt.Sprintf("%s-%d-%s", ps.CampaignCode, ps.OperatorCode, ps.Publisher))
 }
 
 func (ps *PixelSettings) Reload() (err error) {
