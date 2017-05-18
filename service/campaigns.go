@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sync"
 
+	"encoding/json"
 	log "github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 )
@@ -17,16 +18,20 @@ import (
 // Reload when changes to campaigns are done
 type Campaigns struct {
 	sync.RWMutex
-	ByHash      map[string]Campaign
-	ByLink      map[string]Campaign
-	ById        map[int64]Campaign
-	ByServiceId map[int64]Campaign
+	ByHash        map[string]Campaign
+	ByLink        map[string]Campaign
+	ByCode        map[string]Campaign
+	ByServiceCode map[string]Campaign
 }
+
 type Campaign struct {
-	Hash             string `json:"hash,omitempty"`
+	//Id               string `json:"id,omitempty"` // UUID
+	Code             string `json:"code,omitempty"` // UUID
+	Title            string `json:"title,omitempty"`
 	Link             string `json:"link,omitempty"`
-	Id               int64  `json:"id,omitempty"`
-	ServiceId        int64  `json:"service_id,omitempty"`
+	Lp               string `json:"lp,omitempty"` // UUID
+	Hash             string `json:"hash,omitempty"`
+	ServiceCode      string `json:"service_code,omitempty"`
 	AutoClickRatio   int64  `json:"auto_click_ratio,omitempty"`
 	AutoClickEnabled bool   `json:"auto_click_enabled,omitempty"`
 	AutoClickCount   int64  `json:"auto_click_count,omitempty"`
@@ -40,7 +45,7 @@ type Campaign struct {
 func (campaign *Campaign) SimpleServe(c *gin.Context, data interface{}) {
 	campaign.incRatio()
 	log.WithFields(log.Fields{
-		"id":                campaign.Id,
+		"code":              campaign.Code,
 		"count":             campaign.AutoClickCount,
 		"ratio":             campaign.AutoClickRatio,
 		"autoclick_enabled": campaign.AutoClickEnabled,
@@ -96,14 +101,14 @@ func (s *Campaigns) Reload() (err error) {
 	for rows.Next() {
 		campaign := Campaign{}
 		if err = rows.Scan(
-			&campaign.Id,
+			&campaign.Code,
 			&campaign.Hash,
 			&campaign.Link,
 			&campaign.PageWelcome,
 			&campaign.PageSuccess,
 			&campaign.PageThankYou,
 			&campaign.PageError,
-			&campaign.ServiceId,
+			&campaign.ServiceCode,
 			&campaign.AutoClickEnabled,
 			&campaign.AutoClickRatio,
 		); err != nil {
@@ -138,13 +143,31 @@ func (s *Campaigns) Reload() (err error) {
 
 	s.ByHash = make(map[string]Campaign, len(campaigns))
 	s.ByLink = make(map[string]Campaign, len(campaigns))
-	s.ById = make(map[int64]Campaign, len(campaigns))
-	s.ByServiceId = make(map[int64]Campaign, len(campaigns))
+	s.ByCode = make(map[string]Campaign, len(campaigns))
+	s.ByServiceCode = make(map[string]Campaign, len(campaigns))
+
 	for _, campaign := range campaigns {
 		s.ByHash[campaign.Hash] = campaign
 		s.ByLink[campaign.Link] = campaign
-		s.ById[campaign.Id] = campaign
-		s.ByServiceId[campaign.ServiceId] = campaign
+		s.ByCode[campaign.Code] = campaign
+		s.ByServiceCode[campaign.ServiceCode] = campaign
 	}
+
+	s.GetContents()
+
 	return nil
+}
+
+func (s *Campaigns) GetContents() {
+	byHash, _ := json.Marshal(s.ByHash)
+	byLink, _ := json.Marshal(s.ByLink)
+	byId, _ := json.Marshal(s.ByCode)
+	byServiceCode, _ := json.Marshal(s.ByServiceCode)
+
+	log.WithFields(log.Fields{
+		"hash": byHash,
+		"link": byLink,
+		"id":   byId,
+		"sid":  byServiceCode,
+	}).Debug("loaded")
 }

@@ -14,13 +14,13 @@ import (
 
 type PixelSettings struct {
 	sync.RWMutex
-	ByKey        map[string]*PixelSetting
-	ByCampaignId map[int64]PixelSetting
+	ByKey          map[string]*PixelSetting
+	ByCampaignCode map[string]PixelSetting
 }
 
 type PixelSetting struct {
 	Id            int64
-	CampaignId    int64
+	CampaignCode  string
 	OperatorCode  int64
 	Publisher     string
 	Endpoint      string
@@ -55,13 +55,13 @@ func (pss *PixelSettings) ByKeyWithRatio(key string) (PixelSetting, error) {
 }
 
 func (ps *PixelSetting) CampaignKey() string {
-	return strings.ToLower(fmt.Sprintf("%d-%s", ps.CampaignId, ps.Publisher))
+	return strings.ToLower(fmt.Sprintf("%d-%s", ps.CampaignCode, ps.Publisher))
 }
 func (ps *PixelSetting) OperatorKey() string {
 	return strings.ToLower(fmt.Sprintf("%d-%s", ps.OperatorCode, ps.Publisher))
 }
 func (ps *PixelSetting) CampaignOperatorKey() string {
-	return strings.ToLower(fmt.Sprintf("%d-%d-%s", ps.CampaignId, ps.OperatorCode, ps.Publisher))
+	return strings.ToLower(fmt.Sprintf("%d-%d-%s", ps.CampaignCode, ps.OperatorCode, ps.Publisher))
 }
 
 func (ps *PixelSettings) Reload() (err error) {
@@ -95,7 +95,7 @@ func (ps *PixelSettings) Reload() (err error) {
 
 		if err = rows.Scan(
 			&p.Id,
-			&p.CampaignId,
+			&p.CampaignCode,
 			&p.OperatorCode,
 			&p.Publisher,
 			&p.Endpoint,
@@ -116,7 +116,7 @@ func (ps *PixelSettings) Reload() (err error) {
 	}
 
 	ps.ByKey = make(map[string]*PixelSetting)
-	ps.ByCampaignId = make(map[int64]PixelSetting)
+	ps.ByCampaignCode = make(map[string]PixelSetting)
 	for _, p := range records {
 		pixelC := p
 		pixelO := p
@@ -124,7 +124,7 @@ func (ps *PixelSettings) Reload() (err error) {
 		ps.ByKey[p.OperatorKey()] = &pixelO
 		ps.ByKey[p.CampaignOperatorKey()] = &pixelO
 
-		ps.ByCampaignId[p.CampaignId] = p
+		ps.ByCampaignCode[p.CampaignCode] = p
 
 		log.WithFields(log.Fields{
 			"ratio": p.Ratio,

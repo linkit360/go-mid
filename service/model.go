@@ -260,3 +260,22 @@ func initMetrics(appName string) *serviceMetrics {
 
 	return sm
 }
+
+func exec(context, query string, params_optional ...[]interface{}) {
+	begin := time.Now().UTC()
+	res, err := Svc.db.Exec(query)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"query":   query,
+			"context": context,
+			"error":   err.Error(),
+		}).Error("cann't run query")
+
+	} else {
+		count, _ := res.RowsAffected()
+		log.WithFields(log.Fields{
+			"count": count,
+			"took":  time.Since(begin),
+		}).Info(context)
+	}
+}

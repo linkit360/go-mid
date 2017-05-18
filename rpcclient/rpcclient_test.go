@@ -93,8 +93,8 @@ func TestGetCampaign(t *testing.T) {
 		Hash:             "f90f2aca5c640289d0a29417bcb63a37",
 		Link:             "mobilink-p2",
 		PageWelcome:      "9815a83cf640edd402983072a05b8312",
-		Id:               290,
-		ServiceId:        777,
+		Code:             290,
+		ServiceCode:      777,
 		AutoClickRatio:   1,
 		AutoClickEnabled: true,
 		AutoClickCount:   0,
@@ -120,7 +120,7 @@ func TestGetCampaign(t *testing.T) {
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "GetCampaignByKeyWord "+serviceKey[:4])
 	}
-	res, err = GetCampaignByServiceId(777)
+	res, err = GetCampaignByServiceCode(777)
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "GetCampaignByServiceId")
 	}
@@ -135,7 +135,7 @@ func TestGetAllCampaigns(t *testing.T) {
 }
 
 func TestGetServiceById(t *testing.T) {
-	res, err := GetServiceById(777)
+	res, err := GetServiceByCode(777)
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "No error while get service by id")
 	expected := service.Service{
@@ -186,7 +186,7 @@ func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 	//fmt.Printf("%#v %#v", res, err)
 	expected := service.PixelSetting{
 		Id:            1,
-		CampaignId:    290,
+		CampaignCode:  290,
 		OperatorCode:  41001,
 		Publisher:     "Mobusi",
 		Endpoint:      "http://kbgames.net:10001/index.php?pixel=%pixel%&msisdn=%msisdn%&trxid=%trxid%&trxtime=%time%&country=%country_name%&operator=%operator_name%",
@@ -206,7 +206,7 @@ func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 	res, err = GetPixelSettingByKeyWithRatio("290-kimia")
 	expected = service.PixelSetting{
 		Id:            2,
-		CampaignId:    290,
+		CampaignCode:  290,
 		OperatorCode:  41001,
 		Publisher:     "Kimia",
 		Endpoint:      "http://kbgames.net:10001/index.php?pixel=%pixel%&msisdn=%msisdn%&trxid=%trxid%&trxtime=%time%&country=%country_name%&operator=%operator_name%",
@@ -236,7 +236,7 @@ func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 	res, err = GetPixelSettingByKeyWithRatio("290-kimia")
 	expected = service.PixelSetting{
 		Id:            2,
-		CampaignId:    290,
+		CampaignCode:  290,
 		OperatorCode:  41001,
 		Publisher:     "Kimia",
 		Endpoint:      "http://kbgames.net:10001/index.php?pixel=%pixel%&msisdn=%msisdn%&trxid=%trxid%&trxtime=%time%&country=%country_name%&operator=%operator_name%",
@@ -254,7 +254,7 @@ func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 	res, err = GetPixelSettingByKeyWithRatio("41001-kimia")
 	expected = service.PixelSetting{
 		Id:            2,
-		CampaignId:    290,
+		CampaignCode:  290,
 		OperatorCode:  41001,
 		Publisher:     "Kimia",
 		Endpoint:      "http://kbgames.net:10001/index.php?pixel=%pixel%&msisdn=%msisdn%&trxid=%trxid%&trxtime=%time%&country=%country_name%&operator=%operator_name%",
@@ -340,8 +340,8 @@ func TestUniqUrl(t *testing.T) {
 	req := service.ContentSentProperties{
 		Msisdn:       "79997777777",
 		Tid:          "test tid",
-		ServiceId:    777,
-		CampaignId:   290,
+		ServiceCode:  777,
+		CampaignCode: 290,
 		OperatorCode: 410,
 		CountryCode:  92,
 		UniqueUrl:    "cz3twmoynbq5",

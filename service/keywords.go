@@ -13,11 +13,11 @@ import (
 
 type KeyWords struct {
 	sync.RWMutex
-	ByKeyWord map[string]int64
+	ByKeyWord map[string]string
 }
 type KeyWord struct {
-	KeyWord    string `json:"key_word"`
-	CampaignId int64  `json:"id_campaign"`
+	KeyWord      string `json:"key_word"`
+	CampaignCode string `json:"code_campaign"`
 }
 
 func (kws *KeyWords) Reload() error {
@@ -43,7 +43,7 @@ func (kws *KeyWords) Reload() error {
 		var kw KeyWord
 		if err = rows.Scan(
 			&kw.KeyWord,
-			&kw.CampaignId,
+			&kw.CampaignCode,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return err
@@ -56,9 +56,9 @@ func (kws *KeyWords) Reload() error {
 		return err
 	}
 
-	kws.ByKeyWord = make(map[string]int64, len(keywords))
+	kws.ByKeyWord = make(map[string]string, len(keywords))
 	for _, kw := range keywords {
-		kws.ByKeyWord[strings.ToLower(kw.KeyWord)] = kw.CampaignId
+		kws.ByKeyWord[strings.ToLower(kw.KeyWord)] = kw.CampaignCode
 	}
 	return nil
 }

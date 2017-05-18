@@ -8,6 +8,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/prometheus/client_golang/prometheus"
 
 	acceptor "github.com/linkit360/go-acceptor-structs"
 	"github.com/linkit360/go-inmem/server/src/handlers"
@@ -36,6 +37,7 @@ type ClientConfig struct {
 type Metrics struct {
 	RPCConnectError m.Gauge
 	RPCSuccess      m.Gauge
+	RPCDuration     prometheus.Summary
 	NotFound        m.Gauge
 }
 
@@ -43,6 +45,7 @@ func initMetrics() *Metrics {
 	m := &Metrics{
 		RPCConnectError: m.NewGauge("rpc", "inmem", "errors", "RPC call errors"),
 		RPCSuccess:      m.NewGauge("rpc", "inmem", "success", "RPC call success"),
+		RPCDuration:     m.NewSummary("rpc_inmem_duration_seconds", "RPC call duration seconds"),
 		NotFound:        m.NewGauge("rpc", "inmem", "404_errors", "RPC 404 errors"),
 	}
 	go func() {
@@ -111,7 +114,9 @@ func call(funcName string, req interface{}, res interface{}) error {
 		"func": funcName,
 		"took": time.Since(begin),
 	}).Debug("rpccall")
+
 	cli.m.RPCSuccess.Inc()
+	cli.m.RPCDuration.Observe(time.Since(begin).Seconds())
 	return nil
 }
 
@@ -119,7 +124,7 @@ func GetOperatorByCode(code int64) (service.Operator, error) {
 	var operator service.Operator
 	err := call(
 		"Operator.ByCode",
-		handlers.GetByCodeParams{Code: code},
+		handlers.GetByIdParams{Id: code},
 		&operator,
 	)
 	if operator.Code == 0 {
@@ -181,7 +186,7 @@ func GetCampaignByHash(hash string) (service.Campaign, error) {
 		handlers.GetByHashParams{Hash: hash},
 		&campaign,
 	)
-	if campaign.Id == 0 {
+	if campaign.Code == "" {
 		return campaign, errNotFound(hash)
 	}
 	return campaign, err
@@ -193,7 +198,7 @@ func GetCampaignByLink(link string) (service.Campaign, error) {
 		handlers.GetByLinkParams{Link: link},
 		&campaign,
 	)
-	if campaign.Id == 0 {
+	if campaign.Code == "" {
 		return campaign, errNotFound(link)
 	}
 	return campaign, err
@@ -205,32 +210,32 @@ func GetCampaignByKeyWord(keyWord string) (service.Campaign, error) {
 		handlers.GetByKeyWordParams{Key: keyWord},
 		&campaign,
 	)
-	if campaign.Id == 0 {
+	if campaign.Code == "" {
 		return campaign, errNotFound(keyWord)
 	}
 	return campaign, err
 }
-func GetCampaignById(id int64) (service.Campaign, error) {
+func GetCampaignByCode(code string) (service.Campaign, error) {
 	var campaign service.Campaign
 	err := call(
-		"Campaign.ById",
-		handlers.GetByIdParams{Id: id},
+		"Campaign.ByCode",
+		handlers.GetByCodeParams{Code: code},
 		&campaign,
 	)
-	if campaign.Id == 0 {
-		return campaign, errNotFound(id)
+	if campaign.Code == "" {
+		return campaign, errNotFound(code)
 	}
 	return campaign, err
 }
-func GetCampaignByServiceId(serviceId int64) (service.Campaign, error) {
+func GetCampaignByServiceCode(serviceCode string) (service.Campaign, error) {
 	var campaign service.Campaign
 	err := call(
-		"Campaign.ByServiceId",
-		handlers.GetByIdParams{Id: serviceId},
+		"Campaign.ByServiceCode",
+		handlers.GetByCodeParams{Code: serviceCode},
 		&campaign,
 	)
-	if campaign.Id == 0 {
-		return campaign, errNotFound(serviceId)
+	if campaign.Code == "" {
+		return campaign, errNotFound(serviceCode)
 	}
 	return campaign, err
 }
@@ -248,7 +253,7 @@ func GetAllCampaigns() (map[string]service.Campaign, error) {
 	return res.Campaigns, err
 }
 
-func GetAllServices() (map[int64]acceptor.Service, error) {
+func GetAllServices() (map[string]acceptor.Service, error) {
 	var res handlers.GetAllServicesResponse
 	err := call(
 		"Service.All",
@@ -262,15 +267,15 @@ func GetAllServices() (map[int64]acceptor.Service, error) {
 	return res.Services, err
 }
 
-func GetServiceById(serviceId int64) (acceptor.Service, error) {
+func GetServiceByCode(serviceCode string) (acceptor.Service, error) {
 	var svc acceptor.Service
 	err := call(
-		"Service.ById",
-		handlers.GetByIdParams{Id: serviceId},
+		"Service.ByCode",
+		handlers.GetByCodeParams{Code: serviceCode},
 		&svc,
 	)
-	if svc.Id == 0 {
-		return svc, errNotFound(serviceId)
+	if svc.Code == "" {
+		return svc, errNotFound(serviceCode)
 	}
 	return svc, err
 }
@@ -312,31 +317,31 @@ func GetPixelSettingByKeyWithRatio(key string) (service.PixelSetting, error) {
 	return pixelSetting, err
 }
 
-func SentContentClear(msisdn string, serviceId int64) error {
+func SentContentClear(msisdn, serviceCode string) error {
 	var res handlers.Response
 	err := call(
 		"SentContent.Clear",
-		handlers.GetByParams{Msisdn: msisdn, ServiceId: serviceId},
+		handlers.GetByParams{Msisdn: msisdn, ServiceCode: serviceCode},
 		&res,
 	)
 	return err
 }
 
-func SentContentPush(msisdn string, serviceId int64, contentId int64) error {
+func SentContentPush(msisdn, serviceCode string, contentId int64) error {
 	var res handlers.Response
 	err := call(
 		"SentContent.Push",
-		handlers.GetByParams{Msisdn: msisdn, ServiceId: serviceId, ContentId: contentId},
+		handlers.GetByParams{Msisdn: msisdn, ServiceCode: serviceCode, ContentId: contentId},
 		&res,
 	)
 	return err
 }
 
-func SentContentGet(msisdn string, serviceId int64) (map[int64]struct{}, error) {
+func SentContentGet(msisdn, serviceCode string) (map[int64]struct{}, error) {
 	var res handlers.GetContentSentResponse
 	err := call(
 		"SentContent.Get",
-		handlers.GetByParams{Msisdn: msisdn, ServiceId: serviceId},
+		handlers.GetByParams{Msisdn: msisdn, ServiceCode: serviceCode},
 		&res,
 	)
 	return res.ContentdIds, err
@@ -384,41 +389,41 @@ func PostPaidRemove(msisdn string) error {
 	return err
 }
 
-// Rejected
-func GetMsisdnCampaignCache(campaignId int64, msisdn string) (int64, error) {
-	var res int64
+// Rejected, return campaign code
+func GetMsisdnCampaignCache(campaignCode, msisdn string) (string, error) {
+	var res string
 	err := call(
 		"RejectedByCampaign.Get",
-		handlers.RejectedParams{Msisdn: msisdn, CampaignId: campaignId},
+		handlers.RejectedParams{Msisdn: msisdn, CampaignCode: campaignCode},
 		&res,
 	)
 	return res, err
 }
-func SetMsisdnCampaignCache(campaignId int64, msisdn string) error {
+func SetMsisdnCampaignCache(campaignCode, msisdn string) error {
 	var res handlers.BoolResponse
 	err := call(
 		"RejectedByCampaign.Set",
-		handlers.RejectedParams{Msisdn: msisdn, CampaignId: campaignId},
+		handlers.RejectedParams{Msisdn: msisdn, CampaignCode: campaignCode},
 		&res,
 	)
 	return err
 }
 
-func SetMsisdnServiceCache(serviceId int64, msisdn string) error {
+func SetMsisdnServiceCache(serviceCode, msisdn string) error {
 	var res handlers.BoolResponse
 	err := call(
 		"RejectedByService.Set",
-		handlers.RejectedParams{Msisdn: msisdn, ServiceId: serviceId},
+		handlers.RejectedParams{Msisdn: msisdn, ServiceCode: serviceCode},
 		&res,
 	)
 	return err
 }
 
-func IsMsisdnRejectedByService(serviceId int64, msisdn string) (bool, error) {
+func IsMsisdnRejectedByService(serviceCode, msisdn string) (bool, error) {
 	var res bool
 	err := call(
 		"RejectedByService.Is",
-		handlers.RejectedParams{Msisdn: msisdn, ServiceId: serviceId},
+		handlers.RejectedParams{Msisdn: msisdn, ServiceCode: serviceCode},
 		&res,
 	)
 	return res, err

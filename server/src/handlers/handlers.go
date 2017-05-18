@@ -16,7 +16,7 @@ type GetAllCampaignsResponse struct {
 	Campaigns map[string]service.Campaign `json:"campaigns,omitempty"`
 }
 type GetAllServicesResponse struct {
-	Services map[int64]acceptor.Service `json:"services,omitempty"`
+	Services map[string]acceptor.Service `json:"services,omitempty"`
 }
 type GetAllPublishersResponse struct {
 	Publishers map[string]service.Publisher `json:"publishers,omitempty"`
@@ -33,17 +33,17 @@ type GetByNameParams struct {
 type GetByHashParams struct {
 	Hash string `json:"hash,omitempty"`
 }
+type GetByIdParams struct {
+	Id int64 `json:"id,omitempty"`
+}
 type GetByCodeParams struct {
-	Code int64 `json:"code,omitempty"`
+	Code string `json:"code,omitempty"`
 }
 type GetByPrefixParams struct {
 	Prefix string `json:"prefix,omitempty"`
 }
 type GetByLinkParams struct {
 	Link string `json:"link,omitempty"`
-}
-type GetByIdParams struct {
-	Id int64 `json:"id,omitempty"`
 }
 type GetByMsisdnParams struct {
 	Msisdn string `json:"msisdn,omitempty"`
@@ -64,14 +64,14 @@ type GetByKeyWordParams struct {
 	Key string `json:"keyword,omitempty"`
 }
 type GetByParams struct {
-	Msisdn    string `json:"msisdn,omitempty"`
-	ServiceId int64  `json:"service_id,omitempty"`
-	ContentId int64  `json:"content_id,omitempty"`
+	Msisdn      string `json:"msisdn,omitempty"`
+	ServiceCode string `json:"code_service,omitempty"`
+	ContentId   int64  `json:"id_content,omitempty"`
 }
 type RejectedParams struct {
-	Msisdn     string `json:"msisdn,omitempty"`
-	CampaignId int64  `json:"campaign_id,omitempty"`
-	ServiceId  int64  `json:"service_id,omitempty"`
+	Msisdn       string `json:"msisdn,omitempty"`
+	CampaignCode string `json:"code_campaign,omitempty"`
+	ServiceCode  string `json:"code_service,omitempty"`
 }
 type Response struct{}
 
@@ -113,10 +113,10 @@ func (rpc *Campaign) ByLink(
 	success.Inc()
 	return nil
 }
-func (rpc *Campaign) ById(
-	req GetByIdParams, res *service.Campaign) error {
+func (rpc *Campaign) ByCode(
+	req GetByCodeParams, res *service.Campaign) error {
 
-	campaign, ok := service.Svc.Campaigns.ById[req.Id]
+	campaign, ok := service.Svc.Campaigns.ByCode[req.Code]
 	if !ok {
 		notFound.Inc()
 		campaignNotFound.Inc()
@@ -127,10 +127,10 @@ func (rpc *Campaign) ById(
 	success.Inc()
 	return nil
 }
-func (rpc *Campaign) ByServiceId(
-	req GetByIdParams, res *service.Campaign) error {
+func (rpc *Campaign) ByServiceCode(
+	req GetByCodeParams, res *service.Campaign) error {
 
-	campaign, ok := service.Svc.Campaigns.ByServiceId[req.Id]
+	campaign, ok := service.Svc.Campaigns.ByServiceCode[req.Code]
 	if !ok {
 		notFound.Inc()
 		campaignNotFound.Inc()
@@ -144,7 +144,7 @@ func (rpc *Campaign) ByServiceId(
 func (rpc *Campaign) ByKeyWord(
 	req GetByKeyWordParams, res *service.Campaign) error {
 
-	campaignId, ok := service.Svc.KeyWords.ByKeyWord[strings.ToLower(req.Key)]
+	campaignCode, ok := service.Svc.KeyWords.ByKeyWord[strings.ToLower(req.Key)]
 	if !ok {
 		log.Errorf("campaign id not found, key: %s", req.Key)
 		notFound.Inc()
@@ -152,7 +152,7 @@ func (rpc *Campaign) ByKeyWord(
 		errors.Inc()
 		return nil
 	}
-	campaign, ok := service.Svc.Campaigns.ById[campaignId]
+	campaign, ok := service.Svc.Campaigns.ByCode[campaignCode]
 	if !ok {
 		log.Errorf("campaign not found %#v", req.Key)
 		notFound.Inc()
@@ -225,16 +225,16 @@ type RejectedByCampaign struct{}
 func (rpc *RejectedByCampaign) Set(
 	req RejectedParams, res *BoolResponse) error {
 
-	service.SetMsisdnCampaignCache(req.CampaignId, req.Msisdn)
+	service.SetMsisdnCampaignCache(req.CampaignCode, req.Msisdn)
 	success.Inc()
 	return nil
 }
 
 func (rpc *RejectedByCampaign) Get(
-	req RejectedParams, res *int64) error {
+	req RejectedParams, res *string) error {
 
-	campaignId := service.GetMsisdnCampaignCache(req.CampaignId, req.Msisdn)
-	*res = campaignId
+	campaignCode := service.GetMsisdnCampaignCache(req.CampaignCode, req.Msisdn)
+	*res = campaignCode
 	success.Inc()
 	return nil
 }
@@ -244,7 +244,7 @@ type RejectedByService struct{}
 func (rpc *RejectedByService) Set(
 	req RejectedParams, res *BoolResponse) error {
 
-	service.SetMsisdnServiceCache(req.ServiceId, req.Msisdn)
+	service.SetMsisdnServiceCache(req.ServiceCode, req.Msisdn)
 	success.Inc()
 	return nil
 }
@@ -252,7 +252,7 @@ func (rpc *RejectedByService) Set(
 func (rpc *RejectedByService) Is(
 	req RejectedParams, res *bool) error {
 
-	is := service.IsMsisdnRejectedByService(req.ServiceId, req.Msisdn)
+	is := service.IsMsisdnRejectedByService(req.ServiceCode, req.Msisdn)
 	*res = is
 	success.Inc()
 	return nil
@@ -270,10 +270,10 @@ func (rpc *Service) All(
 	return nil
 }
 
-func (rpc *Service) ById(
-	req GetByIdParams, res *acceptor.Service) error {
+func (rpc *Service) ByCode(
+	req GetByCodeParams, res *acceptor.Service) error {
 
-	svc, err := service.Svc.Services.Get(req.Id)
+	svc, err := service.Svc.Services.GetByCode(req.Code)
 	if err != nil {
 		errors.Inc()
 		return nil
@@ -286,10 +286,10 @@ func (rpc *Service) ById(
 // Pixel Setting
 type PixelSetting struct{}
 
-func (rpc *PixelSetting) ByCampaignId(
-	req GetByIdParams, res *service.PixelSetting) error {
+func (rpc *PixelSetting) ByCampaignCode(
+	req GetByCodeParams, res *service.PixelSetting) error {
 
-	svc, ok := service.Svc.PixelSettings.ByCampaignId[req.Id]
+	svc, ok := service.Svc.PixelSettings.ByCampaignCode[req.Code]
 	if !ok {
 		notFound.Inc()
 		pixelSettingNotFound.Inc()
@@ -350,19 +350,19 @@ type ContentSent struct{}
 
 func (rpc *ContentSent) Clear(
 	req GetByParams, res *Response) error {
-	service.Svc.SentContents.Clear(req.Msisdn, req.ServiceId)
+	service.Svc.SentContents.Clear(req.Msisdn, req.ServiceCode)
 	success.Inc()
 	return nil
 }
 func (rpc *ContentSent) Push(
 	req GetByParams, res *Response) error {
-	service.Svc.SentContents.Push(req.Msisdn, req.ServiceId, req.ContentId)
+	service.Svc.SentContents.Push(req.Msisdn, req.ServiceCode, req.ContentId)
 	return nil
 }
 func (rpc *ContentSent) Get(
 	req GetByParams, res *GetContentSentResponse) error {
 
-	contentIds := service.Svc.SentContents.Get(req.Msisdn, req.ServiceId)
+	contentIds := service.Svc.SentContents.Get(req.Msisdn, req.ServiceCode)
 	*res = GetContentSentResponse{ContentdIds: contentIds}
 	success.Inc()
 	return nil
@@ -372,9 +372,9 @@ func (rpc *ContentSent) Get(
 type Operator struct{}
 
 func (rpc *Operator) ByCode(
-	req GetByCodeParams, res *service.Operator) error {
+	req GetByIdParams, res *service.Operator) error {
 
-	operator, ok := service.Svc.Operators.ByCode[req.Code]
+	operator, ok := service.Svc.Operators.ByCode[req.Id]
 	if !ok {
 		notFound.Inc()
 		operatorNotFound.Inc()
@@ -543,6 +543,7 @@ func (rpc *RedirectStatCounts) All(
 	success.Inc()
 	return nil
 }
+
 func (rpc *RedirectStatCounts) Inc(req GetByIdParams, res *Response) error {
 	err := service.Svc.RedirectStatCounts.IncHit(req.Id)
 	success.Inc()

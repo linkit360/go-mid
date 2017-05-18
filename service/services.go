@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,8 +23,8 @@ import (
 
 type Services interface {
 	Reload() error
-	Get(int64) (acceptor.Service, error)
-	GetAll() map[int64]acceptor.Service
+	GetByCode(string) (acceptor.Service, error)
+	GetAll() map[string]acceptor.Service
 }
 
 type ServicesConfig struct {
@@ -36,7 +35,7 @@ type ServicesConfig struct {
 type services struct {
 	sync.RWMutex
 	conf      ServicesConfig
-	ById      map[int64]acceptor.Service
+	ById      map[string]acceptor.Service
 	loadError prometheus.Gauge
 	loadCache prometheus.Gauge
 }
@@ -57,8 +56,8 @@ func initServices(appName string, servConfig ServicesConfig) Services {
 }
 
 type ServiceContent struct {
-	IdService int64
-	IdContent int64
+	ServiceCode string
+	IdContent   int64
 }
 
 type AllowedTime struct {
@@ -119,7 +118,7 @@ func (s *services) loadFromCache() (err error) {
 	for rows.Next() {
 		var srv acceptor.Service
 		if err = rows.Scan(
-			&srv.Id,
+			&srv.Code,
 			&srv.Price,
 			&srv.RetryDays,
 			&srv.InactiveDays,
@@ -158,11 +157,11 @@ func (s *services) loadFromCache() (err error) {
 	}
 	log.Debugf("len %d, svcs: %#v", len(svcs), svcs)
 
-	serviceIdsStr := []string{}
+	serviceCodes := []string{}
 	for _, v := range svcs {
-		serviceIdsStr = append(serviceIdsStr, strconv.FormatInt(v.Id, 10))
+		serviceCodes = append(serviceCodes, v.Code)
 	}
-	log.Debugf("get service content ids for: %s", strings.Join(serviceIdsStr, ", "))
+	log.Debugf("get service content ids for: %s", strings.Join(serviceCodes, ", "))
 
 	query = fmt.Sprintf("SELECT "+
 		"id_service, "+
@@ -171,38 +170,38 @@ func (s *services) loadFromCache() (err error) {
 		"WHERE status = $1 AND "+
 		"id_service = any($2::integer[])", Svc.dbConf.TablePrefix)
 
-	rows, err = Svc.db.Query(query, ACTIVE_STATUS, "{"+strings.Join(serviceIdsStr, ", ")+"}")
+	rows, err = Svc.db.Query(query, ACTIVE_STATUS, "{"+strings.Join(serviceCodes, ", ")+"}")
 	if err != nil {
 		err = fmt.Errorf("db.Query: %s, query: %s", err.Error(), query)
 		return
 	}
 	defer rows.Close()
 
-	serviceContentIds := make(map[int64][]int64)
+	serviceContentIds := make(map[string][]int64)
 	for rows.Next() {
 		var serviceContent ServiceContent
 		if err = rows.Scan(
-			&serviceContent.IdService,
+			&serviceContent.ServiceCode,
 			&serviceContent.IdContent,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan %s", err.Error())
 			return
 		}
-		if _, ok := serviceContentIds[serviceContent.IdService]; !ok {
-			serviceContentIds[serviceContent.IdService] = []int64{}
+		if _, ok := serviceContentIds[serviceContent.ServiceCode]; !ok {
+			serviceContentIds[serviceContent.ServiceCode] = []int64{}
 		}
-		serviceContentIds[serviceContent.IdService] = append(serviceContentIds[serviceContent.IdService], serviceContent.IdContent)
+		serviceContentIds[serviceContent.ServiceCode] = append(serviceContentIds[serviceContent.ServiceCode], serviceContent.IdContent)
 	}
 	if rows.Err() != nil {
 		err = fmt.Errorf("rows.Error: %s", err.Error())
 		return
 	}
-	s.ById = make(map[int64]acceptor.Service, len(svcs))
+	s.ById = make(map[string]acceptor.Service, len(svcs))
 	for _, v := range svcs {
-		if contentIds, ok := serviceContentIds[v.Id]; ok {
+		if contentIds, ok := serviceContentIds[v.Code]; ok {
 			v.ContentIds = contentIds
 		}
-		s.ById[v.Id] = v
+		s.ById[v.Code] = v
 	}
 
 	return nil
@@ -217,10 +216,16 @@ func (s *services) Reload() (err error) {
 	s.loadCache.Set(0)
 	s.loadError.Set(0)
 	if s.conf.FromControlPanel {
-		s.ById, err = client.GetServices(Svc.conf.ProviderName)
+		var byUuid map[string]acceptor.Service
+		byUuid, err = client.GetServices(Svc.conf.ProviderName)
 		if err == nil {
 			s.loadCache.Set(0)
 			return
+		}
+
+		s.ById = make(map[string]acceptor.Service, len(byUuid))
+		for _, v := range byUuid {
+			s.ById[v.Code] = v
 		}
 		s.loadError.Set(1.0)
 		log.Error(err.Error())
@@ -235,13 +240,14 @@ func (s *services) Reload() (err error) {
 	}
 	return nil
 }
-func (s *services) Get(serviceId int64) (acceptor.Service, error) {
-	if svc, ok := s.ById[serviceId]; ok {
+
+func (s *services) GetByCode(serviceCode string) (acceptor.Service, error) {
+	if svc, ok := s.ById[serviceCode]; ok {
 		return svc, nil
 	}
 	return acceptor.Service{}, errNotFound()
 }
 
-func (s *services) GetAll() map[int64]acceptor.Service {
+func (s *services) GetAll() map[string]acceptor.Service {
 	return s.ById
 }

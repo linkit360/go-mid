@@ -2,7 +2,6 @@ package service
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -19,57 +18,59 @@ func initPrevSubscriptionsCache() {
 	Svc.RejectedByService = cache.New(24*time.Hour, time.Minute)
 	for _, v := range prev {
 		Svc.RejectedByCampaign.Set(
-			v.Msisdn+strconv.FormatInt(v.CampaignId, 10),
-			struct{}{}, time.Now().Sub(v.CreatedAt))
+			v.Msisdn+"-"+v.CampaignCode,
+			struct{}{}, time.Now().Sub(v.CreatedAt),
+		)
 
 		Svc.RejectedByService.Set(
-			v.Msisdn+strconv.FormatInt(v.ServiceId, 10),
-			struct{}{}, time.Now().Sub(v.CreatedAt))
+			v.Msisdn+"-"+v.ServiceCode,
+			struct{}{}, time.Now().Sub(v.CreatedAt),
+		)
 	}
 }
 
-func SetMsisdnCampaignCache(campaignId int64, msisdn string) {
-	key := msisdn + strconv.FormatInt(campaignId, 10)
+func SetMsisdnCampaignCache(campaignCode, msisdn string) {
+	key := msisdn + "-" + campaignCode
 	Svc.RejectedByCampaign.Set(key, struct{}{}, 24*time.Hour)
 	log.WithField("key", key).Debug("rejected set")
 }
 
-func GetMsisdnCampaignCache(campaignId int64, msisdn string) int64 {
-	key := msisdn + strconv.FormatInt(campaignId, 10)
+func GetMsisdnCampaignCache(campaignCode, msisdn string) string {
+	key := msisdn + "-" + campaignCode
 	_, found := Svc.RejectedByCampaign.Get(key)
 	if !found {
-		log.WithFields(log.Fields{"id": campaignId, "key": key}).Debug("rejected get")
-		return campaignId
+		log.WithFields(log.Fields{"id": campaignCode, "key": key}).Debug("rejected get")
+		return campaignCode
 	}
-	for id, _ := range Svc.Campaigns.ById {
-		_, found := Svc.RejectedByCampaign.Get(msisdn + strconv.FormatInt(id, 10))
+	for code, _ := range Svc.Campaigns.ByCode {
+		_, found := Svc.RejectedByCampaign.Get(msisdn + "-" + code)
 		if !found {
-			log.WithFields(log.Fields{"id": id, "key": key}).Debug("rejected get")
-			return id
+			log.WithFields(log.Fields{"id": code, "key": key}).Debug("rejected get")
+			return code
 		}
 	}
 	log.WithFields(log.Fields{"id": 0, "key": key}).Debug("rejected get")
-	return 0
+	return ""
 }
 
-func SetMsisdnServiceCache(serviceId int64, msisdn string) {
-	key := msisdn + strconv.FormatInt(serviceId, 10)
+func SetMsisdnServiceCache(serviceCode, msisdn string) {
+	key := msisdn + "-" + serviceCode
 	Svc.RejectedByService.Set(key, struct{}{}, 24*time.Hour)
 	log.WithField("key", key).Debug("rejected set")
 }
 
-func IsMsisdnRejectedByService(serviceId int64, msisdn string) bool {
-	key := msisdn + strconv.FormatInt(serviceId, 10)
+func IsMsisdnRejectedByService(serviceCode, msisdn string) bool {
+	key := msisdn + "-" + serviceCode
 	_, found := Svc.RejectedByService.Get(key)
 	return found
 }
 
 type PreviuosSubscription struct {
-	Id         int64
-	CreatedAt  time.Time
-	Msisdn     string
-	ServiceId  int64
-	CampaignId int64
+	Id           int64
+	CreatedAt    time.Time
+	Msisdn       string
+	ServiceCode  string
+	CampaignCode string
 }
 
 func loadPreviousSubscriptions(operatorCode int64) (records []PreviuosSubscription, err error) {
@@ -116,8 +117,8 @@ func loadPreviousSubscriptions(operatorCode int64) (records []PreviuosSubscripti
 		if err := rows.Scan(
 			&p.Id,
 			&p.Msisdn,
-			&p.ServiceId,
-			&p.CampaignId,
+			&p.ServiceCode,
+			&p.CampaignCode,
 			&p.CreatedAt,
 		); err != nil {
 
