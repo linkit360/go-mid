@@ -42,13 +42,7 @@ func GetMsisdnCampaignCache(campaignCode, msisdn string) string {
 		log.WithFields(log.Fields{"id": campaignCode, "key": key}).Debug("rejected get")
 		return campaignCode
 	}
-	for code, _ := range Svc.Campaigns.ByCode {
-		_, found := Svc.RejectedByCampaign.Get(msisdn + "-" + code)
-		if !found {
-			log.WithFields(log.Fields{"id": code, "key": key}).Debug("rejected get")
-			return code
-		}
-	}
+
 	log.WithFields(log.Fields{"id": 0, "key": key}).Debug("rejected get")
 	return ""
 }

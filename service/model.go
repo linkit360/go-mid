@@ -32,7 +32,7 @@ type MemService struct {
 	m                  *serviceMetrics
 	cqrConfig          []cqr.CQRConfig
 	privateIPRanges    []IpRange
-	Campaigns          *Campaigns
+	Campaigns          Campaigns
 	Services           Services
 	Contents           Contents
 	SentContents       *SentContents
@@ -58,8 +58,8 @@ type Config struct {
 	StaticPath      string          `yaml:"static_path" default:""`
 	BlackList       BlackListConfig `yaml:"blacklist"`
 	Services        ServicesConfig  `yaml:"services"`
+	Campaigns       CampaignsConfig `yaml:"campaigns"`
 	Contents        ContentConfig   `yaml:"contents"`
-	CampaignWebHook string          `yaml:"campaign_web_hook" default:"http://localhost:50300/updateTemplates"`
 	PrivateIpRanges []IpRange       `yaml:"private_networks"`
 	Enabled         EnabledConfig   `yaml:"enabled"`
 }
@@ -103,7 +103,7 @@ func Init(
 
 	Svc.privateIPRanges = loadPrivateIpRanges(svcConf.PrivateIpRanges)
 
-	Svc.Campaigns = &Campaigns{}
+	Svc.Campaigns = initCampaigns(appName, svcConf.Campaigns)
 	Svc.Services = initServices(appName, svcConf.Services)
 	Svc.Contents = initContents(appName, svcConf.Contents)
 	Svc.SentContents = &SentContents{}
@@ -123,13 +123,14 @@ func Init(
 		{
 			Tables:  []string{"campaigns"},
 			Data:    Svc.Campaigns,
-			WebHook: Svc.conf.CampaignWebHook,
-			Enabled: Svc.conf.Enabled.Campaigns,
+			WebHook: Svc.conf.Campaigns.WebHook,
+			Enabled: true, // always enabled
 		},
 		{
 			Tables:  []string{"service", "service_content"},
 			Data:    Svc.Services,
-			Enabled: Svc.conf.Services.Enabled,
+			WebHook: Svc.conf.Services.WebHook,
+			Enabled: true, // always enabled
 		},
 		{
 			Tables:  []string{"content"},
@@ -239,7 +240,6 @@ func loadPrivateIpRanges(ipConf []IpRange) []IpRange {
 
 type serviceMetrics struct {
 	NotFound                m.Gauge
-	LoadCampaignError       prometheus.Gauge
 	LoadOperatorHeaderError prometheus.Gauge
 	LoadPublisherRegexError prometheus.Gauge
 }
@@ -247,7 +247,6 @@ type serviceMetrics struct {
 func initMetrics(appName string) *serviceMetrics {
 	sm := &serviceMetrics{
 		NotFound:                m.NewGauge(appName, "its", "not_found", "inmemory cann't find something"),
-		LoadCampaignError:       m.PrometheusGauge(appName, "campaign_load", "error", "load campaign error"),
 		LoadOperatorHeaderError: m.PrometheusGauge(appName, "operator_load_headers", "error", "operator load headers error"),
 		LoadPublisherRegexError: m.PrometheusGauge(appName, "publisher_load_regex", "error", "publisher load regex error"),
 	}

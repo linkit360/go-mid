@@ -88,10 +88,8 @@ type Campaign struct{}
 func (rpc *Campaign) ByHash(
 	req GetByHashParams, res *service.Campaign) error {
 
-	campaign, ok := service.Svc.Campaigns.ByHash[req.Hash]
-	if !ok {
-		notFound.Inc()
-		campaignNotFound.Inc()
+	campaign, err := service.Svc.Campaigns.GetByHash(req.Hash)
+	if err != nil {
 		errors.Inc()
 		return nil
 	}
@@ -102,10 +100,8 @@ func (rpc *Campaign) ByHash(
 func (rpc *Campaign) ByLink(
 	req GetByLinkParams, res *service.Campaign) error {
 
-	campaign, ok := service.Svc.Campaigns.ByLink[req.Link]
-	if !ok {
-		notFound.Inc()
-		campaignNotFound.Inc()
+	campaign, err := service.Svc.Campaigns.GetByLink(req.Link)
+	if err != nil {
 		errors.Inc()
 		return nil
 	}
@@ -116,10 +112,8 @@ func (rpc *Campaign) ByLink(
 func (rpc *Campaign) ByCode(
 	req GetByCodeParams, res *service.Campaign) error {
 
-	campaign, ok := service.Svc.Campaigns.ByCode[req.Code]
-	if !ok {
-		notFound.Inc()
-		campaignNotFound.Inc()
+	campaign, err := service.Svc.Campaigns.GetByCode(req.Code)
+	if err != nil {
 		errors.Inc()
 		return nil
 	}
@@ -130,14 +124,12 @@ func (rpc *Campaign) ByCode(
 func (rpc *Campaign) ByServiceCode(
 	req GetByCodeParams, res *service.Campaign) error {
 
-	campaign, ok := service.Svc.Campaigns.ByServiceCode[req.Code]
-	if !ok {
-		notFound.Inc()
-		campaignNotFound.Inc()
+	campaigns, err := service.Svc.Campaigns.GetByServiceCode(req.Code)
+	if err != nil || len(campaigns) == 0 {
 		errors.Inc()
 		return nil
 	}
-	*res = campaign
+	*res = campaigns[0]
 	success.Inc()
 	return nil
 }
@@ -152,11 +144,9 @@ func (rpc *Campaign) ByKeyWord(
 		errors.Inc()
 		return nil
 	}
-	campaign, ok := service.Svc.Campaigns.ByCode[campaignCode]
-	if !ok {
+	campaign, err := service.Svc.Campaigns.GetByCode(campaignCode)
+	if err != nil {
 		log.Errorf("campaign not found %#v", req.Key)
-		notFound.Inc()
-		campaignNotFound.Inc()
 		errors.Inc()
 		return nil
 	}
@@ -168,8 +158,9 @@ func (rpc *Campaign) ByKeyWord(
 func (rpc *Campaign) All(
 	req GetAllParams, res *GetAllCampaignsResponse) error {
 	*res = GetAllCampaignsResponse{
-		Campaigns: service.Svc.Campaigns.ByLink,
+		Campaigns: service.Svc.Campaigns.GetAll(),
 	}
+
 	success.Inc()
 	return nil
 }

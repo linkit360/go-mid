@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
 
 	client "github.com/linkit360/go-acceptor-client"
@@ -41,6 +42,7 @@ func initContents(appName string, contentConf ContentConfig) Contents {
 		loadCache: m.PrometheusGauge(appName, "content", "cache", "load content cache"),
 	}
 	if !contentSvc.conf.Enabled {
+		log.Info("contents disabled")
 		return contentSvc
 	}
 

@@ -28,16 +28,17 @@ type Services interface {
 }
 
 type ServicesConfig struct {
-	Enabled          bool `yaml:"enabled"`
-	FromControlPanel bool `yaml:"from_control_panel"`
+	FromControlPanel bool   `yaml:"from_control_panel"`
+	WebHook          string `yaml:"web_hook" default:"http://localhost:50306/update"`
 }
 
 type services struct {
 	sync.RWMutex
 	conf      ServicesConfig
-	ById      map[string]acceptor.Service
+	ByCode    map[string]acceptor.Service
 	loadError prometheus.Gauge
 	loadCache prometheus.Gauge
+	notFound  m.Gauge
 }
 
 func initServices(appName string, servConfig ServicesConfig) Services {
@@ -45,13 +46,17 @@ func initServices(appName string, servConfig ServicesConfig) Services {
 		conf:      servConfig,
 		loadError: m.PrometheusGauge(appName, "services_load", "error", "load services error"),
 		loadCache: m.PrometheusGauge(appName, "services", "cache", "load services cache"),
+		notFound:  m.NewGauge(appName, "service", "not_found", "service not found error"),
 	}
+	go func() {
+		for range time.Tick(time.Minute) {
+			svcs.notFound.Update()
+		}
+	}()
 
 	if !svcs.conf.FromControlPanel {
 		return svcs
 	}
-
-	svcs.loadCache = m.PrometheusGauge(appName, "services", "cache", "cache services used")
 	return svcs
 }
 
@@ -198,12 +203,12 @@ func (s *services) loadFromCache() (err error) {
 		err = fmt.Errorf("rows.Error: %s", err.Error())
 		return
 	}
-	s.ById = make(map[string]acceptor.Service, len(svcs))
+	s.ByCode = make(map[string]acceptor.Service, len(svcs))
 	for _, v := range svcs {
 		if contentIds, ok := serviceContentIds[v.Code]; ok {
 			v.ContentIds = contentIds
 		}
-		s.ById[v.Code] = v
+		s.ByCode[v.Code] = v
 	}
 
 	return nil
@@ -213,24 +218,26 @@ func (s *services) Reload() (err error) {
 	s.Lock()
 	defer s.Unlock()
 
-	defer log.Debugf("services: %#v", s.ById)
+	defer s.ShowLoaded()
+
+	var loadError error
 
 	s.loadCache.Set(0)
 	s.loadError.Set(0)
 	if s.conf.FromControlPanel {
 		var byUuid map[string]acceptor.Service
-		byUuid, err = client.GetServices(Svc.conf.ProviderName)
+		byUuid, loadError = client.GetServices(Svc.conf.ProviderName)
 		if err == nil {
 			s.loadCache.Set(0)
 			return
 		}
 
-		s.ById = make(map[string]acceptor.Service, len(byUuid))
+		s.ByCode = make(map[string]acceptor.Service, len(byUuid))
 		for _, v := range byUuid {
-			s.ById[v.Code] = v
+			s.ByCode[v.Code] = v
 		}
 		s.loadError.Set(1.0)
-		log.Error(err.Error())
+		log.Error(loadError.Error())
 	}
 
 	s.loadCache.Set(1.0)
@@ -244,12 +251,21 @@ func (s *services) Reload() (err error) {
 }
 
 func (s *services) GetByCode(serviceCode string) (acceptor.Service, error) {
-	if svc, ok := s.ById[serviceCode]; ok {
+	if svc, ok := s.ByCode[serviceCode]; ok {
 		return svc, nil
 	}
 	return acceptor.Service{}, errNotFound()
 }
 
 func (s *services) GetAll() map[string]acceptor.Service {
-	return s.ById
+	return s.ByCode
+}
+
+func (s *services) ShowLoaded() {
+	byCode, _ := json.Marshal(s.ByCode)
+
+	log.WithFields(log.Fields{
+		"action": "services",
+		"id":     string(byCode),
+	}).Debug("")
 }
