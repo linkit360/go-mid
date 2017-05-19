@@ -95,6 +95,7 @@ func call(funcName string, req interface{}, res interface{}) error {
 	if cli == nil || cli.connection == nil {
 		cli.dial()
 	}
+
 	if err := cli.connection.Call(funcName, req, &res); err != nil {
 		cli.m.RPCConnectError.Inc()
 		if err == rpc.ErrShutdown {
@@ -186,7 +187,7 @@ func GetCampaignByHash(hash string) (service.Campaign, error) {
 		handlers.GetByHashParams{Hash: hash},
 		&campaign,
 	)
-	if campaign.Code == "" {
+	if campaign.Properties.Code == "" {
 		return campaign, errNotFound(hash)
 	}
 	return campaign, err
@@ -198,7 +199,7 @@ func GetCampaignByLink(link string) (service.Campaign, error) {
 		handlers.GetByLinkParams{Link: link},
 		&campaign,
 	)
-	if campaign.Code == "" {
+	if campaign.Properties.Code == "" {
 		return campaign, errNotFound(link)
 	}
 	return campaign, err
@@ -210,7 +211,7 @@ func GetCampaignByKeyWord(keyWord string) (service.Campaign, error) {
 		handlers.GetByKeyWordParams{Key: keyWord},
 		&campaign,
 	)
-	if campaign.Code == "" {
+	if campaign.Properties.Code == "" {
 		return campaign, errNotFound(keyWord)
 	}
 	return campaign, err
@@ -222,7 +223,7 @@ func GetCampaignByCode(code string) (service.Campaign, error) {
 		handlers.GetByCodeParams{Code: code},
 		&campaign,
 	)
-	if campaign.Code == "" {
+	if campaign.Properties.Code == "" {
 		return campaign, errNotFound(code)
 	}
 	return campaign, err
@@ -234,7 +235,7 @@ func GetCampaignByServiceCode(serviceCode string) (service.Campaign, error) {
 		handlers.GetByCodeParams{Code: serviceCode},
 		&campaign,
 	)
-	if campaign.Code == "" {
+	if campaign.Properties.Code == "" {
 		return campaign, errNotFound(serviceCode)
 	}
 	return campaign, err

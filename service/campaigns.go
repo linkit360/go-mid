@@ -2,14 +2,16 @@ package service
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
 	"sync"
 
-	"encoding/json"
 	log "github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
+
+	acceptor "github.com/linkit360/go-acceptor-structs"
 )
 
 // Tasks:
@@ -25,44 +27,32 @@ type Campaigns struct {
 }
 
 type Campaign struct {
-	//Id               string `json:"id,omitempty"` // UUID
-	Code             string `json:"code,omitempty"` // UUID
-	Title            string `json:"title,omitempty"`
-	Link             string `json:"link,omitempty"`
-	Lp               string `json:"lp,omitempty"` // UUID
-	Hash             string `json:"hash,omitempty"`
-	ServiceCode      string `json:"service_code,omitempty"`
-	AutoClickRatio   int64  `json:"auto_click_ratio,omitempty"`
-	AutoClickEnabled bool   `json:"auto_click_enabled,omitempty"`
-	AutoClickCount   int64  `json:"auto_click_count,omitempty"`
-	CanAutoClick     bool   `json:"can_auto_click,omitempty"`
-	PageSuccess      string `json:"page_success,omitempty"`
-	PageError        string `json:"page_error,omitempty"`
-	PageThankYou     string `json:"page_thank_you,omitempty"`
-	PageWelcome      string `json:"page_welcome,omitempty"`
+	AutoClickCount int64             `json:"-"`
+	CanAutoClick   bool              `json:"-"`
+	Properties     acceptor.Campaign `json:"campaign"`
 }
 
 func (campaign *Campaign) SimpleServe(c *gin.Context, data interface{}) {
 	campaign.incRatio()
 	log.WithFields(log.Fields{
-		"code":              campaign.Code,
+		"code":              campaign.Properties.Code,
 		"count":             campaign.AutoClickCount,
-		"ratio":             campaign.AutoClickRatio,
-		"autoclick_enabled": campaign.AutoClickEnabled,
+		"ratio":             campaign.Properties.AutoClickRatio,
+		"autoclick_enabled": campaign.Properties.AutoClickEnabled,
 		"autoclick":         campaign.CanAutoClick,
 	}).Debug("serve")
 
 	c.Writer.Header().Set("Content-Type", "text/html; charset-utf-8")
-	c.HTML(http.StatusOK, campaign.PageWelcome+".html", data)
+	c.HTML(http.StatusOK, campaign.Properties.PageWelcome+".html", data)
 }
 
 func (camp *Campaign) incRatio() {
-	if !camp.AutoClickEnabled {
+	if !camp.Properties.AutoClickEnabled {
 		camp.CanAutoClick = false
 		return
 	}
 	camp.AutoClickCount = camp.AutoClickCount + 1
-	if camp.AutoClickCount == camp.AutoClickRatio {
+	if camp.AutoClickCount == camp.Properties.AutoClickRatio {
 		camp.AutoClickCount = 0
 		camp.CanAutoClick = true
 	} else {
@@ -97,9 +87,9 @@ func (s *Campaigns) Reload() (err error) {
 	defer rows.Close()
 
 	loadCampaignErrorFlag := false
-	var campaigns []Campaign
+	var campaigns []acceptor.Campaign
 	for rows.Next() {
-		campaign := Campaign{}
+		campaign := acceptor.Campaign{}
 		if err = rows.Scan(
 			&campaign.Code,
 			&campaign.Hash,
@@ -147,10 +137,10 @@ func (s *Campaigns) Reload() (err error) {
 	s.ByServiceCode = make(map[string]Campaign, len(campaigns))
 
 	for _, campaign := range campaigns {
-		s.ByHash[campaign.Hash] = campaign
-		s.ByLink[campaign.Link] = campaign
-		s.ByCode[campaign.Code] = campaign
-		s.ByServiceCode[campaign.ServiceCode] = campaign
+		s.ByHash[campaign.Hash] = Campaign{Properties: campaign}
+		s.ByLink[campaign.Link] = Campaign{Properties: campaign}
+		s.ByCode[campaign.Code] = Campaign{Properties: campaign}
+		s.ByServiceCode[campaign.ServiceCode] = Campaign{Properties: campaign}
 	}
 
 	s.GetContents()

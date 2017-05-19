@@ -9,6 +9,7 @@ import (
 var (
 	notFound             m.Gauge
 	campaignNotFound     m.Gauge
+	serviceNotFound      m.Gauge
 	urlCacheNotFound     m.Gauge
 	operatorNotFound     m.Gauge
 	unknownPrefix        m.Gauge
@@ -28,6 +29,7 @@ func InitMetrics(appName string) {
 
 	notFound = inmemMetric(appName, "404")
 	campaignNotFound = inmemMetric(appName, "campaign_not_found")
+	serviceNotFound = inmemMetric(appName, "service_not_found")
 	urlCacheNotFound = inmemMetric(appName, "uniqueurl_not_found")
 	operatorNotFound = inmemMetric(appName, "operator_not_found")
 	unknownPrefix = inmemMetric(appName, "prefix_unknown")
@@ -40,6 +42,7 @@ func InitMetrics(appName string) {
 			errors.Update()
 			notFound.Update()
 			campaignNotFound.Update()
+			serviceNotFound.Update()
 			urlCacheNotFound.Update()
 			operatorNotFound.Update()
 			unknownPrefix.Update()

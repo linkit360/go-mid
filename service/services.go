@@ -99,6 +99,7 @@ func (s *services) loadFromCache() (err error) {
 		"sms_on_rejected, "+
 		"sms_on_blacklisted, "+
 		"sms_on_postpaid, "+
+		"sms_on_charged, "+
 		"days, "+
 		"allowed_from, "+
 		"allowed_to "+
@@ -132,6 +133,7 @@ func (s *services) loadFromCache() (err error) {
 			&srv.SMSOnRejected,
 			&srv.SMSOnBlackListed,
 			&srv.SMSOnPostPaid,
+			&srv.SMSOnCharged,
 			&srv.PeriodicDays,
 			&srv.PeriodicAllowedFrom,
 			&srv.PeriodicAllowedTo,

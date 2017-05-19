@@ -52,10 +52,10 @@ func initBlackList(appName string, c BlackListConfig) *blackList {
 
 			timeSend := time.Now().Add(-period).Format("2006-01-02 15:04:05")
 			log.WithFields(log.Fields{
-				"period":       period,
-				"provide_name": Svc.conf.ProviderName,
-				"time_sent":    timeSend,
-				"last_success": lastSuccess,
+				"period":        period,
+				"provider_name": Svc.conf.ProviderName,
+				"time_sent":     timeSend,
+				"last_success":  lastSuccess,
 			}).Debug("req new blacklist..")
 
 			msisdns, err := acceptor_client.GetNewBlackListed(
@@ -65,10 +65,10 @@ func initBlackList(appName string, c BlackListConfig) *blackList {
 			if err != nil {
 				err = fmt.Errorf("acceptor_client.BlackListGetNew: %s", err.Error())
 				log.WithFields(log.Fields{
-					"error":        err.Error(),
-					"provide_name": Svc.conf.ProviderName,
-					"time_sent":    timeSend,
-					"last_success": lastSuccess,
+					"error":         err.Error(),
+					"provider_name": Svc.conf.ProviderName,
+					"time_sent":     timeSend,
+					"last_success":  lastSuccess,
 				}).Error("cannot get new blacklist from client")
 			} else {
 
@@ -77,16 +77,16 @@ func initBlackList(appName string, c BlackListConfig) *blackList {
 				}
 				if len(msisdns) > 0 {
 					log.WithFields(log.Fields{
-						"count":        len(msisdns),
-						"provide_name": Svc.conf.ProviderName,
-						"time_sent":    timeSend,
-						"last_success": lastSuccess,
+						"count":         len(msisdns),
+						"provider_name": Svc.conf.ProviderName,
+						"time_sent":     timeSend,
+						"last_success":  lastSuccess,
 					}).Info("got new blacklist from client")
 				} else {
 					log.WithFields(log.Fields{
-						"count":        len(msisdns),
-						"provide_name": Svc.conf.ProviderName,
-						"time_sent":    timeSend,
+						"count":         len(msisdns),
+						"provider_name": Svc.conf.ProviderName,
+						"time_sent":     timeSend,
 					}).Info("nothing..")
 				}
 				lastSuccessFullTime = time.Now()
