@@ -11,13 +11,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	acceptor "github.com/linkit360/go-acceptor-structs"
-	"github.com/linkit360/go-inmem/server/src/handlers"
-	"github.com/linkit360/go-inmem/service"
+	"github.com/linkit360/go-mid/server/src/handlers"
+	"github.com/linkit360/go-mid/service"
 	m "github.com/linkit360/go-utils/metrics"
 )
-
-// rpc client for "github.com/linkit360/go-inmem/server"
-// fails on disconnect
 
 var errNotFound = func(v interface{}) error {
 	cli.m.NotFound.Inc()
@@ -34,6 +31,7 @@ type ClientConfig struct {
 	DSN     string `default:":50307" yaml:"dsn"`
 	Timeout int    `default:"10" yaml:"timeout"`
 }
+
 type Metrics struct {
 	RPCConnectError m.Gauge
 	RPCSuccess      m.Gauge

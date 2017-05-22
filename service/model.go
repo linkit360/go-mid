@@ -12,6 +12,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	acceptor "github.com/linkit360/go-acceptor-client"
+	"github.com/linkit360/go-utils/amqp"
+	"github.com/linkit360/go-utils/config"
 	"github.com/linkit360/go-utils/cqr"
 	"github.com/linkit360/go-utils/db"
 	m "github.com/linkit360/go-utils/metrics"
@@ -26,10 +28,11 @@ var errNotFound = func() error {
 
 type MemService struct {
 	db                 *sql.DB
+	cqrConfig          []cqr.CQRConfig
+	m                  *serviceMetrics
 	dbConf             db.DataBaseConfig
 	conf               Config
-	m                  *serviceMetrics
-	cqrConfig          []cqr.CQRConfig
+	reporter           Collector
 	Campaigns          Campaigns
 	Services           Services
 	Contents           Contents
@@ -49,14 +52,21 @@ type MemService struct {
 
 type Config struct {
 	ProviderName string          `yaml:"provider_name"`
-	OperatorCode int64           `yaml:"operator_code" default:"41001"`
 	UniqueDays   int             `yaml:"unique_days" default:"10"`
 	StaticPath   string          `yaml:"static_path" default:""`
+	Queue        QueuesConfig    `yaml:"queue"`
 	BlackList    BlackListConfig `yaml:"blacklist"`
 	Services     ServicesConfig  `yaml:"services"`
 	Campaigns    CampaignsConfig `yaml:"campaigns"`
 	Contents     ContentConfig   `yaml:"contents"`
 	Enabled      EnabledConfig   `yaml:"enabled"`
+}
+
+type QueuesConfig struct {
+	Hit         config.ConsumeQueueConfig `yaml:"hit"`
+	Transaction config.ConsumeQueueConfig `yaml:"transaction"`
+	Pixel       config.ConsumeQueueConfig `yaml:"pixel"`
+	Outflow     config.ConsumeQueueConfig `yaml:"outflow"`
 }
 
 type EnabledConfig struct {
@@ -75,9 +85,18 @@ type EnabledConfig struct {
 	RedirectStatCounts bool `yaml:"redirect_stats_count"`
 }
 
+type Consumers struct {
+	Hit         *amqp.Consumer `yaml:"hit"`
+	Transaction *amqp.Consumer `yaml:"transaction"`
+	Pixel       *amqp.Consumer `yaml:"pixel"`
+	Outflow     *amqp.Consumer `yaml:"outflow"`
+}
+
 func Init(
 	appName string,
+	instanceId string,
 	svcConf Config,
+	consumerConf amqp.ConsumerConfig,
 	dbConf db.DataBaseConfig,
 	acceptorClientConf acceptor.ClientConfig,
 
@@ -99,6 +118,7 @@ func Init(
 	Svc.Campaigns = initCampaigns(appName, svcConf.Campaigns)
 	Svc.Services = initServices(appName, svcConf.Services)
 	Svc.Contents = initContents(appName, svcConf.Contents)
+	Svc.reporter = initReporter(instanceId, svcConf.Queue, consumerConf, acceptorClientConf)
 	Svc.SentContents = &SentContents{}
 	Svc.Operators = &Operators{}
 	Svc.BlackList = initBlackList(appName, svcConf.BlackList)

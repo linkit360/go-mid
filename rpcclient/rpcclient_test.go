@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/linkit360/go-inmem/service"
+	"github.com/linkit360/go-mid/service"
 	"github.com/stretchr/testify/assert"
 )
 

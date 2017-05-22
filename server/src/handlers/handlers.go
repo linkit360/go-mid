@@ -6,7 +6,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	acceptor "github.com/linkit360/go-acceptor-structs"
-	"github.com/linkit360/go-inmem/service"
+	"github.com/linkit360/go-mid/service"
 )
 
 type GetAllParams struct {

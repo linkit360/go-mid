@@ -6,25 +6,25 @@ version:
 	 @echo Version IS $(VERSION)
 
 dev:
-	rm -f bin/inmem;
-	go build -o bin/inmem;
+	rm -f bin/mid;
+	go build -o bin/mid;
 
 run:
 	./server
 
 rm:
-	rm -f bin/inmem-linux-amd64; rm -f ~/linkit/inmem-linux-amd64;
+	rm -f bin/mid-linux-amd64; rm -f ~/linkit/mid-linux-amd64;
 
 build:
 	export GOOS=linux; export GOARCH=amd64; \
-        go build -ldflags "-s -w" -o bin/inmem-linux-amd64; \
+        go build -ldflags "-s -w" -o bin/mid-linux-amd64; \
 
 
 cp:
-	cp  bin/inmem-linux-amd64 ~/linkit; cp dev/inmem.yml ~/linkit/
+	cp  bin/mid-linux-amd64 ~/linkit; cp dev/mid.yml ~/linkit/
 
 tail:
-	tail -10 /var/log/linkit/inmem.log
+	tail -10 /var/log/linkit/mid.log
 
 
 cqrcampaign:

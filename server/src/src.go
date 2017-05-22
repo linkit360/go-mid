@@ -12,9 +12,9 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 
-	"github.com/linkit360/go-inmem/server/src/config"
-	"github.com/linkit360/go-inmem/server/src/handlers"
-	"github.com/linkit360/go-inmem/service"
+	"github.com/linkit360/go-mid/server/src/config"
+	"github.com/linkit360/go-mid/server/src/handlers"
+	"github.com/linkit360/go-mid/service"
 	m "github.com/linkit360/go-utils/metrics"
 )
 
@@ -25,7 +25,9 @@ func Run() {
 
 	service.Init(
 		appConfig.AppName,
+		appConfig.InstanceId,
 		appConfig.Service,
+		appConfig.Consumer,
 		appConfig.DbConf,
 		appConfig.AcceptorClientConfig,
 	)

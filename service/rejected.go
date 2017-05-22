@@ -9,7 +9,7 @@ import (
 )
 
 func initPrevSubscriptionsCache() {
-	prev, err := loadPreviousSubscriptions(Svc.conf.OperatorCode)
+	prev, err := loadPreviousSubscriptions()
 	if err != nil {
 		log.WithField("error", err.Error()).Fatal("cannot load previous subscriptions")
 	}
@@ -67,7 +67,7 @@ type PreviuosSubscription struct {
 	CampaignCode string
 }
 
-func loadPreviousSubscriptions(operatorCode int64) (records []PreviuosSubscription, err error) {
+func loadPreviousSubscriptions() (records []PreviuosSubscription, err error) {
 	begin := time.Now()
 	defer func() {
 		defer func() {
@@ -93,12 +93,11 @@ func loadPreviousSubscriptions(operatorCode int64) (records []PreviuosSubscripti
 		"FROM %ssubscriptions "+
 		"WHERE "+
 		"(CURRENT_TIMESTAMP - 24 * INTERVAL '1 hour' ) < created_at AND "+
-		"result IN ('', 'paid', 'failed') AND "+
-		"operator_code = $1",
+		"result IN ('', 'paid', 'failed')",
 		Svc.dbConf.TablePrefix)
 
 	prev := []PreviuosSubscription{}
-	rows, err := Svc.db.Query(query, operatorCode)
+	rows, err := Svc.db.Query(query)
 	if err != nil {
 
 		err = fmt.Errorf("db.Query: %s, query: %s", err.Error(), query)

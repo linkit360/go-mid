@@ -34,7 +34,6 @@ func initBlackList(appName string, c BlackListConfig) *blackList {
 	bl := &blackList{
 		conf:      c,
 		loadError: m.PrometheusGauge(appName, "blacklist_load", "error", "load blacklist error"),
-		loadCache: m.PrometheusGauge(appName, "blacklist", "cache", "cache blacklist used"),
 	}
 	return bl
 }

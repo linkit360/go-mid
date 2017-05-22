@@ -10,7 +10,8 @@ import (
 	"github.com/jinzhu/configor"
 
 	acceptor_client "github.com/linkit360/go-acceptor-client"
-	"github.com/linkit360/go-inmem/service"
+	"github.com/linkit360/go-mid/service"
+	"github.com/linkit360/go-utils/amqp"
 	"github.com/linkit360/go-utils/db"
 )
 
@@ -20,9 +21,11 @@ type ServerConfig struct {
 }
 type AppConfig struct {
 	AppName              string                       `yaml:"app_name"`
+	InstanceId           string                       `yaml:"instance"`
 	Server               ServerConfig                 `yaml:"server"`
 	Service              service.Config               `yaml:"service"`
 	DbConf               db.DataBaseConfig            `yaml:"db"`
+	Consumer             amqp.ConsumerConfig          `yaml:"consumer"`
 	AcceptorClientConfig acceptor_client.ClientConfig `yaml:"acceptor_client"`
 }
 
