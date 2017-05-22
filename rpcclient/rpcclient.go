@@ -10,7 +10,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
 
-	acceptor "github.com/linkit360/go-acceptor-structs"
 	"github.com/linkit360/go-inmem/server/src/handlers"
 	"github.com/linkit360/go-inmem/service"
 	m "github.com/linkit360/go-utils/metrics"
@@ -120,66 +119,6 @@ func call(funcName string, req interface{}, res interface{}) error {
 	cli.m.RPCDuration.Observe(time.Since(begin).Seconds())
 	return nil
 }
-
-func GetOperatorByCode(code int64) (service.Operator, error) {
-	var operator service.Operator
-	err := call(
-		"Operator.ByCode",
-		handlers.GetByIdParams{Id: code},
-		&operator,
-	)
-	if operator.Code == 0 {
-		return operator, errNotFound(code)
-	}
-
-	return operator, err
-}
-
-func GetOperatorByName(name string) (service.Operator, error) {
-	var operator service.Operator
-	err := call(
-		"Operator.ByName",
-		handlers.GetByNameParams{Name: name},
-		&operator,
-	)
-	if operator.Code == 0 {
-		return operator, errNotFound(name)
-	}
-	return operator, err
-}
-func GetIPInfoByMsisdn(msisdn string) (service.IPInfo, error) {
-	var ipInfo service.IPInfo
-	err := call(
-		"IPInfo.ByMsisdn",
-		handlers.GetByMsisdnParams{Msisdn: msisdn},
-		&ipInfo,
-	)
-	return ipInfo, err
-}
-func GetOperatorByPrefix(prefix string) (service.Operator, error) {
-	var operator service.Operator
-	err := call(
-		"Prefix.GetOperator",
-		handlers.GetByPrefixParams{Prefix: prefix},
-		&operator,
-	)
-	if operator.Code == 0 {
-		return operator, errNotFound(prefix)
-	}
-	return operator, err
-}
-func GetIPInfoByIps(ips []net.IP) ([]service.IPInfo, error) {
-	var res handlers.GetByIPsResponse
-	err := call(
-		"IPInfo.ByIP",
-		handlers.GetByIPsParams{IPs: ips},
-		&res,
-	)
-	if len(res.IPInfos) == 0 {
-		return res.IPInfos, errNotFound(ips)
-	}
-	return res.IPInfos, err
-}
 func GetCampaignByHash(hash string) (service.Campaign, error) {
 	var campaign service.Campaign
 	err := call(
@@ -254,7 +193,7 @@ func GetAllCampaigns() (map[string]service.Campaign, error) {
 	return res.Campaigns, err
 }
 
-func GetAllServices() (map[string]acceptor.Service, error) {
+func GetAllServices() (map[string]service.Service, error) {
 	var res handlers.GetAllServicesResponse
 	err := call(
 		"Service.All",
@@ -268,8 +207,22 @@ func GetAllServices() (map[string]acceptor.Service, error) {
 	return res.Services, err
 }
 
-func GetServiceByCode(serviceCode string) (acceptor.Service, error) {
-	var svc acceptor.Service
+func GetOperatorByCode(code int64) (service.Operator, error) {
+	var operator service.Operator
+	err := call(
+		"Operator.ByCode",
+		handlers.GetByIdParams{Id: code},
+		&operator,
+	)
+	if operator.Code == 0 {
+		return operator, errNotFound(code)
+	}
+
+	return operator, err
+}
+
+func GetServiceByCode(serviceCode string) (service.Service, error) {
+	var svc service.Service
 	err := call(
 		"Service.ByCode",
 		handlers.GetByCodeParams{Code: serviceCode},
@@ -281,8 +234,8 @@ func GetServiceByCode(serviceCode string) (acceptor.Service, error) {
 	return svc, err
 }
 
-func GetContentById(contentId int64) (acceptor.Content, error) {
-	var content acceptor.Content
+func GetContentById(contentId int64) (service.Content, error) {
+	var content service.Content
 	err := call(
 		"Content.ById",
 		handlers.GetByIdParams{Id: contentId},

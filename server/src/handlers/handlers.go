@@ -1,12 +1,10 @@
 package handlers
 
 import (
-	"net"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
 
-	acceptor "github.com/linkit360/go-acceptor-structs"
 	"github.com/linkit360/go-inmem/service"
 )
 
@@ -16,7 +14,7 @@ type GetAllCampaignsResponse struct {
 	Campaigns map[string]service.Campaign `json:"campaigns,omitempty"`
 }
 type GetAllServicesResponse struct {
-	Services map[string]acceptor.Service `json:"services,omitempty"`
+	Services map[string]service.Service `json:"services,omitempty"`
 }
 type GetAllPublishersResponse struct {
 	Publishers map[string]service.Publisher `json:"publishers,omitempty"`
@@ -50,12 +48,6 @@ type GetByMsisdnParams struct {
 }
 type BlackListedParams struct {
 	Msisdns []string `json:"msisdns,omitempty"`
-}
-type GetByIPsParams struct {
-	IPs []net.IP `json:"ips,omitempty"`
-}
-type GetByIPsResponse struct {
-	IPInfos []service.IPInfo `json:"ip_infos,omitempty"`
 }
 type GetByKeyParams struct {
 	Key string `json:"key,omitempty"`
@@ -262,7 +254,7 @@ func (rpc *Service) All(
 }
 
 func (rpc *Service) ByCode(
-	req GetByCodeParams, res *acceptor.Service) error {
+	req GetByCodeParams, res *service.Service) error {
 
 	svc, err := service.Svc.Services.GetByCode(req.Code)
 	if err != nil {
@@ -324,7 +316,7 @@ func (rpc *PixelSetting) ByKeyWithRatio(
 type Content struct{}
 
 func (rpc *Content) ById(
-	req GetByIdParams, res *acceptor.Content) error {
+	req GetByIdParams, res *service.Content) error {
 
 	content, err := service.Svc.Contents.Get(req.Id)
 	if err != nil {
@@ -332,6 +324,23 @@ func (rpc *Content) ById(
 		return nil
 	}
 	*res = content
+	success.Inc()
+	return nil
+}
+
+type Operator struct{}
+
+func (rpc *Operator) ByCode(
+	req GetByIdParams, res *service.Operator) error {
+
+	operator, ok := service.Svc.Operators.ByCode[req.Id]
+	if !ok {
+		notFound.Inc()
+		operatorNotFound.Inc()
+		errors.Inc()
+		return nil
+	}
+	*res = operator
 	success.Inc()
 	return nil
 }
@@ -355,123 +364,6 @@ func (rpc *ContentSent) Get(
 
 	contentIds := service.Svc.SentContents.Get(req.Msisdn, req.ServiceCode)
 	*res = GetContentSentResponse{ContentdIds: contentIds}
-	success.Inc()
-	return nil
-}
-
-// Operator
-type Operator struct{}
-
-func (rpc *Operator) ByCode(
-	req GetByIdParams, res *service.Operator) error {
-
-	operator, ok := service.Svc.Operators.ByCode[req.Id]
-	if !ok {
-		notFound.Inc()
-		operatorNotFound.Inc()
-		errors.Inc()
-		return nil
-	}
-	*res = operator
-	success.Inc()
-	return nil
-}
-
-func (rpc *Operator) ByName(
-	req GetByNameParams, res *service.Operator) error {
-
-	operator, ok := service.Svc.Operators.ByName[strings.ToLower(req.Name)]
-	if !ok {
-		notFound.Inc()
-		operatorNotFound.Inc()
-		errors.Inc()
-		return nil
-	}
-	*res = operator
-	success.Inc()
-	return nil
-}
-
-type Prefix struct{}
-
-func (rpc *Prefix) GetOperator(
-	req GetByPrefixParams, res *service.Operator) error {
-	operator_code, ok := service.Svc.Prefixes.OperatorCodeByPrefix[req.Prefix]
-	if !ok {
-		notFound.Inc()
-		unknownPrefix.Inc()
-		errors.Inc()
-		return nil
-	}
-	operator, ok := service.Svc.Operators.ByCode[operator_code]
-	if !ok {
-		notFound.Inc()
-		operatorNotFound.Inc()
-		errors.Inc()
-		return nil
-	}
-	*res = operator
-	success.Inc()
-	return nil
-}
-
-// IpInfo
-type IPInfo struct{}
-
-func (rpc *IPInfo) ByMsisdn(
-	req GetByMsisdnParams, res *service.IPInfo) error {
-
-	for prefix, operatorCode := range service.Svc.Prefixes.OperatorCodeByPrefix {
-		if strings.HasPrefix(req.Msisdn, prefix) {
-			info := service.IPInfo{
-				Supported:    true,
-				OperatorCode: operatorCode,
-			}
-			if ipRange, ok := service.Svc.IpRanges.ByOperatorCode[operatorCode]; ok {
-				info.OperatorCode = ipRange.OperatorCode
-				info.CountryCode = ipRange.CountryCode
-				info.MsisdnHeaders = ipRange.MsisdnHeaders
-				if operatorCode != 0 {
-					info.Supported = true
-				}
-			}
-			*res = info
-			success.Inc()
-			return nil
-		}
-	}
-	notFound.Inc()
-	errors.Inc()
-	return nil
-}
-
-func (rpc *IPInfo) ByIP(
-	req GetByIPsParams, res *GetByIPsResponse) error {
-
-	var infos []service.IPInfo
-	for _, ip := range req.IPs {
-		info := service.IPInfo{IP: ip.String(), Supported: false}
-
-		if service.IsPrivateSubnet(ip) {
-			info.Local = true
-			infos = append(infos, info)
-			continue
-		}
-
-		for _, ipRange := range service.Svc.IpRanges.Data {
-			if ipRange.In(ip) {
-				info.Range = ipRange
-				info.OperatorCode = ipRange.OperatorCode
-				info.CountryCode = ipRange.CountryCode
-				info.MsisdnHeaders = ipRange.MsisdnHeaders
-				if info.OperatorCode != 0 {
-					info.Supported = true
-				}
-			}
-		}
-		infos = append(infos, info)
-	}
-	*res = GetByIPsResponse{IPInfos: infos}
 	success.Inc()
 	return nil
 }

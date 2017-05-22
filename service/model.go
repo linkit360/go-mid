@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -31,14 +30,11 @@ type MemService struct {
 	conf               Config
 	m                  *serviceMetrics
 	cqrConfig          []cqr.CQRConfig
-	privateIPRanges    []IpRange
 	Campaigns          Campaigns
 	Services           Services
 	Contents           Contents
 	SentContents       *SentContents
-	IpRanges           *IpRanges
 	Operators          *Operators
-	Prefixes           *Prefixes
 	BlackList          BlackList
 	PostPaid           *PostPaid
 	PixelSettings      *PixelSettings
@@ -52,16 +48,15 @@ type MemService struct {
 }
 
 type Config struct {
-	ProviderName    string          `yaml:"provider_name"`
-	OperatorCode    int64           `yaml:"operator_code" default:"41001"`
-	UniqueDays      int             `yaml:"unique_days" default:"10"`
-	StaticPath      string          `yaml:"static_path" default:""`
-	BlackList       BlackListConfig `yaml:"blacklist"`
-	Services        ServicesConfig  `yaml:"services"`
-	Campaigns       CampaignsConfig `yaml:"campaigns"`
-	Contents        ContentConfig   `yaml:"contents"`
-	PrivateIpRanges []IpRange       `yaml:"private_networks"`
-	Enabled         EnabledConfig   `yaml:"enabled"`
+	ProviderName string          `yaml:"provider_name"`
+	OperatorCode int64           `yaml:"operator_code" default:"41001"`
+	UniqueDays   int             `yaml:"unique_days" default:"10"`
+	StaticPath   string          `yaml:"static_path" default:""`
+	BlackList    BlackListConfig `yaml:"blacklist"`
+	Services     ServicesConfig  `yaml:"services"`
+	Campaigns    CampaignsConfig `yaml:"campaigns"`
+	Contents     ContentConfig   `yaml:"contents"`
+	Enabled      EnabledConfig   `yaml:"enabled"`
 }
 
 type EnabledConfig struct {
@@ -101,15 +96,11 @@ func Init(
 
 	initPrevSubscriptionsCache()
 
-	Svc.privateIPRanges = loadPrivateIpRanges(svcConf.PrivateIpRanges)
-
 	Svc.Campaigns = initCampaigns(appName, svcConf.Campaigns)
 	Svc.Services = initServices(appName, svcConf.Services)
 	Svc.Contents = initContents(appName, svcConf.Contents)
 	Svc.SentContents = &SentContents{}
-	Svc.IpRanges = &IpRanges{}
 	Svc.Operators = &Operators{}
-	Svc.Prefixes = &Prefixes{}
 	Svc.BlackList = initBlackList(appName, svcConf.BlackList)
 	Svc.PostPaid = &PostPaid{}
 	Svc.PixelSettings = &PixelSettings{}
@@ -143,19 +134,9 @@ func Init(
 			Enabled: Svc.conf.Enabled.SentContents,
 		},
 		{
-			Tables:  []string{"operator_ip", "operator"},
-			Data:    Svc.IpRanges,
-			Enabled: Svc.conf.Enabled.IpRanges,
-		},
-		{
-			Tables:  []string{"operator", "countries"},
+			Tables:  []string{"operator"},
 			Data:    Svc.Operators,
 			Enabled: Svc.conf.Enabled.Operators,
-		},
-		{
-			Tables:  []string{"operator_msisdn_prefix"},
-			Data:    Svc.Prefixes,
-			Enabled: Svc.conf.Enabled.Prefixes,
 		},
 		{
 			Tables:  []string{"msisdn_blacklist"},
@@ -226,16 +207,6 @@ func AddCQRHandlers(r *gin.Engine) {
 }
 func reloadCQRFunc(c *gin.Context) {
 	cqr.CQRReloadFunc(Svc.cqrConfig, c)(c)
-}
-func loadPrivateIpRanges(ipConf []IpRange) []IpRange {
-	var ipRanges []IpRange
-	for _, v := range ipConf {
-		v.Start = net.ParseIP(v.IpFrom)
-		v.End = net.ParseIP(v.IpTo)
-		ipRanges = append(ipRanges, v)
-	}
-	log.Info("private networks loaded")
-	return ipRanges
 }
 
 type serviceMetrics struct {

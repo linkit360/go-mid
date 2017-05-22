@@ -2,14 +2,13 @@ package service
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
 
-	client "github.com/linkit360/go-acceptor-client"
-	acceptor "github.com/linkit360/go-acceptor-structs"
 	m "github.com/linkit360/go-utils/metrics"
 )
 
@@ -19,15 +18,18 @@ import (
 // Reload when changes to content
 type Contents interface {
 	Reload() error
-	Get(int64) (acceptor.Content, error)
+	Get(int64) (Content, error)
 }
-
+type Content struct {
+	Id   int64
+	Path string
+	Name string
+}
 type contents struct {
 	sync.RWMutex
 	conf      ContentConfig
-	ById      map[int64]acceptor.Content
+	ById      map[int64]Content
 	loadError prometheus.Gauge
-	loadCache prometheus.Gauge
 }
 
 type ContentConfig struct {
@@ -39,15 +41,6 @@ func initContents(appName string, contentConf ContentConfig) Contents {
 	contentSvc := &contents{
 		conf:      contentConf,
 		loadError: m.PrometheusGauge(appName, "content_load", "error", "load content error"),
-		loadCache: m.PrometheusGauge(appName, "content", "cache", "load content cache"),
-	}
-	if !contentSvc.conf.Enabled {
-		log.Info("contents disabled")
-		return contentSvc
-	}
-
-	if !contentSvc.conf.FromControlPanel {
-		return contentSvc
 	}
 	return contentSvc
 }
@@ -69,9 +62,9 @@ func (s *contents) loadFromCache() (err error) {
 	}
 	defer rows.Close()
 
-	var contents []acceptor.Content
+	var contents []Content
 	for rows.Next() {
-		var c acceptor.Content
+		var c Content
 		if err = rows.Scan(
 			&c.Id,
 			&c.Path,
@@ -87,7 +80,7 @@ func (s *contents) loadFromCache() (err error) {
 		return
 	}
 
-	s.ById = make(map[int64]acceptor.Content)
+	s.ById = make(map[int64]Content)
 	for _, content := range contents {
 		s.ById[content.Id] = content
 	}
@@ -97,20 +90,8 @@ func (s *contents) loadFromCache() (err error) {
 func (s *contents) Reload() (err error) {
 	s.Lock()
 	defer s.Unlock()
-	if !s.conf.Enabled {
-		return nil
-	}
 
-	s.loadCache.Set(0)
-	s.loadError.Set(0)
-	if s.conf.FromControlPanel {
-		s.ById, err = client.GetContents(Svc.conf.ProviderName)
-		if err == nil {
-			return
-		}
-	}
-
-	s.loadCache.Set(1.)
+	s.loadError.Set(0.)
 	if err = s.loadFromCache(); err != nil {
 		s.loadError.Set(1.)
 		return
@@ -119,10 +100,15 @@ func (s *contents) Reload() (err error) {
 	return nil
 }
 
-func (s *contents) Get(id int64) (acceptor.Content, error) {
+func (s *contents) Get(id int64) (Content, error) {
 	c, found := s.ById[id]
 	if !found {
-		return acceptor.Content{}, errNotFound()
+		return Content{}, errNotFound()
 	}
 	return c, nil
+}
+
+func (s *contents) ShowLoaded() {
+	contentJson, _ := json.Marshal(s.ById)
+	log.WithField("byid", string(contentJson)).Debug()
 }

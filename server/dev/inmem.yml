@@ -1,4 +1,4 @@
-app_name: inmem
+app_name: proxy
 
 server:
   rpc_port: 50307
@@ -32,20 +32,6 @@ service:
   enabled:
     destinations: true
     redirect_stats_count: true
-
-  private_networks:
-  - start: 10.0.0.0
-    end: 10.255.255.255
-  - start: 100.64.0.0
-    end: 100.127.255.255
-  - start: 172.16.0.0
-    end: 172.31.255.255
-  - start: 192.0.0.0
-    end: 192.0.0.255
-  - start: 192.168.0.0
-    end: 192.168.255.255
-  - start: 198.18.0.0
-    end: 198.19.255.255
 
 db:
   conn_ttl: -1

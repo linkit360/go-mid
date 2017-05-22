@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 
-	client "github.com/linkit360/go-acceptor-client"
+	//client "github.com/linkit360/go-acceptor-client"
 	acceptor "github.com/linkit360/go-acceptor-structs"
 	m "github.com/linkit360/go-utils/metrics"
 )
@@ -22,6 +22,7 @@ import (
 // Allow to get a service_id by campaign hash fastly
 // Reload when changes to campaigns are done
 type Campaigns interface {
+	Set(campaigns map[string]acceptor.Campaign)
 	Reload() error
 	GetAll() map[string]Campaign
 	GetByLink(string) (Campaign, error)
@@ -37,6 +38,7 @@ type сampaigns struct {
 	loadCache     prometheus.Gauge
 	notFound      m.Gauge
 	ByHash        map[string]Campaign
+	ByUUID        map[string]acceptor.Campaign
 	ByLink        map[string]Campaign
 	ByCode        map[string]Campaign
 	ByServiceCode map[string][]Campaign
@@ -57,6 +59,17 @@ func (s *сampaigns) GetAll() map[string]Campaign {
 	return s.ByLink
 }
 
+func (s *сampaigns) Set(campaigns map[string]acceptor.Campaign) {
+	s.ByUUID = make(map[string]acceptor.Campaign, len(campaigns))
+	s.setAll(s.ByUUID)
+}
+
+func (s *сampaigns) Update(campaign acceptor.Campaign) {
+	s.ByUUID[campaign.Id] = campaign
+	s.setAll(s.ByUUID)
+	return
+}
+
 func (s *сampaigns) GetByLink(link string) (camp Campaign, err error) {
 	var ok bool
 	camp, ok = s.ByLink[link]
@@ -67,6 +80,7 @@ func (s *сampaigns) GetByLink(link string) (camp Campaign, err error) {
 	}
 	return
 }
+
 func (s *сampaigns) GetByCode(code string) (camp Campaign, err error) {
 	var ok bool
 	camp, ok = s.ByCode[code]
@@ -77,6 +91,7 @@ func (s *сampaigns) GetByCode(code string) (camp Campaign, err error) {
 	}
 	return
 }
+
 func (s *сampaigns) GetByHash(hash string) (camp Campaign, err error) {
 	var ok bool
 	camp, ok = s.ByHash[hash]
@@ -209,21 +224,10 @@ func (s *сampaigns) getByCache() (campaigns map[string]acceptor.Campaign, err e
 func (s *сampaigns) Reload() (err error) {
 	s.Lock()
 	defer s.Unlock()
+
 	s.loadCache.Set(0.)
-	s.loadError.Set(0.)
 
-	var controlPanelErr error
 	var campaigns map[string]acceptor.Campaign
-
-	if s.conf.FromControlPanel {
-		campaigns, controlPanelErr = client.GetCampaigns(Svc.conf.ProviderName)
-		if controlPanelErr == nil {
-			goto hashes
-		}
-		s.loadError.Set(1.)
-		log.Error(controlPanelErr.Error())
-	}
-
 	campaigns, err = s.getByCache()
 	if err == nil {
 		s.loadError.Set(1.)
@@ -232,7 +236,12 @@ func (s *сampaigns) Reload() (err error) {
 		return
 	}
 
-hashes:
+	s.setAll(campaigns)
+	s.ShowLoaded()
+	return nil
+}
+
+func (s *сampaigns) setAll(campaigns map[string]acceptor.Campaign) {
 	s.ByHash = make(map[string]Campaign, len(campaigns))
 	s.ByLink = make(map[string]Campaign, len(campaigns))
 	s.ByCode = make(map[string]Campaign, len(campaigns))
@@ -247,10 +256,6 @@ hashes:
 			Campaign{Properties: campaign},
 		)
 	}
-
-	s.ShowLoaded()
-
-	return nil
 }
 
 func (s *сampaigns) ShowLoaded() {

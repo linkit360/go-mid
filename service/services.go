@@ -11,10 +11,31 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
 
-	client "github.com/linkit360/go-acceptor-client"
-	acceptor "github.com/linkit360/go-acceptor-structs"
 	m "github.com/linkit360/go-utils/metrics"
 )
+
+type Service struct {
+	Id                  string  `json:"id,omitempty"`            // unique id
+	Code                string  `json:"code,omitempty"`          // previous service id
+	Price               int     `json:"price,omitempty"`         // в целых рублях
+	RetryDays           int     `json:"retry_days,omitempty"`    // for retries - days to keep retries, for periodic - subscription is alive
+	InactiveDays        int     `json:"inactive_days,omitempty"` // days of unsuccessful charge turns subscription into inactive state
+	GraceDays           int     `json:"grace_days,omitempty"`    // days in end of subscription period where always must be charged OK
+	PaidHours           int     `json:"paid_hours,omitempty"`    // rejected rule
+	DelayHours          int     `json:"delay_hours,omitempty"`   // repeat charge delay
+	SMSOnSubscribe      string  `json:"sms_on_unsubscribe,omitempty"`
+	SMSOnCharged        string  `json:"sms_on_charged,omitempty"`
+	SMSOnUnsubscribe    string  `json:"sms_on_subscribe,omitempty"` // if empty, do not send
+	SMSOnContent        string  `json:"sms_on_content,omitempty"`
+	SMSOnRejected       string  `json:"sms_on_rejected,omitempty"`
+	SMSOnBlackListed    string  `json:"sms_on_blacklisted,omitempty"`
+	SMSOnPostPaid       string  `json:"sms_on_postpaid,omitempty"`
+	PeriodicAllowedFrom int     `json:"periodic_allowed_from,omitempty"` // send content in sms allowed from and to times.
+	PeriodicAllowedTo   int     `json:"periodic_allowed_to,omitempty"`
+	PeriodicDays        string  `json:"periodic_days,omitempty"` // days of week to charge subscriber
+	MinimalTouchTimes   int     `json:"minimal_touch_times,omitempty"`
+	ContentIds          []int64 `json:"content_ids,omitempty"`
+}
 
 // Tasks:
 // Keep in memory all active service to content mapping
@@ -23,8 +44,8 @@ import (
 
 type Services interface {
 	Reload() error
-	GetByCode(string) (acceptor.Service, error)
-	GetAll() map[string]acceptor.Service
+	GetByCode(string) (Service, error)
+	GetAll() map[string]Service
 }
 
 type ServicesConfig struct {
@@ -35,9 +56,8 @@ type ServicesConfig struct {
 type services struct {
 	sync.RWMutex
 	conf      ServicesConfig
-	ByCode    map[string]acceptor.Service
+	ByCode    map[string]Service
 	loadError prometheus.Gauge
-	loadCache prometheus.Gauge
 	notFound  m.Gauge
 }
 
@@ -45,7 +65,6 @@ func initServices(appName string, servConfig ServicesConfig) Services {
 	svcs := &services{
 		conf:      servConfig,
 		loadError: m.PrometheusGauge(appName, "services_load", "error", "load services error"),
-		loadCache: m.PrometheusGauge(appName, "services", "cache", "load services cache"),
 		notFound:  m.NewGauge(appName, "service", "not_found", "service not found error"),
 	}
 	go func() {
@@ -54,9 +73,6 @@ func initServices(appName string, servConfig ServicesConfig) Services {
 		}
 	}()
 
-	if !svcs.conf.FromControlPanel {
-		return svcs
-	}
 	return svcs
 }
 
@@ -120,9 +136,9 @@ func (s *services) loadFromCache() (err error) {
 	}
 	defer rows.Close()
 
-	var svcs []acceptor.Service
+	var svcs []Service
 	for rows.Next() {
-		var srv acceptor.Service
+		var srv Service
 		if err = rows.Scan(
 			&srv.Code,
 			&srv.Price,
@@ -203,7 +219,7 @@ func (s *services) loadFromCache() (err error) {
 		err = fmt.Errorf("rows.Error: %s", err.Error())
 		return
 	}
-	s.ByCode = make(map[string]acceptor.Service, len(svcs))
+	s.ByCode = make(map[string]Service, len(svcs))
 	for _, v := range svcs {
 		if contentIds, ok := serviceContentIds[v.Code]; ok {
 			v.ContentIds = contentIds
@@ -217,30 +233,8 @@ func (s *services) loadFromCache() (err error) {
 func (s *services) Reload() (err error) {
 	s.Lock()
 	defer s.Unlock()
-
 	defer s.ShowLoaded()
 
-	var loadError error
-
-	s.loadCache.Set(0)
-	s.loadError.Set(0)
-	if s.conf.FromControlPanel {
-		var byUuid map[string]acceptor.Service
-		byUuid, loadError = client.GetServices(Svc.conf.ProviderName)
-		if err == nil {
-			s.loadCache.Set(0)
-			return
-		}
-
-		s.ByCode = make(map[string]acceptor.Service, len(byUuid))
-		for _, v := range byUuid {
-			s.ByCode[v.Code] = v
-		}
-		s.loadError.Set(1.0)
-		log.Error(loadError.Error())
-	}
-
-	s.loadCache.Set(1.0)
 	s.loadError.Set(0)
 	if err = s.loadFromCache(); err != nil {
 		s.loadError.Set(1.0)
@@ -250,14 +244,14 @@ func (s *services) Reload() (err error) {
 	return nil
 }
 
-func (s *services) GetByCode(serviceCode string) (acceptor.Service, error) {
+func (s *services) GetByCode(serviceCode string) (Service, error) {
 	if svc, ok := s.ByCode[serviceCode]; ok {
 		return svc, nil
 	}
-	return acceptor.Service{}, errNotFound()
+	return Service{}, errNotFound()
 }
 
-func (s *services) GetAll() map[string]acceptor.Service {
+func (s *services) GetAll() map[string]Service {
 	return s.ByCode
 }
 
