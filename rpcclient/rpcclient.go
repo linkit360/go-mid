@@ -10,6 +10,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
 
+	acceptor "github.com/linkit360/go-acceptor-structs"
 	"github.com/linkit360/go-inmem/server/src/handlers"
 	"github.com/linkit360/go-inmem/service"
 	m "github.com/linkit360/go-utils/metrics"
@@ -207,8 +208,8 @@ func GetAllServices() (map[string]service.Service, error) {
 	return res.Services, err
 }
 
-func GetOperatorByCode(code int64) (service.Operator, error) {
-	var operator service.Operator
+func GetOperatorByCode(code int64) (acceptor.Operator, error) {
+	var operator acceptor.Operator
 	err := call(
 		"Operator.ByCode",
 		handlers.GetByIdParams{Id: code},

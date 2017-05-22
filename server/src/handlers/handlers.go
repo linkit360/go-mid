@@ -5,6 +5,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	acceptor "github.com/linkit360/go-acceptor-structs"
 	"github.com/linkit360/go-inmem/service"
 )
 
@@ -331,7 +332,7 @@ func (rpc *Content) ById(
 type Operator struct{}
 
 func (rpc *Operator) ByCode(
-	req GetByIdParams, res *service.Operator) error {
+	req GetByIdParams, res *acceptor.Operator) error {
 
 	operator, ok := service.Svc.Operators.ByCode[req.Id]
 	if !ok {

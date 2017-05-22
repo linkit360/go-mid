@@ -65,6 +65,7 @@ func runRPC(appConfig config.AppConfig) {
 	server.RegisterName("SentContent", &handlers.ContentSent{})
 	server.RegisterName("UniqueUrls", &handlers.UniqueUrls{})
 	server.RegisterName("Content", &handlers.Content{})
+	server.RegisterName("Operator", &handlers.Operator{})
 	server.RegisterName("BlackList", &handlers.BlackList{})
 	server.RegisterName("RejectedByCampaign", &handlers.RejectedByCampaign{})
 	server.RegisterName("RejectedByService", &handlers.RejectedByService{})

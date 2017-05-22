@@ -4,19 +4,15 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
+
+	acceptor "github.com/linkit360/go-acceptor-structs"
 )
 
 // required only in pixels to send operator name (not code as we use)
 
 type Operators struct {
 	sync.RWMutex
-	ByCode map[int64]Operator
-}
-
-type Operator struct {
-	Name        string
-	Code        int64
-	CountryName string
+	ByCode map[int64]acceptor.Operator
 }
 
 func (ops *Operators) Reload() error {
@@ -41,9 +37,9 @@ func (ops *Operators) Reload() error {
 	}
 	defer rows.Close()
 
-	var operators []Operator
+	var operators []acceptor.Operator
 	for rows.Next() {
-		var operator Operator
+		var operator acceptor.Operator
 		var headers string
 		if err = rows.Scan(
 			&operator.Name,
@@ -60,7 +56,7 @@ func (ops *Operators) Reload() error {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return err
 	}
-	ops.ByCode = make(map[int64]Operator, len(operators))
+	ops.ByCode = make(map[int64]acceptor.Operator, len(operators))
 	for _, op := range operators {
 		ops.ByCode[op.Code] = op
 	}
