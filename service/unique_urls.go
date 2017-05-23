@@ -31,6 +31,8 @@ func (uuc *UniqueUrls) Set(r ContentSentProperties) {
 	}).Debug("set url cache")
 	_, found := uuc.ByUrl[r.UniqueUrl]
 	if !found {
+		uuc.Lock()
+		defer uuc.Unlock()
 		uuc.ByUrl[r.UniqueUrl] = r
 		log.WithFields(log.Fields{
 			"tid": r.Tid,

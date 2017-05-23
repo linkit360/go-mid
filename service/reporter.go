@@ -85,10 +85,9 @@ func (c *counter) Inc() {
 func (c *counter) Add(amount int) {
 	c.count = c.count + int64(amount)
 }
-func (c *counter) Set(amount int64) {
-	c.count = amount
+func (c *counter) Set(amount int) {
+	c.count = int64(amount)
 }
-
 func (a *adAggregate) Sum() int64 {
 	return a.LpHits.count +
 		a.LpMsisdnHits.count +
@@ -116,10 +115,9 @@ func (a *adAggregate) Sum() int64 {
 		a.Outflow.count +
 		a.Pixels.count
 }
-
 func (a *adAggregate) generateReport(instanceId, campaignCode string, operatorCode int64, reportAt time.Time) acceptor.Aggregate {
 	return acceptor.Aggregate{
-		ReportAt:               reportAt,
+		ReportAt:               reportAt.UTC().Unix(),
 		InstanceId:             instanceId,
 		CampaignCode:           campaignCode,
 		OperatorCode:           operatorCode,
@@ -146,13 +144,7 @@ func (a *adAggregate) generateReport(instanceId, campaignCode string, operatorCo
 		Pixels:                 a.Pixels.count,
 	}
 }
-
-func initReporter(
-	instanceId string,
-	queue QueuesConfig,
-	consumerConf amqp.ConsumerConfig,
-	acceptorConf acceptor_client.ClientConfig,
-) Collector {
+func initReporter(instanceId string, queue QueuesConfig, consumerConf amqp.ConsumerConfig, acceptorConf acceptor_client.ClientConfig) Collector {
 	as := &collectorService{
 		instanceId: instanceId,
 	}
@@ -176,7 +168,6 @@ func initReporter(
 
 	return as
 }
-
 func (as *collectorService) send() {
 	as.Lock()
 	defer as.Unlock()
@@ -262,7 +253,6 @@ func (as *collectorService) breathe() {
 	log.WithFields(log.Fields{"took": time.Since(begin)}).Debug("breathe")
 	//m.BreatheDuration.Observe(time.Since(begin).Seconds())
 }
-
 func (as *collectorService) GetAggregate(from, to time.Time) (res []acceptor.Aggregate, err error) {
 	agg := make(map[string]CampaignAgregate) // time.Time (date) - campaign - operator code
 
@@ -287,20 +277,20 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []acceptor.Agg
 	}
 
 	var campaignCode string
-	var operatorCode string
+	var operatorCode int64
 	defer rows.Close()
 	for rows.Next() {
 		var sentAt string
 		var result string
-		var sum int64
-		var count int64
+		var sum int
+		var count int
 		if err = rows.Scan(&sentAt, &campaignCode, &operatorCode, &result, &sum, &count); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
 
 		if _, ok := agg[sentAt]; !ok {
-			agg[sentAt] = adAggregate{}
+			agg[sentAt] = CampaignAgregate{}
 		}
 
 		switch result {
@@ -360,13 +350,13 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []acceptor.Agg
 	defer rows.Close()
 	for rows.Next() {
 		var sentAt string
-		var count int64
+		var count int
 		if err = rows.Scan(&sentAt, &campaignCode, &operatorCode, &count); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
 		if _, ok := agg[sentAt]; !ok {
-			agg[sentAt] = adAggregate{}
+			agg[sentAt] = CampaignAgregate{}
 		}
 		agg[sentAt][campaignCode][operatorCode].Pixels.Set(count)
 	}
@@ -397,13 +387,13 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []acceptor.Agg
 	for rows.Next() {
 		var sentAt string
 		var present bool
-		var count int64
+		var count int
 		if err = rows.Scan(&sentAt, &campaignCode, &operatorCode, &present, &count); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
 		if _, ok := agg[sentAt]; !ok {
-			agg[sentAt] = adAggregate{}
+			agg[sentAt] = CampaignAgregate{}
 		}
 		agg[sentAt][campaignCode][operatorCode].LpHits.Add(count)
 		if present {
@@ -418,17 +408,18 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []acceptor.Agg
 	for dateSent, agByCampaign := range agg {
 		for campaignCode, agByOperatorCode := range agByCampaign {
 			for operatorCode, ag := range agByOperatorCode {
-				reportAt, err := time.Parse("2006-01-02", dateSent)
+				var reportAt time.Time
+				reportAt, err = time.Parse("2006-01-02", dateSent)
 				if err != nil {
 					err = fmt.Errorf("time.Parse: %s", err.Error())
-					return err
+					return
 				}
-				res = ag.generateReport(
+				res = append(res, ag.generateReport(
 					as.instanceId,
 					campaignCode,
 					operatorCode,
 					reportAt,
-				)
+				))
 			}
 		}
 

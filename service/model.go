@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	acceptor "github.com/linkit360/go-acceptor-client"
+
 	"github.com/linkit360/go-utils/amqp"
 	"github.com/linkit360/go-utils/config"
 	"github.com/linkit360/go-utils/cqr"
