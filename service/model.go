@@ -52,15 +52,15 @@ type MemService struct {
 }
 
 type Config struct {
-	ProviderName string          `yaml:"provider_name"`
-	UniqueDays   int             `yaml:"unique_days" default:"10"`
-	StaticPath   string          `yaml:"static_path" default:""`
-	Queue        QueuesConfig    `yaml:"queue"`
-	BlackList    BlackListConfig `yaml:"blacklist"`
-	Services     ServicesConfig  `yaml:"services"`
-	Campaigns    CampaignsConfig `yaml:"campaigns"`
-	Contents     ContentConfig   `yaml:"contents"`
-	Enabled      EnabledConfig   `yaml:"enabled"`
+	StateFilePath string          `yaml:"state_file_path"`
+	UniqueDays    int             `yaml:"unique_days" default:"10"`
+	StaticPath    string          `yaml:"static_path" default:""`
+	Queue         QueuesConfig    `yaml:"queue"`
+	BlackList     BlackListConfig `yaml:"blacklist"`
+	Services      ServicesConfig  `yaml:"services"`
+	Campaigns     CampaignsConfig `yaml:"campaigns"`
+	Contents      ContentConfig   `yaml:"contents"`
+	Enabled       EnabledConfig   `yaml:"enabled"`
 }
 
 type QueuesConfig struct {
@@ -119,7 +119,10 @@ func Init(
 	Svc.Campaigns = initCampaigns(appName, svcConf.Campaigns)
 	Svc.Services = initServices(appName, svcConf.Services)
 	Svc.Contents = initContents(appName, svcConf.Contents)
-	Svc.reporter = initReporter(instanceId, svcConf.Queue, consumerConf, acceptorClientConf)
+	Svc.reporter = initReporter(
+		appName, instanceId, svcConf.StateFilePath,
+		svcConf.Queue, consumerConf, acceptorClientConf,
+	)
 	Svc.SentContents = &SentContents{}
 	Svc.Operators = &Operators{}
 	Svc.BlackList = initBlackList(appName, svcConf.BlackList)
@@ -206,6 +209,10 @@ func Init(
 	}
 }
 
+func OnExit() {
+	Svc.reporter.SaveState()
+}
+
 func AddTablesHandler(r *gin.Engine) {
 	r.GET("tables", tablesHandler)
 }
@@ -232,14 +239,12 @@ func reloadCQRFunc(c *gin.Context) {
 
 type serviceMetrics struct {
 	NotFound                m.Gauge
-	LoadOperatorHeaderError prometheus.Gauge
 	LoadPublisherRegexError prometheus.Gauge
 }
 
 func initMetrics(appName string) *serviceMetrics {
 	sm := &serviceMetrics{
 		NotFound:                m.NewGauge(appName, "its", "not_found", "inmemory cann't find something"),
-		LoadOperatorHeaderError: m.PrometheusGauge(appName, "operator_load_headers", "error", "operator load headers error"),
 		LoadPublisherRegexError: m.PrometheusGauge(appName, "publisher_load_regex", "error", "publisher load regex error"),
 	}
 

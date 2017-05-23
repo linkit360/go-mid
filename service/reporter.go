@@ -4,19 +4,23 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/prometheus/client_golang/prometheus"
 	amqp_driver "github.com/streadway/amqp"
 
 	acceptor_client "github.com/linkit360/go-acceptor-client"
 	acceptor "github.com/linkit360/go-acceptor-structs"
 	"github.com/linkit360/go-utils/amqp"
+	m "github.com/linkit360/go-utils/metrics"
 )
 
 type Collector interface {
+	SaveState()
 	GetAggregate(time.Time, time.Time) ([]acceptor.Aggregate, error)
 }
 
@@ -35,6 +39,7 @@ type collectorService struct {
 	instanceId    string
 	state         CollectorState
 	db            *sql.DB
+	m             *ReporterMetrics
 	adReport      map[string]OperatorAgregate // map[campaign][operator]acceptor.Aggregate
 	consume       *Consumers
 	hitCh         <-chan amqp_driver.Delivery
@@ -48,7 +53,43 @@ type CampaignAgregate map[string]OperatorAgregate // by campaign code
 
 type CollectorState struct {
 	LastSendTime time.Time            `json:"last_send_time"`
+	FilePath     string               `json:"file_path"`
 	Archive      []acceptor.Aggregate `json:"archive"`
+}
+
+type ReporterMetrics struct {
+	Success m.Gauge
+	Errors  m.Gauge
+
+	ErrorCampaignCodeEmpty m.Gauge
+	ErrorOperatorCodeEmpty m.Gauge
+
+	BreatheDuration prometheus.Summary
+	SendDuration    prometheus.Summary
+	AggregateSum    prometheus.Summary
+}
+
+func initReporterMetrics(appName string) *ReporterMetrics {
+	mm := &ReporterMetrics{
+		Success:                m.NewGauge("", "", "success", "success"),
+		Errors:                 m.NewGauge("", "", "errors", "errors"),
+		ErrorCampaignCodeEmpty: m.NewGauge("errors", "campaign_code", "empty", "errors"),
+		ErrorOperatorCodeEmpty: m.NewGauge("errors", "operator_code", "empty", "errors"),
+		BreatheDuration:        m.NewSummary(appName+"_breathe_duration_seconds", "breathe duration seconds"),
+		SendDuration:           m.NewSummary(appName+"_send_duration_seconds", "send duration seconds"),
+		AggregateSum:           m.NewSummary(appName+"_aggregatae_sum", "aggregate sum"),
+	}
+
+	go func() {
+		for range time.Tick(time.Minute) {
+			mm.Success.Update()
+			mm.Errors.Update()
+			mm.ErrorCampaignCodeEmpty.Update()
+			mm.ErrorOperatorCodeEmpty.Update()
+		}
+	}()
+
+	return mm
 }
 
 type adAggregate struct {
@@ -115,6 +156,7 @@ func (a *adAggregate) Sum() int64 {
 		a.Outflow.count +
 		a.Pixels.count
 }
+
 func (a *adAggregate) generateReport(instanceId, campaignCode string, operatorCode int64, reportAt time.Time) acceptor.Aggregate {
 	return acceptor.Aggregate{
 		ReportAt:               reportAt.UTC().Unix(),
@@ -144,7 +186,9 @@ func (a *adAggregate) generateReport(instanceId, campaignCode string, operatorCo
 		Pixels:                 a.Pixels.count,
 	}
 }
-func initReporter(instanceId string, queue QueuesConfig, consumerConf amqp.ConsumerConfig, acceptorConf acceptor_client.ClientConfig) Collector {
+
+func initReporter(appName, instanceId, stateFilePath string,
+	queue QueuesConfig, consumerConf amqp.ConsumerConfig, acceptorConf acceptor_client.ClientConfig) Collector {
 	as := &collectorService{
 		instanceId: instanceId,
 	}
@@ -152,6 +196,8 @@ func initReporter(instanceId string, queue QueuesConfig, consumerConf amqp.Consu
 		log.Error("cannot init acceptor client")
 	}
 
+	as.loadState(stateFilePath)
+	as.m = initReporterMetrics(appName)
 	as.consume = &Consumers{
 		Hit:         amqp.InitConsumer(consumerConf, queue.Hit, as.hitCh, as.processHit),
 		Transaction: amqp.InitConsumer(consumerConf, queue.Transaction, as.transactionCh, as.processTransactions),
@@ -165,9 +211,50 @@ func initReporter(instanceId string, queue QueuesConfig, consumerConf amqp.Consu
 			as.send()
 		}
 	}()
-
 	return as
 }
+func (as *collectorService) SaveState() {
+	if err := as.saveState(); err != nil {
+		log.WithField("error", err.Error()).Fatal("cannot save state")
+	}
+}
+func (as *collectorService) saveState() error {
+	stateJson, err := json.Marshal(as.state)
+	if err != nil {
+		err = fmt.Errorf("json.Marshal: %s", err.Error())
+		return err
+	}
+
+	if err := ioutil.WriteFile(as.state.FilePath, stateJson, 0644); err != nil {
+		err = fmt.Errorf("ioutil.WriteFile: %s", err.Error())
+		return err
+	}
+	return nil
+}
+
+func (as *collectorService) loadState(filePath string) error {
+	defer func() { as.state.FilePath = filePath }()
+	logCtx := log.WithField("action", "load collector state")
+	stateJson, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		err = fmt.Errorf("ioutil.ReadFile: %s", err.Error())
+		logCtx.WithField("path", filePath).Error(err.Error())
+		return err
+	}
+	if err = json.Unmarshal(stateJson, &as.state); err != nil {
+		err = fmt.Errorf("json.Unmarshal: %s", err.Error())
+		logCtx.WithField("path", filePath).Error(err.Error())
+		return err
+	}
+	logCtx.WithField("path", filePath).Debug("checking time")
+	if as.state.LastSendTime.IsZero() {
+		as.state.LastSendTime = time.Now().UTC()
+		logCtx.WithField("path", filePath).Warn("invalid time")
+	}
+	logCtx.Infof("%s, count: %s", as.state.LastSendTime.String(), len(as.state.Archive))
+	return nil
+}
+
 func (as *collectorService) send() {
 	as.Lock()
 	defer as.Unlock()
@@ -239,19 +326,19 @@ func (as *collectorService) send() {
 		}
 		as.breathe()
 	}
-	//m.SendDuration.Observe(time.Since(begin).Seconds())
-	//m.AggregateSum.Observe(float64(aggregateSum))
+	as.m.SendDuration.Observe(time.Since(begin).Seconds())
+	as.m.AggregateSum.Observe(float64(aggregateSum))
 }
 func (as *collectorService) breathe() {
 	begin := time.Now()
-	for campaignId, operatorAgregate := range as.adReport {
+	for campaignCode, operatorAgregate := range as.adReport {
 		for operatorCode, _ := range operatorAgregate {
-			delete(as.adReport[campaignId], operatorCode)
+			delete(as.adReport[campaignCode], operatorCode)
 		}
-		delete(as.adReport, campaignId)
+		delete(as.adReport, campaignCode)
 	}
 	log.WithFields(log.Fields{"took": time.Since(begin)}).Debug("breathe")
-	//m.BreatheDuration.Observe(time.Since(begin).Seconds())
+	as.m.BreatheDuration.Observe(time.Since(begin).Seconds())
 }
 func (as *collectorService) GetAggregate(from, to time.Time) (res []acceptor.Aggregate, err error) {
 	agg := make(map[string]CampaignAgregate) // time.Time (date) - campaign - operator code
@@ -430,21 +517,20 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []acceptor.Agg
 // map[campaign][operator]acceptor.Aggregate
 func (as *collectorService) check(r Collect) error {
 	if r.CampaignCode == "" {
-		//m.Errors.Inc()
-		//m.ErrorCampaignIdEmpty.Inc()
-
+		as.m.Errors.Inc()
+		as.m.ErrorCampaignCodeEmpty.Inc()
 		log.WithField("collect", fmt.Sprintf("%#v", r)).Error("campaign code is empty")
 		return fmt.Errorf("CampaignIdEmpty: %#v", r)
-
 	}
 
 	if r.OperatorCode == 0 {
-		//m.Errors.Inc()
-		//m.ErrorOperatorCodeEmpty.Inc()
+		as.m.Errors.Inc()
+		as.m.ErrorOperatorCodeEmpty.Inc()
 		log.WithField("collect", fmt.Sprintf("%#v", r)).Error("operator code is empty")
 	}
 	as.Lock()
 	defer as.Unlock()
+
 	// operator code == 0
 	// unknown operator in access campaign
 	if as.adReport == nil {
@@ -480,7 +566,7 @@ func (as *collectorService) check(r Collect) error {
 			Pixels:                 &counter{},
 		}
 	}
-
+	as.m.Success.Inc()
 	return nil
 }
 func (as *collectorService) incHit(r Collect) error {

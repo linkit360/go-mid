@@ -1,12 +1,10 @@
 package src
 
-// The main purpose of the inmem:
-// keep in memory and handle all CQR requests in one place
-// http://localhost:50308/tables - get all unique tables that could be CQR-ed
 import (
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
+	"os"
 	"runtime"
 
 	log "github.com/Sirupsen/logrus"
@@ -84,4 +82,9 @@ func runRPC(appConfig config.AppConfig) {
 			log.WithField("error", err.Error()).Error("accept")
 		}
 	}
+}
+
+func OnExit() {
+	log.WithField("pid", os.Getpid()).Info("on exit")
+	service.OnExit()
 }

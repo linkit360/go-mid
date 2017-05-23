@@ -209,18 +209,6 @@ func (s *сampaigns) getByCache() (campaigns map[string]acceptor.Campaign, err e
 	return
 }
 
-//filePath := Svc.conf.StaticPath +
-//"campaign/" + campaign.Hash + "/" +
-//campaign.PageWelcome + ".html"
-//
-//_, err := template.ParseFiles(filePath)
-//if err != nil {
-//loadCampaignErrorFlag = true
-//err := fmt.Errorf("template.ParseFiles: %s", err.Error())
-//log.WithField("error", err.Error()).Error("template parse file error")
-//err = nil
-//}
-
 func (s *сampaigns) Reload() (err error) {
 	s.Lock()
 	defer s.Unlock()
