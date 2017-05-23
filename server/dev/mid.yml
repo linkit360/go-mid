@@ -1,0 +1,49 @@
+app_name: proxy
+
+server:
+  rpc_port: 50307
+  http_port: 50308
+
+acceptor_client:
+  enabled: true
+  dsn: 52.220.50.252:50318
+  timeout: 10
+
+service:
+  provider_name: cheese
+  unique_days: 10
+  operator_code: 41001
+  static_path: /var/www/xmp.linkit360.ru/web/
+  campaign_web_hook: http://localhost:50300/updateTemplates
+
+  blacklist:
+    enabled: true
+    from_control_panel: true
+    period: 3600
+
+  contents:
+    enabled: true
+    from_control_panel: false
+
+  services:
+    enabled: true
+    from_control_panel: false
+
+  enabled:
+    destinations: true
+    redirect_stats_count: true
+
+db:
+  conn_ttl: -1
+  max_open_conns: 15
+  max_idle_conns: 10
+  timeout: 30
+  name: linkit_dev
+  user: linkit
+  pass: E0kZN8pUAs63wePepf
+  port: 5432
+  host: linkit.cz3twmoynbq5.eu-central-1.rds.amazonaws.com
+  ssl_mode: disable
+  table_prefix: xmp_
+
+
