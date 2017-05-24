@@ -149,7 +149,7 @@ func TestGetServiceById(t *testing.T) {
 		PeriodicAllowedFrom: 510,
 		PeriodicAllowedTo:   1410,
 		PeriodicDays:        `[]`,
-		ContentIds:          []int64{56, 61},
+		ContentCodes:        []int64{56, 61},
 	}
 
 	if !assert.ObjectsAreEqual(expected, res) {
@@ -162,10 +162,10 @@ func TestGetServiceById(t *testing.T) {
 }
 
 func TestGetContentById(t *testing.T) {
-	res, err := GetContentById(42)
+	res, err := GetContentByCode(42)
 	assert.Error(t, err, "Must be error 'Not found'")
 
-	res, err = GetContentById(30)
+	res, err = GetContentByCode(30)
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "No error to get content by id")
 	expected := service.Content{

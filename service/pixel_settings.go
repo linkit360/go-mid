@@ -37,9 +37,20 @@ type pixelSettings struct {
 }
 
 type PixelSetting struct {
+	acceptor.PixelSetting
 	Count         int  `json:"-"`
 	SkipPixelSend bool `json:"-"`
-	acceptor.PixelSetting
+}
+
+func (ps *PixelSetting) SetPublisher(publisher string) {
+	ps.Publisher = publisher
+}
+func (ps *PixelSetting) SetCampaignCode(campaignCode string) {
+	ps.CampaignCode = campaignCode
+}
+
+func (ps *PixelSetting) SetOperatorCode(code int64) {
+	ps.OperatorCode = code
 }
 
 func (pss *pixelSettings) loadPixelSetting(ps acceptor.PixelSetting) (px PixelSetting) {

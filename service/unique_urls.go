@@ -100,7 +100,7 @@ func (uuc *UniqueUrls) Reload() (err error) {
 			&p.Tid,
 			&p.CampaignCode,
 			&p.ServiceCode,
-			&p.ContentId,
+			&p.ContentCode,
 			&p.SubscriptionId,
 			&p.CountryCode,
 			&p.OperatorCode,
@@ -174,7 +174,7 @@ func (uuc *UniqueUrls) loadUniqueUrl(uniqueUrl string) (p ContentSentProperties,
 			&p.Tid,
 			&p.CampaignCode,
 			&p.ServiceCode,
-			&p.ContentId,
+			&p.ContentCode,
 			&p.SubscriptionId,
 			&p.CountryCode,
 			&p.OperatorCode,
@@ -192,7 +192,7 @@ func (uuc *UniqueUrls) loadUniqueUrl(uniqueUrl string) (p ContentSentProperties,
 		return
 	}
 
-	if p.Tid == "" || p.ContentId == "" {
+	if p.Tid == "" || p.ContentCode == "" {
 		err = fmt.Errorf("Not found: %s", uniqueUrl)
 	}
 

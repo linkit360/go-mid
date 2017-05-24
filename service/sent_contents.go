@@ -11,7 +11,7 @@ import (
 const ACTIVE_STATUS = 1
 
 type ContentSentProperties struct {
-	ContentId      string    `json:"id_content,omitempty"`
+	ContentCode    string    `json:"content_code,omitempty"`
 	SentAt         time.Time `json:"sent_at,omitempty"`
 	Msisdn         string    `json:"msisdn,omitempty"`
 	Tid            string    `json:"tid,omitempty"`
@@ -65,7 +65,7 @@ func (s *SentContents) Reload() (err error) {
 		if err = rows.Scan(
 			&record.Msisdn,
 			&record.ServiceCode,
-			&record.ContentId,
+			&record.ContentCode,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
@@ -82,7 +82,7 @@ func (s *SentContents) Reload() (err error) {
 		if _, ok := s.ByKey[sentContent.key()]; !ok {
 			s.ByKey[sentContent.key()] = make(map[string]struct{})
 		}
-		s.ByKey[sentContent.key()][sentContent.ContentId] = struct{}{}
+		s.ByKey[sentContent.key()][sentContent.ContentCode] = struct{}{}
 	}
 	return nil
 }

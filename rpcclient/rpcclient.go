@@ -125,7 +125,7 @@ func GetCampaignByHash(hash string) (service.Campaign, error) {
 		handlers.GetByHashParams{Hash: hash},
 		&campaign,
 	)
-	if campaign.Properties.Code == "" {
+	if campaign.Code == "" {
 		return campaign, errNotFound(hash)
 	}
 	return campaign, err
@@ -137,7 +137,7 @@ func GetCampaignByLink(link string) (service.Campaign, error) {
 		handlers.GetByLinkParams{Link: link},
 		&campaign,
 	)
-	if campaign.Properties.Code == "" {
+	if campaign.Code == "" {
 		return campaign, errNotFound(link)
 	}
 	return campaign, err
@@ -149,7 +149,7 @@ func GetCampaignByKeyWord(keyWord string) (service.Campaign, error) {
 		handlers.GetByKeyWordParams{Key: keyWord},
 		&campaign,
 	)
-	if campaign.Properties.Code == "" {
+	if campaign.Code == "" {
 		return campaign, errNotFound(keyWord)
 	}
 	return campaign, err
@@ -161,7 +161,7 @@ func GetCampaignByCode(code string) (service.Campaign, error) {
 		handlers.GetByCodeParams{Code: code},
 		&campaign,
 	)
-	if campaign.Properties.Code == "" {
+	if campaign.Code == "" {
 		return campaign, errNotFound(code)
 	}
 	return campaign, err
@@ -173,7 +173,7 @@ func GetCampaignByServiceCode(serviceCode string) (service.Campaign, error) {
 		handlers.GetByCodeParams{Code: serviceCode},
 		&campaign,
 	)
-	if campaign.Properties.Code == "" {
+	if campaign.Code == "" {
 		return campaign, errNotFound(serviceCode)
 	}
 	return campaign, err
@@ -233,15 +233,16 @@ func GetServiceByCode(serviceCode string) (service.Service, error) {
 	return svc, err
 }
 
-func GetContentById(contentId int64) (service.Content, error) {
+func GetContentByCode(contentCode string) (service.Content, error) {
 	var content service.Content
 	err := call(
-		"Content.ById",
-		handlers.GetByIdParams{Id: contentId},
+		"Content.ByCode",
+		handlers.GetByCodeParams{Code: contentCode},
 		&content,
 	)
-	if content.Code == 0 {
-		return content, errNotFound(contentId)
+
+	if content.Code == "" {
+		return content, errNotFound(contentCode)
 	}
 	return content, err
 }
@@ -280,17 +281,17 @@ func SentContentClear(msisdn, serviceCode string) error {
 	return err
 }
 
-func SentContentPush(msisdn, serviceCode string, contentId int64) error {
+func SentContentPush(msisdn, serviceCode, contentCode string) error {
 	var res handlers.Response
 	err := call(
 		"SentContent.Push",
-		handlers.GetByParams{Msisdn: msisdn, ServiceCode: serviceCode, ContentCode: contentId},
+		handlers.GetByParams{Msisdn: msisdn, ServiceCode: serviceCode, ContentCode: contentCode},
 		&res,
 	)
 	return err
 }
 
-func SentContentGet(msisdn, serviceCode string) (map[int64]struct{}, error) {
+func SentContentGet(msisdn, serviceCode string) (map[string]struct{}, error) {
 	var res handlers.GetContentSentResponse
 	err := call(
 		"SentContent.Get",
