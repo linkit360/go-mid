@@ -240,7 +240,7 @@ func GetContentById(contentId int64) (service.Content, error) {
 		handlers.GetByIdParams{Id: contentId},
 		&content,
 	)
-	if content.Id == 0 {
+	if content.Code == 0 {
 		return content, errNotFound(contentId)
 	}
 	return content, err
@@ -284,7 +284,7 @@ func SentContentPush(msisdn, serviceCode string, contentId int64) error {
 	var res handlers.Response
 	err := call(
 		"SentContent.Push",
-		handlers.GetByParams{Msisdn: msisdn, ServiceCode: serviceCode, ContentId: contentId},
+		handlers.GetByParams{Msisdn: msisdn, ServiceCode: serviceCode, ContentCode: contentId},
 		&res,
 	)
 	return err
@@ -297,7 +297,7 @@ func SentContentGet(msisdn, serviceCode string) (map[int64]struct{}, error) {
 		handlers.GetByParams{Msisdn: msisdn, ServiceCode: serviceCode},
 		&res,
 	)
-	return res.ContentdIds, err
+	return res.ContentdCodes, err
 }
 
 func IsBlackListed(msisdn string) (bool, error) {

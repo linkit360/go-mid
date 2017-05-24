@@ -12,23 +12,24 @@ import (
 	m "github.com/linkit360/go-utils/metrics"
 )
 
-// Tasks:
-// Keep in memory all active content_ids mapping to their object string (url path to content)
-// Allow to get object for given content id
-// Reload when changes to content
 type Contents interface {
+	Update(Content) error
 	Reload() error
-	Get(int64) (Content, error)
+	GetByCode(string) (Content, error)
 }
+
 type Content struct {
-	Id   int64
+	Id   string
+	Code string
 	Path string
 	Name string
 }
+
 type contents struct {
 	sync.RWMutex
 	conf      ContentConfig
-	ById      map[int64]Content
+	ByCode    map[string]Content
+	ByUUID    map[string]Content
 	loadError prometheus.Gauge
 }
 
@@ -43,6 +44,24 @@ func initContents(appName string, contentConf ContentConfig) Contents {
 		loadError: m.PrometheusGauge(appName, "content_load", "error", "load content error"),
 	}
 	return contentSvc
+}
+
+func (s *contents) Update(Content) (err error) {
+	if !s.conf.FromControlPanel {
+		return fmt.Errorf("Disabled%s", "")
+	}
+
+	// todo: check on S3 and download
+	s.setAll(s.getSlice(s.ByUUID))
+
+	return nil
+}
+
+func (s *contents) getSlice(in map[string]Content) (res []Content) {
+	for _, v := range in {
+		res = append(res, v)
+	}
+	return res
 }
 
 func (s *contents) loadFromCache() (err error) {
@@ -62,32 +81,42 @@ func (s *contents) loadFromCache() (err error) {
 	}
 	defer rows.Close()
 
-	var contents []Content
+	var allContents []Content
 	for rows.Next() {
 		var c Content
 		if err = rows.Scan(
-			&c.Id,
+			&c.Code,
 			&c.Path,
 			&c.Name,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
-		contents = append(contents, c)
+		allContents = append(allContents, c)
 	}
 	if rows.Err() != nil {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return
 	}
 
-	s.ById = make(map[int64]Content)
-	for _, content := range contents {
-		s.ById[content.Id] = content
-	}
+	s.setAll(allContents)
 	return nil
 }
 
+func (s *contents) setAll(in []Content) {
+	s.ByCode = make(map[string]Content, len(in))
+	s.ByUUID = make(map[string]Content, len(in))
+	for _, content := range in {
+		s.ByCode[content.Code] = content
+		s.ByUUID[content.Id] = content
+	}
+}
+
 func (s *contents) Reload() (err error) {
+	if s.conf.FromControlPanel {
+		return fmt.Errorf("Disabled%s", "")
+	}
+
 	s.Lock()
 	defer s.Unlock()
 
@@ -100,8 +129,8 @@ func (s *contents) Reload() (err error) {
 	return nil
 }
 
-func (s *contents) Get(id int64) (Content, error) {
-	c, found := s.ById[id]
+func (s *contents) GetByCode(code string) (Content, error) {
+	c, found := s.ByCode[code]
 	if !found {
 		return Content{}, errNotFound()
 	}
@@ -109,6 +138,6 @@ func (s *contents) Get(id int64) (Content, error) {
 }
 
 func (s *contents) ShowLoaded() {
-	contentJson, _ := json.Marshal(s.ById)
+	contentJson, _ := json.Marshal(s.ByUUID)
 	log.WithField("byid", string(contentJson)).Debug()
 }

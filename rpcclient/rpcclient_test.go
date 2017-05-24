@@ -169,7 +169,7 @@ func TestGetContentById(t *testing.T) {
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "No error to get content by id")
 	expected := service.Content{
-		Id:   30,
+		Code: 30,
 		Path: "30.jpg",
 		Name: "WWF WALLPAPER 1",
 	}

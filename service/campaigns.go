@@ -12,17 +12,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 
-	//client "github.com/linkit360/go-acceptor-client"
 	acceptor "github.com/linkit360/go-acceptor-structs"
 	m "github.com/linkit360/go-utils/metrics"
 )
 
-// Tasks:
-// Keep in memory all active campaigns
-// Allow to get a service_id by campaign hash fastly
-// Reload when changes to campaigns are done
 type Campaigns interface {
 	Set(campaigns map[string]acceptor.Campaign)
+	Update(acceptor.Campaign) error
 	Reload() error
 	GetAll() map[string]Campaign
 	GetByLink(string) (Campaign, error)
@@ -37,11 +33,28 @@ type сampaigns struct {
 	loadError     prometheus.Gauge
 	loadCache     prometheus.Gauge
 	notFound      m.Gauge
-	ByHash        map[string]Campaign
 	ByUUID        map[string]acceptor.Campaign
+	ByHash        map[string]Campaign
 	ByLink        map[string]Campaign
 	ByCode        map[string]Campaign
 	ByServiceCode map[string][]Campaign
+}
+
+func initCampaigns(appName string, campConfig CampaignsConfig) Campaigns {
+	campaigns := &сampaigns{
+		conf:      campConfig,
+		loadError: m.PrometheusGauge(appName, "campaigns_load", "error", "load campaigns error"),
+		loadCache: m.PrometheusGauge(appName, "campaigns", "cache", "load campaigns cache"),
+		notFound:  m.NewGauge(appName, "campaign", "not_found", "campaign not found error"),
+	}
+	go func() {
+		for range time.Tick(time.Minute) {
+			campaigns.notFound.Update()
+		}
+	}()
+
+	return campaigns
+
 }
 
 type CampaignsConfig struct {
@@ -50,9 +63,43 @@ type CampaignsConfig struct {
 }
 
 type Campaign struct {
-	AutoClickCount int64             `json:"-"`
-	CanAutoClick   bool              `json:"-"`
-	Properties     acceptor.Campaign `json:"campaign"`
+	AutoClickCount int64 `json:"-"`
+	CanAutoClick   bool  `json:"-"`
+	acceptor.Campaign
+}
+
+func (s *сampaigns) loadCampaign(ac acceptor.Campaign) (c Campaign) {
+	cBytes, _ := json.Marshal(ac)
+	_ = json.Unmarshal(cBytes, &c)
+	return
+}
+
+func (camp *Campaign) SimpleServe(c *gin.Context, data interface{}) {
+	camp.incRatio()
+	log.WithFields(log.Fields{
+		"code":              camp.Code,
+		"count":             camp.AutoClickCount,
+		"ratio":             camp.AutoClickRatio,
+		"autoclick_enabled": camp.AutoClickEnabled,
+		"autoclick":         camp.CanAutoClick,
+	}).Debug("serve")
+
+	c.Writer.Header().Set("Content-Type", "text/html; charset-utf-8")
+	c.HTML(http.StatusOK, camp.PageWelcome+".html", data)
+}
+
+func (camp *Campaign) incRatio() {
+	if !camp.AutoClickEnabled {
+		camp.CanAutoClick = false
+		return
+	}
+	camp.AutoClickCount = camp.AutoClickCount + 1
+	if camp.AutoClickCount == camp.AutoClickRatio {
+		camp.AutoClickCount = 0
+		camp.CanAutoClick = true
+	} else {
+		camp.CanAutoClick = false
+	}
 }
 
 func (s *сampaigns) GetAll() map[string]Campaign {
@@ -64,10 +111,13 @@ func (s *сampaigns) Set(campaigns map[string]acceptor.Campaign) {
 	s.setAll(s.ByUUID)
 }
 
-func (s *сampaigns) Update(campaign acceptor.Campaign) {
+func (s *сampaigns) Update(campaign acceptor.Campaign) error {
+	if !s.conf.FromControlPanel {
+		return fmt.Errorf("Disabled%s", "")
+	}
 	s.ByUUID[campaign.Id] = campaign
 	s.setAll(s.ByUUID)
-	return
+	return nil
 }
 
 func (s *сampaigns) GetByLink(link string) (camp Campaign, err error) {
@@ -110,51 +160,6 @@ func (s *сampaigns) GetByServiceCode(serviceCode string) (camps []Campaign, err
 		return
 	}
 	return
-}
-
-func initCampaigns(appName string, campConfig CampaignsConfig) Campaigns {
-	campaigns := &сampaigns{
-		conf:      campConfig,
-		loadError: m.PrometheusGauge(appName, "campaigns_load", "error", "load campaigns error"),
-		loadCache: m.PrometheusGauge(appName, "campaigns", "cache", "load campaigns cache"),
-		notFound:  m.NewGauge(appName, "campaign", "not_found", "campaign not found error"),
-	}
-	go func() {
-		for range time.Tick(time.Minute) {
-			campaigns.notFound.Update()
-		}
-	}()
-
-	return campaigns
-
-}
-
-func (campaign *Campaign) SimpleServe(c *gin.Context, data interface{}) {
-	campaign.incRatio()
-	log.WithFields(log.Fields{
-		"code":              campaign.Properties.Code,
-		"count":             campaign.AutoClickCount,
-		"ratio":             campaign.Properties.AutoClickRatio,
-		"autoclick_enabled": campaign.Properties.AutoClickEnabled,
-		"autoclick":         campaign.CanAutoClick,
-	}).Debug("serve")
-
-	c.Writer.Header().Set("Content-Type", "text/html; charset-utf-8")
-	c.HTML(http.StatusOK, campaign.Properties.PageWelcome+".html", data)
-}
-
-func (camp *Campaign) incRatio() {
-	if !camp.Properties.AutoClickEnabled {
-		camp.CanAutoClick = false
-		return
-	}
-	camp.AutoClickCount = camp.AutoClickCount + 1
-	if camp.AutoClickCount == camp.Properties.AutoClickRatio {
-		camp.AutoClickCount = 0
-		camp.CanAutoClick = true
-	} else {
-		camp.CanAutoClick = false
-	}
 }
 
 func (s *сampaigns) getByCache() (campaigns map[string]acceptor.Campaign, err error) {
@@ -210,6 +215,10 @@ func (s *сampaigns) getByCache() (campaigns map[string]acceptor.Campaign, err e
 }
 
 func (s *сampaigns) Reload() (err error) {
+	if s.conf.FromControlPanel {
+		return fmt.Errorf("Disabled%s", "")
+	}
+
 	s.Lock()
 	defer s.Unlock()
 
@@ -235,14 +244,13 @@ func (s *сampaigns) setAll(campaigns map[string]acceptor.Campaign) {
 	s.ByCode = make(map[string]Campaign, len(campaigns))
 	s.ByServiceCode = make(map[string][]Campaign)
 
-	for _, campaign := range campaigns {
-		s.ByHash[campaign.Hash] = Campaign{Properties: campaign}
-		s.ByLink[campaign.Link] = Campaign{Properties: campaign}
-		s.ByCode[campaign.Code] = Campaign{Properties: campaign}
-		s.ByServiceCode[campaign.ServiceCode] = append(
-			s.ByServiceCode[campaign.ServiceCode],
-			Campaign{Properties: campaign},
-		)
+	for _, ac := range campaigns {
+		s.ByUUID[ac.Id] = ac
+		campaign := s.loadCampaign(ac)
+		s.ByHash[campaign.Hash] = campaign
+		s.ByLink[campaign.Link] = campaign
+		s.ByCode[campaign.Code] = campaign
+		s.ByServiceCode[campaign.ServiceCode] = append(s.ByServiceCode[campaign.ServiceCode], campaign)
 	}
 }
 

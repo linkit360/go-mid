@@ -11,6 +11,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
 
+	acceptor "github.com/linkit360/go-acceptor-structs"
 	m "github.com/linkit360/go-utils/metrics"
 )
 
@@ -37,13 +38,9 @@ type Service struct {
 	ContentIds          []int64 `json:"content_ids,omitempty"`
 }
 
-// Tasks:
-// Keep in memory all active service to content mapping
-// Allow to get all content ids of given service id
-// Reload when changes to service_content or service are done
-
 type Services interface {
 	Reload() error
+	Update(acceptor.Service) error
 	GetByCode(string) (Service, error)
 	GetAll() map[string]Service
 }
@@ -57,6 +54,7 @@ type services struct {
 	sync.RWMutex
 	conf      ServicesConfig
 	ByCode    map[string]Service
+	ByUUID    map[string]acceptor.Service
 	loadError prometheus.Gauge
 	notFound  m.Gauge
 }
@@ -74,6 +72,21 @@ func initServices(appName string, servConfig ServicesConfig) Services {
 	}()
 
 	return svcs
+}
+
+func (s *services) Update(acceptorService acceptor.Service) error {
+	if !s.conf.FromControlPanel {
+		return fmt.Errorf("Disabled%s", "")
+	}
+	if acceptorService.Id == "" {
+		return fmt.Errorf("service id is empty%s", "")
+	}
+
+	// todo: check contents on S3 for each content id
+	s.ByUUID[acceptorService.Id] = acceptorService
+	//s.setAll(s.ByUUID)
+
+	return nil
 }
 
 type ServiceContent struct {
@@ -106,6 +119,7 @@ func (scd Days) ok(days []string) bool {
 
 func (s *services) loadFromCache() (err error) {
 	query := fmt.Sprintf("SELECT "+
+		"id, "+
 		"id, "+
 		"price, "+
 		"retry_days, "+
@@ -140,6 +154,7 @@ func (s *services) loadFromCache() (err error) {
 	for rows.Next() {
 		var srv Service
 		if err = rows.Scan(
+			&srv.Id,
 			&srv.Code,
 			&srv.Price,
 			&srv.RetryDays,
@@ -219,18 +234,30 @@ func (s *services) loadFromCache() (err error) {
 		err = fmt.Errorf("rows.Error: %s", err.Error())
 		return
 	}
-	s.ByCode = make(map[string]Service, len(svcs))
+
+	serviceContents := []Service{}
 	for _, v := range svcs {
 		if contentIds, ok := serviceContentIds[v.Code]; ok {
 			v.ContentIds = contentIds
+			serviceContents = append(serviceContents, v)
 		}
-		s.ByCode[v.Code] = v
 	}
-
+	s.setAll(serviceContents)
 	return nil
 }
 
+func (s *services) setAll(svcs []Service) {
+	s.ByCode = make(map[string]Service, len(svcs))
+
+	for _, v := range svcs {
+		s.ByCode[v.Code] = v
+	}
+}
+
 func (s *services) Reload() (err error) {
+	if s.conf.FromControlPanel {
+		return fmt.Errorf("Disabled%s", "")
+	}
 	s.Lock()
 	defer s.Unlock()
 	defer s.ShowLoaded()

@@ -192,7 +192,7 @@ func (uuc *UniqueUrls) loadUniqueUrl(uniqueUrl string) (p ContentSentProperties,
 		return
 	}
 
-	if p.Tid == "" || p.ContentId == 0 {
+	if p.Tid == "" || p.ContentId == "" {
 		err = fmt.Errorf("Not found: %s", uniqueUrl)
 	}
 

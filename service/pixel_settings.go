@@ -2,42 +2,101 @@ package service
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
+
+	acceptor "github.com/linkit360/go-acceptor-structs"
+	m "github.com/linkit360/go-utils/metrics"
 )
 
-type PixelSettings struct {
+type PixelSettings interface {
+	Update(acceptor.PixelSetting) error
+	Reload() error
+	GetByKey(string) (PixelSetting, error)
+	GetByCampaignCode(string) (PixelSetting, error)
+	ByKeyWithRatio(string) (PixelSetting, error)
+}
+
+type PixelSettingsConfig struct {
+	FromControlPanel bool `yaml:"from_control_panel"`
+}
+
+type pixelSettings struct {
 	sync.RWMutex
+	conf           PixelSettingsConfig
+	notFound       m.Gauge
 	ByKey          map[string]*PixelSetting
 	ByCampaignCode map[string]PixelSetting
+	ByUUID         map[string]acceptor.PixelSetting
 }
 
 type PixelSetting struct {
-	Id            int64
-	CampaignCode  string
-	OperatorCode  int64
-	Publisher     string
-	Endpoint      string
-	Timeout       int
-	Enabled       bool
-	Ratio         int
-	Count         int
-	SkipPixelSend bool
+	Count         int  `json:"-"`
+	SkipPixelSend bool `json:"-"`
+	acceptor.PixelSetting
 }
 
-func (pss *PixelSettings) GetByKey(key string) (PixelSetting, error) {
+func (pss *pixelSettings) loadPixelSetting(ps acceptor.PixelSetting) (px PixelSetting) {
+	psBytes, _ := json.Marshal(ps)
+	json.Unmarshal(psBytes, &px)
+	return
+}
+
+func initPixelSettings(appName string, pixelConf PixelSettingsConfig) PixelSettings {
+	ps := &pixelSettings{
+		conf:     pixelConf,
+		notFound: m.NewGauge(appName, "pixel_setting", "not_found", "pixel setting not found error"),
+	}
+	go func() {
+		for range time.Tick(time.Minute) {
+			ps.notFound.Update()
+		}
+	}()
+	return ps
+}
+
+func (pss *pixelSettings) Update(ps acceptor.PixelSetting) error {
+	if !pss.conf.FromControlPanel {
+		return fmt.Errorf("Disabled%s", "")
+	}
+	if ps.Id == "" {
+		return fmt.Errorf("PixelId is empty%s", "")
+	}
+
+	pss.ByUUID[ps.Id] = ps
+	pss.setAll(pss.getSlice(pss.ByUUID))
+	return nil
+}
+
+func (pss *pixelSettings) getSlice(in map[string]acceptor.PixelSetting) (res []acceptor.PixelSetting) {
+	for _, v := range in {
+		res = append(res, v)
+	}
+	return res
+}
+
+func (pss *pixelSettings) GetByKey(key string) (PixelSetting, error) {
 	ps, ok := pss.ByKey[key]
 	if !ok {
 		return PixelSetting{}, fmt.Errorf("Key %s: not found", key)
 	}
 	return *ps, nil
 }
+func (pss *pixelSettings) GetByCampaignCode(code string) (PixelSetting, error) {
+	ps, ok := pss.ByCampaignCode[code]
+	if !ok {
+		return PixelSetting{}, fmt.Errorf("Code %s: not found", code)
+	}
+	return ps, nil
+}
 
-func (pss *PixelSettings) ByKeyWithRatio(key string) (PixelSetting, error) {
+func (pss *pixelSettings) ByKeyWithRatio(key string) (PixelSetting, error) {
 	ps, ok := pss.ByKey[key]
 	if !ok {
 		return PixelSetting{}, fmt.Errorf("Key %s: not found", key)
@@ -55,14 +114,20 @@ func (pss *PixelSettings) ByKeyWithRatio(key string) (PixelSetting, error) {
 func (ps *PixelSetting) CampaignKey() string {
 	return strings.ToLower(fmt.Sprintf("%s-%s", ps.CampaignCode, ps.Publisher))
 }
+
 func (ps *PixelSetting) OperatorKey() string {
 	return strings.ToLower(fmt.Sprintf("%d-%s", ps.OperatorCode, ps.Publisher))
 }
+
 func (ps *PixelSetting) CampaignOperatorKey() string {
 	return strings.ToLower(fmt.Sprintf("%s-%d-%s", ps.CampaignCode, ps.OperatorCode, ps.Publisher))
 }
 
-func (ps *PixelSettings) Reload() (err error) {
+func (ps *pixelSettings) Reload() (err error) {
+	if ps.conf.FromControlPanel {
+		return fmt.Errorf("Disabled%s", "")
+	}
+
 	ps.Lock()
 	defer ps.Unlock()
 
@@ -87,25 +152,24 @@ func (ps *PixelSettings) Reload() (err error) {
 	}
 	defer rows.Close()
 
-	var records []PixelSetting
+	var records []acceptor.PixelSetting
 	for rows.Next() {
-		p := PixelSetting{}
+		ap := acceptor.PixelSetting{}
 
 		if err = rows.Scan(
-			&p.Id,
-			&p.CampaignCode,
-			&p.OperatorCode,
-			&p.Publisher,
-			&p.Endpoint,
-			&p.Timeout,
-			&p.Enabled,
-			&p.Ratio,
+			&ap.Id,
+			&ap.CampaignCode,
+			&ap.OperatorCode,
+			&ap.Publisher,
+			&ap.Endpoint,
+			&ap.Timeout,
+			&ap.Enabled,
+			&ap.Ratio,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
-		p.Count = 0
-		records = append(records, p)
+		records = append(records, ap)
 	}
 
 	if rows.Err() != nil {
@@ -113,14 +177,22 @@ func (ps *PixelSettings) Reload() (err error) {
 		return
 	}
 
+	ps.setAll(records)
+	return nil
+}
+
+func (ps *pixelSettings) setAll(pixelSet []acceptor.PixelSetting) {
 	ps.ByKey = make(map[string]*PixelSetting)
 	ps.ByCampaignCode = make(map[string]PixelSetting)
-	for _, p := range records {
-		pixelC := p
+	ps.ByUUID = make(map[string]acceptor.PixelSetting, len(pixelSet))
+
+	for _, ap := range pixelSet {
+		p := ps.loadPixelSetting(ap)
 		pixelO := p
-		ps.ByKey[p.CampaignKey()] = &pixelC
+		ps.ByKey[p.CampaignKey()] = &pixelO
 		ps.ByKey[p.OperatorKey()] = &pixelO
 		ps.ByKey[p.CampaignOperatorKey()] = &pixelO
+		ps.ByUUID[p.Id] = ap
 
 		ps.ByCampaignCode[p.CampaignCode] = p
 
@@ -131,10 +203,10 @@ func (ps *PixelSettings) Reload() (err error) {
 			"cokey": p.CampaignOperatorKey(),
 		}).Debug("add key")
 	}
+
 	log.WithFields(log.Fields{
 		"bykey": fmt.Sprintf("%#v", ps.ByKey),
 	}).Debug("added")
-	return nil
 }
 
 type Publishers struct {

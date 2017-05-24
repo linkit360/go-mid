@@ -12,7 +12,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	acceptor "github.com/linkit360/go-acceptor-client"
-
 	"github.com/linkit360/go-utils/amqp"
 	"github.com/linkit360/go-utils/config"
 	"github.com/linkit360/go-utils/cqr"
@@ -41,7 +40,7 @@ type MemService struct {
 	Operators          *Operators
 	BlackList          BlackList
 	PostPaid           *PostPaid
-	PixelSettings      *PixelSettings
+	PixelSettings      PixelSettings
 	Publishers         *Publishers
 	KeyWords           *KeyWords
 	RejectedByCampaign *cache.Cache
@@ -52,15 +51,16 @@ type MemService struct {
 }
 
 type Config struct {
-	StateFilePath string          `yaml:"state_file_path"`
-	UniqueDays    int             `yaml:"unique_days" default:"10"`
-	StaticPath    string          `yaml:"static_path" default:""`
-	Queue         QueuesConfig    `yaml:"queue"`
-	BlackList     BlackListConfig `yaml:"blacklist"`
-	Services      ServicesConfig  `yaml:"services"`
-	Campaigns     CampaignsConfig `yaml:"campaigns"`
-	Contents      ContentConfig   `yaml:"contents"`
-	Enabled       EnabledConfig   `yaml:"enabled"`
+	StateFilePath string              `yaml:"state_file_path"`
+	UniqueDays    int                 `yaml:"unique_days" default:"10"`
+	StaticPath    string              `yaml:"static_path" default:""`
+	Queue         QueuesConfig        `yaml:"queue"`
+	BlackList     BlackListConfig     `yaml:"blacklist"`
+	Services      ServicesConfig      `yaml:"services"`
+	Campaigns     CampaignsConfig     `yaml:"campaigns"`
+	Contents      ContentConfig       `yaml:"contents"`
+	Pixel         PixelSettingsConfig `yaml:"pixel"`
+	Enabled       EnabledConfig       `yaml:"enabled"`
 }
 
 type QueuesConfig struct {
@@ -119,6 +119,7 @@ func Init(
 	Svc.Campaigns = initCampaigns(appName, svcConf.Campaigns)
 	Svc.Services = initServices(appName, svcConf.Services)
 	Svc.Contents = initContents(appName, svcConf.Contents)
+	Svc.PixelSettings = initPixelSettings(appName, svcConf.Pixel)
 	Svc.reporter = initReporter(
 		appName, instanceId, svcConf.StateFilePath,
 		svcConf.Queue, consumerConf, acceptorClientConf,
@@ -127,7 +128,6 @@ func Init(
 	Svc.Operators = &Operators{}
 	Svc.BlackList = initBlackList(appName, svcConf.BlackList)
 	Svc.PostPaid = &PostPaid{}
-	Svc.PixelSettings = &PixelSettings{}
 	Svc.Publishers = &Publishers{}
 	Svc.KeyWords = &KeyWords{}
 	Svc.UniqueUrls = &UniqueUrls{}
@@ -165,7 +165,7 @@ func Init(
 		{
 			Tables:  []string{"msisdn_blacklist"},
 			Data:    Svc.BlackList,
-			Enabled: Svc.conf.BlackList.Enabled,
+			Enabled: true,
 		},
 		{
 			Tables:  []string{"msisdn_postpaid"},
@@ -216,6 +216,7 @@ func OnExit() {
 func AddTablesHandler(r *gin.Engine) {
 	r.GET("tables", tablesHandler)
 }
+
 func tablesHandler(c *gin.Context) {
 	var tableNames = make(map[string]string)
 	for _, v := range Svc.cqrConfig {
@@ -230,9 +231,11 @@ func tablesHandler(c *gin.Context) {
 
 	c.IndentedJSON(200, tableNames)
 }
+
 func AddCQRHandlers(r *gin.Engine) {
 	cqr.AddCQRHandler(reloadCQRFunc, r)
 }
+
 func reloadCQRFunc(c *gin.Context) {
 	cqr.CQRReloadFunc(Svc.cqrConfig, c)(c)
 }

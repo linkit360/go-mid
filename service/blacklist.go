@@ -12,6 +12,7 @@ import (
 )
 
 type BlackList interface {
+	Add(string) error
 	Reload() error
 	IsBlacklisted(msisdn string) bool
 }
@@ -25,7 +26,6 @@ type blackList struct {
 }
 
 type BlackListConfig struct {
-	Enabled          bool `yaml:"enabled"`
 	FromControlPanel bool `yaml:"from_control_panel"`
 	GetNewPeriod     int  `yaml:"period"`
 }
@@ -36,6 +36,14 @@ func initBlackList(appName string, c BlackListConfig) *blackList {
 		loadError: m.PrometheusGauge(appName, "blacklist_load", "error", "load blacklist error"),
 	}
 	return bl
+}
+
+func (bl *blackList) Add(msisdn string) error {
+	if !bl.conf.FromControlPanel {
+		return fmt.Errorf("Disabled%s", "")
+	}
+	bl.ByMsisdn[msisdn] = struct{}{}
+	return nil
 }
 
 func (bl *blackList) getBlackListedDBCache() (msisdns []string, err error) {
@@ -65,6 +73,10 @@ func (bl *blackList) getBlackListedDBCache() (msisdns []string, err error) {
 }
 
 func (bl *blackList) Reload() error {
+	if bl.conf.FromControlPanel {
+		return fmt.Errorf("Disabled%s", "")
+	}
+
 	bl.Lock()
 	defer bl.Unlock()
 

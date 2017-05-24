@@ -59,17 +59,17 @@ type GetByKeyWordParams struct {
 type GetByParams struct {
 	Msisdn      string `json:"msisdn,omitempty"`
 	ServiceCode string `json:"code_service,omitempty"`
-	ContentId   int64  `json:"id_content,omitempty"`
+	ContentCode string `json:"content_code,omitempty"`
 }
 type RejectedParams struct {
 	Msisdn       string `json:"msisdn,omitempty"`
-	CampaignCode string `json:"code_campaign,omitempty"`
-	ServiceCode  string `json:"code_service,omitempty"`
+	CampaignCode string `json:"campaign_code,omitempty"`
+	ServiceCode  string `json:"service_code,omitempty"`
 }
 type Response struct{}
 
 type GetContentSentResponse struct {
-	ContentdIds map[int64]struct{} `json:"content_ids,omitempty"`
+	ContentdCodes map[string]struct{} `json:"content_codes,omitempty"`
 }
 type BoolResponse struct {
 	Result bool `json:"result,omitempty"`
@@ -273,10 +273,8 @@ type PixelSetting struct{}
 func (rpc *PixelSetting) ByCampaignCode(
 	req GetByCodeParams, res *service.PixelSetting) error {
 
-	svc, ok := service.Svc.PixelSettings.ByCampaignCode[req.Code]
-	if !ok {
-		notFound.Inc()
-		pixelSettingNotFound.Inc()
+	svc, err := service.Svc.PixelSettings.GetByCampaignCode(req.Code)
+	if err != nil {
 		errors.Inc()
 		return nil
 	}
@@ -317,13 +315,14 @@ func (rpc *PixelSetting) ByKeyWithRatio(
 type Content struct{}
 
 func (rpc *Content) ById(
-	req GetByIdParams, res *service.Content) error {
+	req GetByCodeParams, res *service.Content) error {
 
-	content, err := service.Svc.Contents.Get(req.Id)
+	content, err := service.Svc.Contents.GetByCode(req.Code)
 	if err != nil {
 		errors.Inc()
 		return nil
 	}
+
 	*res = content
 	success.Inc()
 	return nil
@@ -357,14 +356,14 @@ func (rpc *ContentSent) Clear(
 }
 func (rpc *ContentSent) Push(
 	req GetByParams, res *Response) error {
-	service.Svc.SentContents.Push(req.Msisdn, req.ServiceCode, req.ContentId)
+	service.Svc.SentContents.Push(req.Msisdn, req.ServiceCode, req.ContentCode)
 	return nil
 }
 func (rpc *ContentSent) Get(
 	req GetByParams, res *GetContentSentResponse) error {
 
 	contentIds := service.Svc.SentContents.Get(req.Msisdn, req.ServiceCode)
-	*res = GetContentSentResponse{ContentdIds: contentIds}
+	*res = GetContentSentResponse{ContentdCodes: contentIds}
 	success.Inc()
 	return nil
 }
