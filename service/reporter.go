@@ -71,8 +71,6 @@ type ReporterMetrics struct {
 
 func initReporterMetrics(appName string) *ReporterMetrics {
 	mm := &ReporterMetrics{
-		Success:                m.NewGauge("", "", "success", "success"),
-		Errors:                 m.NewGauge("", "", "errors", "errors"),
 		ErrorCampaignCodeEmpty: m.NewGauge("errors", "campaign_code", "empty", "errors"),
 		ErrorOperatorCodeEmpty: m.NewGauge("errors", "operator_code", "empty", "errors"),
 		BreatheDuration:        m.NewSummary(appName+"_breathe_duration_seconds", "breathe duration seconds"),
@@ -199,10 +197,10 @@ func initReporter(appName, instanceId, stateFilePath string,
 	as.loadState(stateFilePath)
 	as.m = initReporterMetrics(appName)
 	as.consume = &Consumers{
-		Hit:         amqp.InitConsumer(consumerConf, queue.Hit, as.hitCh, as.processHit),
-		Transaction: amqp.InitConsumer(consumerConf, queue.Transaction, as.transactionCh, as.processTransactions),
-		Pixel:       amqp.InitConsumer(consumerConf, queue.Pixel, as.pixelCh, as.processPixel),
-		Outflow:     amqp.InitConsumer(consumerConf, queue.Outflow, as.outflowCh, as.processOutflow),
+		Hit:         amqp.InitConsumer(consumerConf, queue.ReporterHit, as.hitCh, as.processHit),
+		Transaction: amqp.InitConsumer(consumerConf, queue.ReporterTransaction, as.transactionCh, as.processTransactions),
+		Pixel:       amqp.InitConsumer(consumerConf, queue.ReporterPixel, as.pixelCh, as.processPixel),
+		Outflow:     amqp.InitConsumer(consumerConf, queue.ReporterOutflow, as.outflowCh, as.processOutflow),
 	}
 
 	as.adReport = make(map[string]OperatorAgregate)
@@ -215,7 +213,10 @@ func initReporter(appName, instanceId, stateFilePath string,
 }
 func (as *collectorService) SaveState() {
 	if err := as.saveState(); err != nil {
-		log.WithField("error", err.Error()).Fatal("cannot save state")
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+			"file":  as.state.FilePath,
+		}).Fatal("cannot save state")
 	}
 }
 func (as *collectorService) saveState() error {
@@ -233,8 +234,14 @@ func (as *collectorService) saveState() error {
 }
 
 func (as *collectorService) loadState(filePath string) error {
-	defer func() { as.state.FilePath = filePath }()
-	logCtx := log.WithField("action", "load collector state")
+	defer func() {
+		as.state.FilePath = filePath
+	}()
+
+	logCtx := log.WithFields(log.Fields{
+		"action": "load collector state",
+		"file":   filePath,
+	})
 	stateJson, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		err = fmt.Errorf("ioutil.ReadFile: %s", err.Error())

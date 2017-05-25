@@ -83,6 +83,7 @@ func (rpc *Campaign) ByHash(
 
 	campaign, err := service.Svc.Campaigns.GetByHash(req.Hash)
 	if err != nil {
+		notFound.Inc()
 		errors.Inc()
 		return nil
 	}
@@ -95,6 +96,7 @@ func (rpc *Campaign) ByLink(
 
 	campaign, err := service.Svc.Campaigns.GetByLink(req.Link)
 	if err != nil {
+		notFound.Inc()
 		errors.Inc()
 		return nil
 	}
@@ -107,6 +109,7 @@ func (rpc *Campaign) ByCode(
 
 	campaign, err := service.Svc.Campaigns.GetByCode(req.Code)
 	if err != nil {
+		notFound.Inc()
 		errors.Inc()
 		return nil
 	}
@@ -119,6 +122,7 @@ func (rpc *Campaign) ByServiceCode(
 
 	campaigns, err := service.Svc.Campaigns.GetByServiceCode(req.Code)
 	if err != nil || len(campaigns) == 0 {
+		notFound.Inc()
 		errors.Inc()
 		return nil
 	}
@@ -259,6 +263,7 @@ func (rpc *Service) ByCode(
 
 	svc, err := service.Svc.Services.GetByCode(req.Code)
 	if err != nil {
+		notFound.Inc()
 		errors.Inc()
 		return nil
 	}
@@ -275,6 +280,7 @@ func (rpc *PixelSetting) ByCampaignCode(
 
 	svc, err := service.Svc.PixelSettings.GetByCampaignCode(req.Code)
 	if err != nil {
+		notFound.Inc()
 		errors.Inc()
 		return nil
 	}
@@ -288,7 +294,6 @@ func (rpc *PixelSetting) ByKey(
 	ps, err := service.Svc.PixelSettings.GetByKey(req.Key)
 	if err != nil {
 		notFound.Inc()
-		pixelSettingNotFound.Inc()
 		errors.Inc()
 		return nil
 	}
@@ -302,7 +307,6 @@ func (rpc *PixelSetting) ByKeyWithRatio(
 	ps, err := service.Svc.PixelSettings.ByKeyWithRatio(req.Key)
 	if err != nil {
 		notFound.Inc()
-		pixelSettingNotFound.Inc()
 		errors.Inc()
 		return nil
 	}
@@ -319,6 +323,7 @@ func (rpc *Content) ById(
 
 	content, err := service.Svc.Contents.GetByCode(req.Code)
 	if err != nil {
+		notFound.Inc()
 		errors.Inc()
 		return nil
 	}

@@ -34,7 +34,6 @@ type contents struct {
 }
 
 type ContentConfig struct {
-	Enabled          bool `yaml:"enabled"`
 	FromControlPanel bool `yaml:"from_control_panel"`
 }
 

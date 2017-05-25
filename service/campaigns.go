@@ -31,7 +31,6 @@ type сampaigns struct {
 	sync.RWMutex
 	conf          CampaignsConfig
 	loadError     prometheus.Gauge
-	loadCache     prometheus.Gauge
 	notFound      m.Gauge
 	ByUUID        map[string]acceptor.Campaign
 	ByHash        map[string]Campaign
@@ -44,7 +43,6 @@ func initCampaigns(appName string, campConfig CampaignsConfig) Campaigns {
 	campaigns := &сampaigns{
 		conf:      campConfig,
 		loadError: m.PrometheusGauge(appName, "campaigns_load", "error", "load campaigns error"),
-		loadCache: m.PrometheusGauge(appName, "campaigns", "cache", "load campaigns cache"),
 		notFound:  m.NewGauge(appName, "campaign", "not_found", "campaign not found error"),
 	}
 	go func() {
@@ -59,7 +57,7 @@ func initCampaigns(appName string, campConfig CampaignsConfig) Campaigns {
 
 type CampaignsConfig struct {
 	FromControlPanel bool   `yaml:"from_control_panel"`
-	WebHook          string `yaml:"web_hook" default:"http://localhost:50300/updateTemplates"`
+	WebHook          string `yaml:"webhook" default:"http://localhost:50300/updateTemplates"`
 }
 
 type Campaign struct {
@@ -222,13 +220,11 @@ func (s *сampaigns) Reload() (err error) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.loadCache.Set(0.)
-
+	s.loadError.Set(0.)
 	var campaigns map[string]acceptor.Campaign
 	campaigns, err = s.getByCache()
-	if err == nil {
+	if err != nil {
 		s.loadError.Set(1.)
-		s.loadCache.Set(1.)
 		log.Error(err.Error())
 		return
 	}
@@ -242,6 +238,7 @@ func (s *сampaigns) setAll(campaigns map[string]acceptor.Campaign) {
 	s.ByHash = make(map[string]Campaign, len(campaigns))
 	s.ByLink = make(map[string]Campaign, len(campaigns))
 	s.ByCode = make(map[string]Campaign, len(campaigns))
+	s.ByUUID = make(map[string]acceptor.Campaign, len(campaigns))
 	s.ByServiceCode = make(map[string][]Campaign)
 
 	for _, ac := range campaigns {

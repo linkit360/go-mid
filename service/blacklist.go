@@ -27,7 +27,6 @@ type blackList struct {
 
 type BlackListConfig struct {
 	FromControlPanel bool `yaml:"from_control_panel"`
-	GetNewPeriod     int  `yaml:"period"`
 }
 
 func initBlackList(appName string, c BlackListConfig) *blackList {

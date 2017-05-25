@@ -1,4 +1,5 @@
-app_name: proxy
+app_name: mid
+instance: abvgd
 
 server:
   rpc_port: 50307
@@ -10,28 +11,58 @@ acceptor_client:
   timeout: 10
 
 service:
-  provider_name: cheese
+  state_file_path: /home/centos/linkit/mid.state.json
   unique_days: 10
-  operator_code: 41001
   static_path: /var/www/xmp.linkit360.ru/web/
-  campaign_web_hook: http://localhost:50300/updateTemplates
+  queue:
+    reporter_hit:
+      enabled: true
+      name: reporter_hit
+      prefetch_count: 10
+      threads_count: 10
 
-  blacklist:
-    enabled: true
-    from_control_panel: true
-    period: 3600
+    reporter_transaction:
+      enabled: true
+      name: reporter_transaction
+      prefetch_count: 10
+      threads_count: 10
 
-  contents:
+    reporter_outflow:
+      enabled: true
+      name: reporter_outflow
+      prefetch_count: 10
+      threads_count: 10
+
+    reporter_pixel:
+      enabled: true
+      name: reporter_pixel
+      prefetch_count: 10
+      threads_count: 10
+
+  service:
     enabled: true
     from_control_panel: false
 
-  services:
+  campaign:
+    from_control_panel: false
+    webhook: http://localhost:50300/updateTemplates
+
+  content:
     enabled: true
+    from_control_panel: false
+
+  blacklist:
+    from_control_panel: false
+
+  content:
+    from_control_panel: false
+
+  pixel:
     from_control_panel: false
 
   enabled:
-    destinations: true
-    redirect_stats_count: true
+    destinations: false
+    redirect_stats_count: false
 
 db:
   conn_ttl: -1

@@ -40,12 +40,10 @@ func (ops *Operators) Reload() error {
 	var operators []acceptor.Operator
 	for rows.Next() {
 		var operator acceptor.Operator
-		var headers string
 		if err = rows.Scan(
 			&operator.Name,
 			&operator.Code,
 			&operator.CountryName,
-			&headers,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return err

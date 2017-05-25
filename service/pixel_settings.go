@@ -48,7 +48,6 @@ func (ps *PixelSetting) SetPublisher(publisher string) {
 func (ps *PixelSetting) SetCampaignCode(campaignCode string) {
 	ps.CampaignCode = campaignCode
 }
-
 func (ps *PixelSetting) SetOperatorCode(code int64) {
 	ps.OperatorCode = code
 }
@@ -95,6 +94,7 @@ func (pss *pixelSettings) getSlice(in map[string]acceptor.PixelSetting) (res []a
 func (pss *pixelSettings) GetByKey(key string) (PixelSetting, error) {
 	ps, ok := pss.ByKey[key]
 	if !ok {
+		pss.notFound.Inc()
 		return PixelSetting{}, fmt.Errorf("Key %s: not found", key)
 	}
 	return *ps, nil
@@ -102,6 +102,7 @@ func (pss *pixelSettings) GetByKey(key string) (PixelSetting, error) {
 func (pss *pixelSettings) GetByCampaignCode(code string) (PixelSetting, error) {
 	ps, ok := pss.ByCampaignCode[code]
 	if !ok {
+		pss.notFound.Inc()
 		return PixelSetting{}, fmt.Errorf("Code %s: not found", code)
 	}
 	return ps, nil
@@ -110,6 +111,7 @@ func (pss *pixelSettings) GetByCampaignCode(code string) (PixelSetting, error) {
 func (pss *pixelSettings) ByKeyWithRatio(key string) (PixelSetting, error) {
 	ps, ok := pss.ByKey[key]
 	if !ok {
+		pss.notFound.Inc()
 		return PixelSetting{}, fmt.Errorf("Key %s: not found", key)
 	}
 	ps.Count = ps.Count + 1
@@ -215,8 +217,9 @@ func (ps *pixelSettings) setAll(pixelSet []acceptor.PixelSetting) {
 		}).Debug("add key")
 	}
 
+	byKeyJson, _ := json.Marshal(ps.ByKey)
 	log.WithFields(log.Fields{
-		"bykey": fmt.Sprintf("%#v", ps.ByKey),
+		"bykey": string(byKeyJson),
 	}).Debug("added")
 }
 

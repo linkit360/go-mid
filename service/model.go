@@ -55,19 +55,19 @@ type Config struct {
 	UniqueDays    int                 `yaml:"unique_days" default:"10"`
 	StaticPath    string              `yaml:"static_path" default:""`
 	Queue         QueuesConfig        `yaml:"queue"`
+	Services      ServicesConfig      `yaml:"service"`
+	Campaigns     CampaignsConfig     `yaml:"campaign"`
+	Contents      ContentConfig       `yaml:"content"`
 	BlackList     BlackListConfig     `yaml:"blacklist"`
-	Services      ServicesConfig      `yaml:"services"`
-	Campaigns     CampaignsConfig     `yaml:"campaigns"`
-	Contents      ContentConfig       `yaml:"contents"`
 	Pixel         PixelSettingsConfig `yaml:"pixel"`
 	Enabled       EnabledConfig       `yaml:"enabled"`
 }
 
 type QueuesConfig struct {
-	Hit         config.ConsumeQueueConfig `yaml:"hit"`
-	Transaction config.ConsumeQueueConfig `yaml:"transaction"`
-	Pixel       config.ConsumeQueueConfig `yaml:"pixel"`
-	Outflow     config.ConsumeQueueConfig `yaml:"outflow"`
+	ReporterHit         config.ConsumeQueueConfig `yaml:"reporter_hit"`
+	ReporterTransaction config.ConsumeQueueConfig `yaml:"reporter_transaction"`
+	ReporterPixel       config.ConsumeQueueConfig `yaml:"reporter_pixel"`
+	ReporterOutflow     config.ConsumeQueueConfig `yaml:"reporter_outflow"`
 }
 
 type EnabledConfig struct {
