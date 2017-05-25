@@ -66,9 +66,9 @@ type Campaign struct {
 	acceptor.Campaign
 }
 
-func (s *сampaigns) loadCampaign(ac acceptor.Campaign) (c Campaign) {
+func (s *Campaign) Load(ac acceptor.Campaign) {
 	cBytes, _ := json.Marshal(ac)
-	_ = json.Unmarshal(cBytes, &c)
+	_ = json.Unmarshal(cBytes, &s)
 	return
 }
 
@@ -243,7 +243,9 @@ func (s *сampaigns) setAll(campaigns map[string]acceptor.Campaign) {
 
 	for _, ac := range campaigns {
 		s.ByUUID[ac.Id] = ac
-		campaign := s.loadCampaign(ac)
+
+		campaign := Campaign{}
+		campaign.Load(ac)
 		s.ByHash[campaign.Hash] = campaign
 		s.ByLink[campaign.Link] = campaign
 		s.ByCode[campaign.Code] = campaign

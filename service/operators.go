@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	acceptor "github.com/linkit360/go-acceptor-structs"
+	"strings"
 )
 
 // required only in pixels to send operator name (not code as we use)
@@ -48,6 +49,8 @@ func (ops *Operators) Reload() error {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return err
 		}
+		operator.CountryName = strings.ToLower(operator.CountryName)
+		operator.Name = strings.ToLower(operator.Name)
 		operators = append(operators, operator)
 	}
 	if rows.Err() != nil {

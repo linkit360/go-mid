@@ -46,8 +46,8 @@ type Services interface {
 }
 
 type ServicesConfig struct {
-	FromControlPanel bool   `yaml:"from_control_panel"`
-	WebHook          string `yaml:"web_hook" default:"http://localhost:50306/update"`
+	FromControlPanel bool `yaml:"from_control_panel"`
+	//WebHook          string `yaml:"web_hook" default:"http://localhost:50306/update"`
 }
 
 type services struct {
@@ -240,9 +240,10 @@ func (s *services) loadFromCache() (err error) {
 	for _, v := range svcs {
 		if contentIds, ok := serviceContentIds[v.Code]; ok {
 			v.ContentCodes = contentIds
-			serviceContents = append(serviceContents, v)
 		}
+		serviceContents = append(serviceContents, v)
 	}
+
 	s.setAll(serviceContents)
 	return nil
 }
@@ -288,6 +289,7 @@ func (s *services) ShowLoaded() {
 
 	log.WithFields(log.Fields{
 		"action": "services",
-		"id":     string(byCode),
+		"len":    len(byCode),
+		"bycode": string(byCode),
 	}).Debug("")
 }

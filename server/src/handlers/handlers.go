@@ -318,7 +318,7 @@ func (rpc *PixelSetting) ByKeyWithRatio(
 // Content
 type Content struct{}
 
-func (rpc *Content) ById(
+func (rpc *Content) ByCode(
 	req GetByCodeParams, res *service.Content) error {
 
 	content, err := service.Svc.Contents.GetByCode(req.Code)
@@ -378,6 +378,7 @@ type UniqueUrls struct{}
 func (rpc *UniqueUrls) Get(req GetByKeyParams, res *service.ContentSentProperties) error {
 	properties, err := service.Svc.UniqueUrls.Get(req.Key)
 	if err != nil {
+		log.Errorf("unique url not found, key: %s", req.Key)
 		notFound.Inc()
 		urlCacheNotFound.Inc()
 		errors.Inc()

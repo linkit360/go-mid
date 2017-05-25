@@ -38,8 +38,8 @@ type pixelSettings struct {
 
 type PixelSetting struct {
 	acceptor.PixelSetting
-	Count         int  `json:"-"`
-	SkipPixelSend bool `json:"-"`
+	Count         int  `json:"count"`
+	SkipPixelSend bool `json:"skip_pixel_send"`
 }
 
 func (ps *PixelSetting) SetPublisher(publisher string) {
@@ -52,9 +52,9 @@ func (ps *PixelSetting) SetOperatorCode(code int64) {
 	ps.OperatorCode = code
 }
 
-func (pss *pixelSettings) loadPixelSetting(ps acceptor.PixelSetting) (px PixelSetting) {
-	psBytes, _ := json.Marshal(ps)
-	json.Unmarshal(psBytes, &px)
+func (ps *PixelSetting) Load(as acceptor.PixelSetting) {
+	psBytes, _ := json.Marshal(as)
+	json.Unmarshal(psBytes, &ps)
 	return
 }
 
@@ -121,6 +121,11 @@ func (pss *pixelSettings) ByKeyWithRatio(key string) (PixelSetting, error) {
 	} else {
 		ps.SkipPixelSend = true
 	}
+	log.WithFields(log.Fields{
+		"skip":  ps.SkipPixelSend,
+		"count": ps.Count,
+		"key":   key,
+	}).Debug("pixel")
 	return *ps, nil
 }
 
@@ -200,7 +205,8 @@ func (ps *pixelSettings) setAll(pixelSet []acceptor.PixelSetting) {
 	ps.ByUUID = make(map[string]acceptor.PixelSetting, len(pixelSet))
 
 	for _, ap := range pixelSet {
-		p := ps.loadPixelSetting(ap)
+		p := PixelSetting{}
+		p.Load(ap)
 		pixelO := p
 		ps.ByKey[p.CampaignKey()] = &pixelO
 		ps.ByKey[p.OperatorKey()] = &pixelO

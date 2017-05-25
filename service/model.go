@@ -142,9 +142,9 @@ func Init(
 			Enabled: true, // always enabled
 		},
 		{
-			Tables:  []string{"service", "service_content"},
-			Data:    Svc.Services,
-			WebHook: Svc.conf.Services.WebHook,
+			Tables: []string{"service", "service_content"},
+			Data:   Svc.Services,
+			//WebHook: Svc.conf.Services.WebHook,
 			Enabled: true, // always enabled
 		},
 		{
