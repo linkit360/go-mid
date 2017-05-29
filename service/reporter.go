@@ -695,10 +695,11 @@ type EventNotifyReporter struct {
 func (as *collectorService) processHit(deliveries <-chan amqp_driver.Delivery) {
 
 	for msg := range deliveries {
+		var c EventNotifyReporter
+
 		if !Svc.prxConf.Enabled {
 			goto ack
 		}
-		var c EventNotifyReporter
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
 			log.WithFields(log.Fields{
 				"error": err.Error(),
@@ -721,10 +722,11 @@ func (as *collectorService) processHit(deliveries <-chan amqp_driver.Delivery) {
 }
 func (as *collectorService) processPixel(deliveries <-chan amqp_driver.Delivery) {
 	for msg := range deliveries {
+		var c EventNotifyReporter
+
 		if !Svc.prxConf.Enabled {
 			goto ack
 		}
-		var c EventNotifyReporter
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
 			log.WithFields(log.Fields{
 				"error": err.Error(),
@@ -747,10 +749,10 @@ func (as *collectorService) processPixel(deliveries <-chan amqp_driver.Delivery)
 }
 func (as *collectorService) processTransactions(deliveries <-chan amqp_driver.Delivery) {
 	for msg := range deliveries {
+		var c EventNotifyReporter
 		if !Svc.prxConf.Enabled {
 			goto ack
 		}
-		var c EventNotifyReporter
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
 			log.WithFields(log.Fields{
 				"error": err.Error(),
@@ -773,10 +775,10 @@ func (as *collectorService) processTransactions(deliveries <-chan amqp_driver.De
 }
 func (as *collectorService) processOutflow(deliveries <-chan amqp_driver.Delivery) {
 	for msg := range deliveries {
+		var c EventNotifyReporter
 		if !Svc.prxConf.Enabled {
 			goto ack
 		}
-		var c EventNotifyReporter
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
 			log.WithFields(log.Fields{
 				"error": err.Error(),

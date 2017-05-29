@@ -5,36 +5,15 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	"time"
+
+	"github.com/linkit360/go-utils/structs"
 )
 
 const ACTIVE_STATUS = 1
 
-type ContentSentProperties struct {
-	ContentCode    string    `json:"content_code,omitempty"`
-	SentAt         time.Time `json:"sent_at,omitempty"`
-	Msisdn         string    `json:"msisdn,omitempty"`
-	Tid            string    `json:"tid,omitempty"`
-	UniqueUrl      string    `json:"unique_url,omitempty"`
-	ContentPath    string    `json:"content_path,omitempty"`
-	ContentName    string    `json:"content_name,omitempty"`
-	CapmaignHash   string    `json:"capmaign_hash,omitempty"`
-	CampaignCode   string    `json:"code_campaign,omitempty"`
-	ServiceCode    string    `json:"code_service,omitempty"`
-	SubscriptionId int64     `json:"subscription_id,omitempty"`
-	CountryCode    int64     `json:"country_code,omitempty"`
-	OperatorCode   int64     `json:"operator_code,omitempty"`
-	Publisher      string    `json:"publisher,omitempty"`
-	Error          string    `json:"error,omitempty"`
-}
-
 type SentContents struct {
 	sync.RWMutex
 	ByKey map[string]map[string]struct{}
-}
-
-func (t ContentSentProperties) key() string {
-	return t.Msisdn + "-" + t.CampaignCode
 }
 
 func (s *SentContents) Reload() (err error) {
@@ -58,9 +37,9 @@ func (s *SentContents) Reload() (err error) {
 	}
 	defer rows.Close()
 
-	var records []ContentSentProperties
+	var records []structs.ContentSentProperties
 	for rows.Next() {
-		record := ContentSentProperties{}
+		record := structs.ContentSentProperties{}
 
 		if err = rows.Scan(
 			&record.Msisdn,
@@ -79,10 +58,10 @@ func (s *SentContents) Reload() (err error) {
 
 	s.ByKey = make(map[string]map[string]struct{})
 	for _, sentContent := range records {
-		if _, ok := s.ByKey[sentContent.key()]; !ok {
-			s.ByKey[sentContent.key()] = make(map[string]struct{})
+		if _, ok := s.ByKey[sentContent.Key()]; !ok {
+			s.ByKey[sentContent.Key()] = make(map[string]struct{})
 		}
-		s.ByKey[sentContent.key()][sentContent.ContentCode] = struct{}{}
+		s.ByKey[sentContent.Key()][sentContent.ContentCode] = struct{}{}
 	}
 	return nil
 }
@@ -93,8 +72,8 @@ func (s *SentContents) Reload() (err error) {
 // then it had used as different contens! And will shown
 func (s *SentContents) Get(msisdn, serviceCode string) (contentCodes map[string]struct{}) {
 	var ok bool
-	t := ContentSentProperties{Msisdn: msisdn, ServiceCode: serviceCode}
-	if contentCodes, ok = s.ByKey[t.key()]; ok {
+	t := structs.ContentSentProperties{Msisdn: msisdn, ServiceCode: serviceCode}
+	if contentCodes, ok = s.ByKey[t.Key()]; ok {
 		return contentCodes
 	}
 	return nil
@@ -106,8 +85,8 @@ func (s *SentContents) Clear(msisdn, serviceCode string) {
 	s.Lock()
 	defer s.Unlock()
 
-	t := ContentSentProperties{Msisdn: msisdn, ServiceCode: serviceCode}
-	delete(s.ByKey, t.key())
+	t := structs.ContentSentProperties{Msisdn: msisdn, ServiceCode: serviceCode}
+	delete(s.ByKey, t.Key())
 }
 
 // After we have chosen the content to show,
@@ -117,9 +96,9 @@ func (s *SentContents) Push(msisdn, serviceCode string, contentCode string) {
 	s.Lock()
 	defer s.Unlock()
 
-	t := ContentSentProperties{Msisdn: msisdn, ServiceCode: serviceCode}
-	if _, ok := s.ByKey[t.key()]; !ok {
-		s.ByKey[t.key()] = make(map[string]struct{})
+	t := structs.ContentSentProperties{Msisdn: msisdn, ServiceCode: serviceCode}
+	if _, ok := s.ByKey[t.Key()]; !ok {
+		s.ByKey[t.Key()] = make(map[string]struct{})
 	}
-	s.ByKey[t.key()][contentCode] = struct{}{}
+	s.ByKey[t.Key()][contentCode] = struct{}{}
 }

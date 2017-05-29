@@ -6,26 +6,27 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/linkit360/go-utils/structs"
 )
 
 type UniqueUrls struct {
 	sync.RWMutex
-	ByUrl map[string]ContentSentProperties
+	ByUrl map[string]structs.ContentSentProperties
 }
 
-func (uuc *UniqueUrls) Get(uniqueUrl string) (ContentSentProperties, error) {
+func (uuc *UniqueUrls) Get(uniqueUrl string) (structs.ContentSentProperties, error) {
 	v, found := uuc.ByUrl[uniqueUrl]
 	if !found {
 		property, err := uuc.loadUniqueUrl(uniqueUrl)
 		if err != nil {
-			return ContentSentProperties{}, fmt.Errorf("uuc.loadUniqueUrl: %s", err.Error())
+			return structs.ContentSentProperties{}, fmt.Errorf("uuc.loadUniqueUrl: %s", err.Error())
 		}
 		return property, nil
 	}
 	return v, nil
 }
 
-func (uuc *UniqueUrls) Set(r ContentSentProperties) {
+func (uuc *UniqueUrls) Set(r structs.ContentSentProperties) {
 	_, found := uuc.ByUrl[r.UniqueUrl]
 	if !found {
 		uuc.Lock()
@@ -38,7 +39,7 @@ func (uuc *UniqueUrls) Set(r ContentSentProperties) {
 	}
 }
 
-func (uuc *UniqueUrls) Delete(r ContentSentProperties) {
+func (uuc *UniqueUrls) Delete(r structs.ContentSentProperties) {
 	delete(uuc.ByUrl, r.UniqueUrl)
 	log.WithFields(log.Fields{
 		"tid": r.Tid,
@@ -88,9 +89,9 @@ func (uuc *UniqueUrls) Reload() (err error) {
 	}
 	defer rows.Close()
 
-	prop := []ContentSentProperties{}
+	prop := []structs.ContentSentProperties{}
 	for rows.Next() {
-		var p ContentSentProperties
+		var p structs.ContentSentProperties
 		if err = rows.Scan(
 			&p.SentAt,
 			&p.Msisdn,
@@ -116,14 +117,14 @@ func (uuc *UniqueUrls) Reload() (err error) {
 		return
 	}
 
-	uuc.ByUrl = make(map[string]ContentSentProperties, len(prop))
+	uuc.ByUrl = make(map[string]structs.ContentSentProperties, len(prop))
 	log.WithField("count", len(prop)).Debug("loaded uniq urls")
 	for _, r := range prop {
 		uuc.ByUrl[r.UniqueUrl] = r
 	}
 	return
 }
-func (uuc *UniqueUrls) loadUniqueUrl(uniqueUrl string) (p ContentSentProperties, err error) {
+func (uuc *UniqueUrls) loadUniqueUrl(uniqueUrl string) (p structs.ContentSentProperties, err error) {
 	begin := time.Now()
 	defer func() {
 		defer func() {

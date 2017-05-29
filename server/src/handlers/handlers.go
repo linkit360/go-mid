@@ -7,6 +7,7 @@ import (
 
 	acceptor "github.com/linkit360/go-acceptor-structs"
 	"github.com/linkit360/go-mid/service"
+	"github.com/linkit360/go-utils/structs"
 )
 
 type GetAllParams struct {
@@ -375,7 +376,7 @@ func (rpc *ContentSent) Get(
 
 type UniqueUrls struct{}
 
-func (rpc *UniqueUrls) Get(req GetByKeyParams, res *service.ContentSentProperties) error {
+func (rpc *UniqueUrls) Get(req GetByKeyParams, res *structs.ContentSentProperties) error {
 	properties, err := service.Svc.UniqueUrls.Get(req.Key)
 	if err != nil {
 		log.Errorf("unique url not found, key: %s", req.Key)
@@ -389,12 +390,12 @@ func (rpc *UniqueUrls) Get(req GetByKeyParams, res *service.ContentSentPropertie
 	return nil
 }
 
-func (rpc *UniqueUrls) Set(req service.ContentSentProperties, res *Response) error {
+func (rpc *UniqueUrls) Set(req structs.ContentSentProperties, res *Response) error {
 	service.Svc.UniqueUrls.Set(req)
 	success.Inc()
 	return nil
 }
-func (rpc *UniqueUrls) Delete(req service.ContentSentProperties, res *Response) error {
+func (rpc *UniqueUrls) Delete(req structs.ContentSentProperties, res *Response) error {
 	service.Svc.UniqueUrls.Delete(req)
 	success.Inc()
 	return nil

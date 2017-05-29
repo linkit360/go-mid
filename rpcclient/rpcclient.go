@@ -14,6 +14,7 @@ import (
 	"github.com/linkit360/go-mid/server/src/handlers"
 	"github.com/linkit360/go-mid/service"
 	m "github.com/linkit360/go-utils/metrics"
+	"github.com/linkit360/go-utils/structs"
 )
 
 var errNotFound = func(v interface{}) error {
@@ -396,7 +397,7 @@ func IsMsisdnRejectedByService(serviceCode, msisdn string) (bool, error) {
 	return res, err
 }
 
-func SetUniqueUrlCache(req service.ContentSentProperties) error {
+func SetUniqueUrlCache(req structs.ContentSentProperties) error {
 	var res handlers.Response
 	err := call(
 		"UniqueUrls.Set",
@@ -405,8 +406,8 @@ func SetUniqueUrlCache(req service.ContentSentProperties) error {
 	)
 	return err
 }
-func GetUniqueUrlCache(uniqueUrl string) (service.ContentSentProperties, error) {
-	var res service.ContentSentProperties
+func GetUniqueUrlCache(uniqueUrl string) (structs.ContentSentProperties, error) {
+	var res structs.ContentSentProperties
 	err := call(
 		"UniqueUrls.Get",
 		handlers.GetByKeyParams{Key: uniqueUrl},
@@ -414,7 +415,7 @@ func GetUniqueUrlCache(uniqueUrl string) (service.ContentSentProperties, error) 
 	)
 	return res, err
 }
-func DeleteUniqueUrlCache(req service.ContentSentProperties) error {
+func DeleteUniqueUrlCache(req structs.ContentSentProperties) error {
 	var res handlers.Response
 	err := call(
 		"UniqueUrls.Delete",
