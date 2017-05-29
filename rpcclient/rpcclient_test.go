@@ -86,7 +86,7 @@ func TestGetServiceByCode(t *testing.T) {
 	res, err := GetServiceByCode("421924601")
 	////fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "Error while get service by id")
-	expected := service.Service{
+	expected := acceptor.Service{
 		Id:                  "421924601",
 		Code:                "421924601",
 		Price:               10,
@@ -111,7 +111,7 @@ func TestGetServiceByCode(t *testing.T) {
 	res, err = GetServiceByCode("888")
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "Error while get service by id")
-	expected = service.Service{
+	expected = acceptor.Service{
 		Id:               "888",
 		Code:             "888",
 		Price:            10,
@@ -138,16 +138,16 @@ func TestGetServiceByCode(t *testing.T) {
 }
 
 func TestGetContentByCode(t *testing.T) {
-	res, err := GetContentByCode("42")
+	res, err := GetContentById("42")
 	assert.Error(t, err, "Must be error 'Not found'")
 
-	res, err = GetContentByCode("30")
+	res, err = GetContentById("30")
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "No error to get content by id")
-	expected := service.Content{
-		Code: "30",
-		Path: "30.jpg",
-		Name: "WWF WALLPAPER 1",
+	expected := acceptor.Content{
+		Id:    "30",
+		Name:  "30.jpg",
+		Title: "WWF WALLPAPER 1",
 	}
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "Content differ")

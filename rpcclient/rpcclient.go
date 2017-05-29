@@ -90,18 +90,30 @@ func (c *Client) dial() error {
 
 func call(funcName string, req interface{}, res interface{}) error {
 	begin := time.Now()
-	if cli == nil || cli.connection == nil {
-		cli.dial()
-	}
-
+	retryCount := 0
+retry:
 	if err := cli.connection.Call(funcName, req, &res); err != nil {
 		cli.m.RPCConnectError.Inc()
+
 		if err == rpc.ErrShutdown {
+
+			if retryCount < 2 {
+				retryCount = retryCount + 1
+				cli.connection.Close()
+				cli.dial()
+				log.WithFields(log.Fields{
+					"retry": retryCount,
+					"error": err.Error(),
+				}).Debug("retrying..")
+				goto retry
+			}
+
 			log.WithFields(log.Fields{
 				"func":  funcName,
 				"error": err.Error(),
 			}).Fatal("call")
 		}
+
 		log.WithFields(log.Fields{
 			"func":  funcName,
 			"error": err.Error(),
@@ -192,7 +204,7 @@ func GetAllCampaigns() (map[string]service.Campaign, error) {
 	return res.Campaigns, err
 }
 
-func GetAllServices() (map[string]service.Service, error) {
+func GetAllServices() (map[string]acceptor.Service, error) {
 	var res handlers.GetAllServicesResponse
 	err := call(
 		"Service.All",
@@ -220,32 +232,33 @@ func GetOperatorByCode(code int64) (acceptor.Operator, error) {
 	return operator, err
 }
 
-func GetServiceByCode(serviceCode string) (service.Service, error) {
-	var svc service.Service
+func GetServiceByCode(serviceCode string) (acceptor.Service, error) {
+	var svc acceptor.Service
 	err := call(
 		"Service.ByCode",
 		handlers.GetByCodeParams{Code: serviceCode},
 		&svc,
 	)
-	if svc.Code == "" {
+	if svc.Id == "" {
 		return svc, errNotFound(serviceCode)
 	}
 	return svc, err
 }
 
-func GetContentByCode(contentCode string) (service.Content, error) {
-	var content service.Content
+func GetContentById(contentCode string) (acceptor.Content, error) {
+	var content acceptor.Content
 	err := call(
-		"Content.ByCode",
+		"Content.ById",
 		handlers.GetByCodeParams{Code: contentCode},
 		&content,
 	)
 
-	if content.Code == "" {
+	if content.Id == "" {
 		return content, errNotFound(contentCode)
 	}
 	return content, err
 }
+
 func GetPixelSettingByKey(key string) (service.PixelSetting, error) {
 	var pixelSetting service.PixelSetting
 	err := call(

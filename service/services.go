@@ -15,34 +15,11 @@ import (
 	m "github.com/linkit360/go-utils/metrics"
 )
 
-type Service struct {
-	Id                  string   `json:"id,omitempty"`            // unique id
-	Code                string   `json:"code,omitempty"`          // previous service id
-	Price               int      `json:"price,omitempty"`         // в целых рублях
-	RetryDays           int      `json:"retry_days,omitempty"`    // for retries - days to keep retries, for periodic - subscription is alive
-	InactiveDays        int      `json:"inactive_days,omitempty"` // days of unsuccessful charge turns subscription into inactive state
-	GraceDays           int      `json:"grace_days,omitempty"`    // days in end of subscription period where always must be charged OK
-	PaidHours           int      `json:"paid_hours,omitempty"`    // rejected rule
-	DelayHours          int      `json:"delay_hours,omitempty"`   // repeat charge delay
-	SMSOnSubscribe      string   `json:"sms_on_unsubscribe,omitempty"`
-	SMSOnCharged        string   `json:"sms_on_charged,omitempty"`
-	SMSOnUnsubscribe    string   `json:"sms_on_subscribe,omitempty"` // if empty, do not send
-	SMSOnContent        string   `json:"sms_on_content,omitempty"`
-	SMSOnRejected       string   `json:"sms_on_rejected,omitempty"`
-	SMSOnBlackListed    string   `json:"sms_on_blacklisted,omitempty"`
-	SMSOnPostPaid       string   `json:"sms_on_postpaid,omitempty"`
-	PeriodicAllowedFrom int      `json:"periodic_allowed_from,omitempty"` // send content in sms allowed from and to times.
-	PeriodicAllowedTo   int      `json:"periodic_allowed_to,omitempty"`
-	PeriodicDays        string   `json:"periodic_days,omitempty"` // days of week to charge subscriber
-	MinimalTouchTimes   int      `json:"minimal_touch_times,omitempty"`
-	ContentCodes        []string `json:"content_codes,omitempty"`
-}
-
 type Services interface {
 	Reload() error
 	Update(acceptor.Service) error
-	GetByCode(string) (Service, error)
-	GetAll() map[string]Service
+	GetByCode(string) (acceptor.Service, error)
+	GetAll() map[string]acceptor.Service
 }
 
 type ServicesConfig struct {
@@ -53,7 +30,7 @@ type ServicesConfig struct {
 type services struct {
 	sync.RWMutex
 	conf      ServicesConfig
-	ByCode    map[string]Service
+	ByCode    map[string]acceptor.Service
 	ByUUID    map[string]acceptor.Service
 	loadError prometheus.Gauge
 	notFound  m.Gauge
@@ -82,10 +59,26 @@ func (s *services) Update(acceptorService acceptor.Service) error {
 		return fmt.Errorf("service id is empty%s", "")
 	}
 
-	// todo: check contents on S3 for each content id
-	s.ByUUID[acceptorService.Id] = acceptorService
-	//s.setAll(s.ByUUID)
+	// проверить весь контент и обновить только то, что новенькое -
+	// в панели управления запрещено редактировать контент
+	// поэтому у отредактированных контентов - новый айдишник
+	var newContents []acceptor.Content
+	for _, oldServiceContent := range acceptorService.Contents {
+		if _, err := Svc.Contents.GetById(oldServiceContent.Id); err != nil {
+			newContents = append(newContents)
+		}
+	}
 
+	if err := Svc.Contents.Update(newContents); err != nil {
+		return fmt.Errorf("Update: %s", err.Error())
+	}
+
+	s.ByUUID[acceptorService.Id] = acceptorService
+	var res []acceptor.Service
+	for _, v := range s.ByUUID {
+		res = append(res, v)
+	}
+	s.setAll(res)
 	return nil
 }
 
@@ -98,6 +91,7 @@ type AllowedTime struct {
 	From time.Time `json:"from,omitempty"`
 	To   time.Time `json:"to,omitempty"`
 }
+
 type Days []string
 
 var allowedDays = []string{"", "any", "sun", "mon", "tue", "wed", "thu", "fri", "sat"}
@@ -150,9 +144,9 @@ func (s *services) loadFromCache() (err error) {
 	}
 	defer rows.Close()
 
-	var svcs []Service
+	var svcs []acceptor.Service
 	for rows.Next() {
-		var srv Service
+		var srv acceptor.Service
 		if err = rows.Scan(
 			&srv.Id,
 			&srv.Code,
@@ -236,7 +230,7 @@ func (s *services) loadFromCache() (err error) {
 		return
 	}
 
-	serviceContents := []Service{}
+	serviceContents := []acceptor.Service{}
 	for _, v := range svcs {
 		if contentIds, ok := serviceContentIds[v.Code]; ok {
 			v.ContentCodes = contentIds
@@ -248,8 +242,8 @@ func (s *services) loadFromCache() (err error) {
 	return nil
 }
 
-func (s *services) setAll(svcs []Service) {
-	s.ByCode = make(map[string]Service, len(svcs))
+func (s *services) setAll(svcs []acceptor.Service) {
+	s.ByCode = make(map[string]acceptor.Service, len(svcs))
 
 	for _, v := range svcs {
 		s.ByCode[v.Code] = v
@@ -273,14 +267,14 @@ func (s *services) Reload() (err error) {
 	return nil
 }
 
-func (s *services) GetByCode(serviceCode string) (Service, error) {
+func (s *services) GetByCode(serviceCode string) (acceptor.Service, error) {
 	if svc, ok := s.ByCode[serviceCode]; ok {
 		return svc, nil
 	}
-	return Service{}, errNotFound()
+	return acceptor.Service{}, errNotFound()
 }
 
-func (s *services) GetAll() map[string]Service {
+func (s *services) GetAll() map[string]acceptor.Service {
 	return s.ByCode
 }
 

@@ -71,8 +71,10 @@ type ReporterMetrics struct {
 
 func initReporterMetrics(appName string) *ReporterMetrics {
 	mm := &ReporterMetrics{
-		ErrorCampaignCodeEmpty: m.NewGauge("errors", "campaign_code", "empty", "errors"),
-		ErrorOperatorCodeEmpty: m.NewGauge("errors", "operator_code", "empty", "errors"),
+		ErrorCampaignCodeEmpty: m.NewGauge(appName+"_reporter", "campaign_code", "empty", "errors"),
+		ErrorOperatorCodeEmpty: m.NewGauge(appName+"_reporter", "operator_code", "empty", "errors"),
+		Success:                m.NewGauge(appName, "reporter", "success", "success"),
+		Errors:                 m.NewGauge(appName, "reporter", "errors", "errors"),
 		BreatheDuration:        m.NewSummary(appName+"_breathe_duration_seconds", "breathe duration seconds"),
 		SendDuration:           m.NewSummary(appName+"_send_duration_seconds", "send duration seconds"),
 		AggregateSum:           m.NewSummary(appName+"_aggregatae_sum", "aggregate sum"),
@@ -702,7 +704,15 @@ func (as *collectorService) processHit(deliveries <-chan amqp_driver.Delivery) {
 		} else {
 			as.incHit(c.EventData)
 		}
-		msg.Ack(false)
+	ack:
+		if err := msg.Ack(false); err != nil {
+			log.WithFields(log.Fields{
+				"mo":    string(msg.Body),
+				"error": err.Error(),
+			}).Error("cannot ack")
+			time.Sleep(time.Second)
+			goto ack
+		}
 	}
 }
 func (as *collectorService) processPixel(deliveries <-chan amqp_driver.Delivery) {
@@ -717,7 +727,15 @@ func (as *collectorService) processPixel(deliveries <-chan amqp_driver.Delivery)
 		} else {
 			as.incPixel(c.EventData)
 		}
-		msg.Ack(false)
+	ack:
+		if err := msg.Ack(false); err != nil {
+			log.WithFields(log.Fields{
+				"mo":    string(msg.Body),
+				"error": err.Error(),
+			}).Error("cannot ack")
+			time.Sleep(time.Second)
+			goto ack
+		}
 	}
 }
 func (as *collectorService) processTransactions(deliveries <-chan amqp_driver.Delivery) {
@@ -732,7 +750,15 @@ func (as *collectorService) processTransactions(deliveries <-chan amqp_driver.De
 		} else {
 			as.incTransaction(c.EventData)
 		}
-		msg.Ack(false)
+	ack:
+		if err := msg.Ack(false); err != nil {
+			log.WithFields(log.Fields{
+				"mo":    string(msg.Body),
+				"error": err.Error(),
+			}).Error("cannot ack")
+			time.Sleep(time.Second)
+			goto ack
+		}
 	}
 }
 func (as *collectorService) processOutflow(deliveries <-chan amqp_driver.Delivery) {
@@ -747,6 +773,14 @@ func (as *collectorService) processOutflow(deliveries <-chan amqp_driver.Deliver
 		} else {
 			as.incOutflow(c.EventData)
 		}
-		msg.Ack(false)
+	ack:
+		if err := msg.Ack(false); err != nil {
+			log.WithFields(log.Fields{
+				"mo":    string(msg.Body),
+				"error": err.Error(),
+			}).Error("cannot ack")
+			time.Sleep(time.Second)
+			goto ack
+		}
 	}
 }

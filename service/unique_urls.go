@@ -26,9 +26,6 @@ func (uuc *UniqueUrls) Get(uniqueUrl string) (ContentSentProperties, error) {
 }
 
 func (uuc *UniqueUrls) Set(r ContentSentProperties) {
-	log.WithFields(log.Fields{
-		"cache": uuc,
-	}).Debug("set url cache")
 	_, found := uuc.ByUrl[r.UniqueUrl]
 	if !found {
 		uuc.Lock()

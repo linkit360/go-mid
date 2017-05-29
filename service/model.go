@@ -1,9 +1,14 @@
 package service
 
 import (
+	"archive/zip"
+	"bytes"
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -258,6 +263,53 @@ func initMetrics(appName string) *serviceMetrics {
 	}()
 
 	return sm
+}
+
+// unzip(bytes, size,, "/tmp/xxx/")
+func unzip(zipBytes []byte, contentLength int64, target string) error {
+	if err := os.MkdirAll(target, 0755); err != nil {
+		err = fmt.Errorf("file: %s, os.MkdirAll: %s", target, err.Error())
+		return err
+	}
+
+	reader, err := zip.NewReader(bytes.NewReader(zipBytes), contentLength)
+	if err != nil {
+		err = fmt.Errorf("zip.NewReader: %s", err.Error())
+		return err
+	}
+
+	for _, file := range reader.File {
+		log.WithFields(log.Fields{
+			"file": target + "/" + file.Name,
+		}).Debug("unzip")
+
+		path := filepath.Join(target, file.Name)
+		if file.FileInfo().IsDir() {
+			os.MkdirAll(path, file.Mode())
+			continue
+		}
+
+		fileReader, err := file.Open()
+		if err != nil {
+			err = fmt.Errorf("name: %s, file.Open: %s", file.Name, err.Error())
+			return err
+		}
+		defer fileReader.Close()
+
+		fmt.Printf("path %v\n", path)
+		targetFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		if err != nil {
+			err = fmt.Errorf("name: %s, file.OpenFile: %s", file.Name, err.Error())
+			return err
+		}
+		defer targetFile.Close()
+
+		if _, err := io.Copy(targetFile, fileReader); err != nil {
+			err = fmt.Errorf("name: %s, io.Copy: %s", file.Name, err.Error())
+			return err
+		}
+	}
+	return nil
 }
 
 func exec(context, query string, params_optional ...[]interface{}) {

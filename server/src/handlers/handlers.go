@@ -15,7 +15,7 @@ type GetAllCampaignsResponse struct {
 	Campaigns map[string]service.Campaign `json:"campaigns,omitempty"`
 }
 type GetAllServicesResponse struct {
-	Services map[string]service.Service `json:"services,omitempty"`
+	Services map[string]acceptor.Service `json:"services,omitempty"`
 }
 type GetAllPublishersResponse struct {
 	Publishers map[string]service.Publisher `json:"publishers,omitempty"`
@@ -259,7 +259,7 @@ func (rpc *Service) All(
 }
 
 func (rpc *Service) ByCode(
-	req GetByCodeParams, res *service.Service) error {
+	req GetByCodeParams, res *acceptor.Service) error {
 
 	svc, err := service.Svc.Services.GetByCode(req.Code)
 	if err != nil {
@@ -318,10 +318,10 @@ func (rpc *PixelSetting) ByKeyWithRatio(
 // Content
 type Content struct{}
 
-func (rpc *Content) ByCode(
-	req GetByCodeParams, res *service.Content) error {
+func (rpc *Content) ById(
+	req GetByCodeParams, res *acceptor.Content) error {
 
-	content, err := service.Svc.Contents.GetByCode(req.Code)
+	content, err := service.Svc.Contents.GetById(req.Code)
 	if err != nil {
 		notFound.Inc()
 		errors.Inc()
