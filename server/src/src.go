@@ -30,6 +30,8 @@ func Run() {
 		appConfig.AcceptorClientConfig,
 	)
 
+	service.Handshake()
+
 	nuCPU := runtime.NumCPU()
 	runtime.GOMAXPROCS(nuCPU)
 	log.WithField("CPUCount", nuCPU)

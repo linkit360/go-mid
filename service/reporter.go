@@ -188,12 +188,9 @@ func (a *adAggregate) generateReport(instanceId, campaignCode string, operatorCo
 }
 
 func initReporter(appName, instanceId, stateFilePath string,
-	queue QueuesConfig, consumerConf amqp.ConsumerConfig, acceptorConf acceptor_client.ClientConfig) Collector {
+	queue QueuesConfig, consumerConf amqp.ConsumerConfig) Collector {
 	as := &collectorService{
 		instanceId: instanceId,
-	}
-	if err := acceptor_client.Init(acceptorConf); err != nil {
-		log.Error("cannot init acceptor client")
 	}
 
 	as.loadState(stateFilePath)
@@ -214,6 +211,9 @@ func initReporter(appName, instanceId, stateFilePath string,
 	return as
 }
 func (as *collectorService) SaveState() {
+	if !Svc.conf.Enabled.Reporter {
+		return
+	}
 	if err := as.saveState(); err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
@@ -693,7 +693,11 @@ type EventNotifyReporter struct {
 }
 
 func (as *collectorService) processHit(deliveries <-chan amqp_driver.Delivery) {
+
 	for msg := range deliveries {
+		if !Svc.prxConf.Enabled {
+			goto ack
+		}
 		var c EventNotifyReporter
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
 			log.WithFields(log.Fields{
@@ -717,6 +721,9 @@ func (as *collectorService) processHit(deliveries <-chan amqp_driver.Delivery) {
 }
 func (as *collectorService) processPixel(deliveries <-chan amqp_driver.Delivery) {
 	for msg := range deliveries {
+		if !Svc.prxConf.Enabled {
+			goto ack
+		}
 		var c EventNotifyReporter
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
 			log.WithFields(log.Fields{
@@ -740,6 +747,9 @@ func (as *collectorService) processPixel(deliveries <-chan amqp_driver.Delivery)
 }
 func (as *collectorService) processTransactions(deliveries <-chan amqp_driver.Delivery) {
 	for msg := range deliveries {
+		if !Svc.prxConf.Enabled {
+			goto ack
+		}
 		var c EventNotifyReporter
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
 			log.WithFields(log.Fields{
@@ -763,6 +773,9 @@ func (as *collectorService) processTransactions(deliveries <-chan amqp_driver.De
 }
 func (as *collectorService) processOutflow(deliveries <-chan amqp_driver.Delivery) {
 	for msg := range deliveries {
+		if !Svc.prxConf.Enabled {
+			goto ack
+		}
 		var c EventNotifyReporter
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
 			log.WithFields(log.Fields{

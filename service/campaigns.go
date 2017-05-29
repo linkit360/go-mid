@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,11 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -19,6 +25,7 @@ import (
 type Campaigns interface {
 	Set(campaigns map[string]acceptor.Campaign)
 	Update(acceptor.Campaign) error
+	Download(c acceptor.Campaign) (err error)
 	Reload() error
 	GetAll() map[string]Campaign
 	GetByLink(string) (Campaign, error)
@@ -30,6 +37,7 @@ type Campaigns interface {
 type сampaigns struct {
 	sync.RWMutex
 	conf          CampaignsConfig
+	s3dl          *s3manager.Downloader
 	loadError     prometheus.Gauge
 	notFound      m.Gauge
 	ByUUID        map[string]acceptor.Campaign
@@ -56,8 +64,12 @@ func initCampaigns(appName string, campConfig CampaignsConfig) Campaigns {
 }
 
 type CampaignsConfig struct {
-	FromControlPanel bool   `yaml:"from_control_panel"`
-	WebHook          string `yaml:"webhook" default:"http://localhost:50300/updateTemplates"`
+	FromControlPanel bool          `yaml:"from_control_panel"`
+	WebHook          string        `yaml:"webhook" default:"http://localhost:50300/updateTemplates"`
+	LandingsPath     string        `yaml:"landing_path"`
+	Region           string        `yaml:"region" default:"ap-southeast-1"`
+	Bucket           string        `yaml:"bucket" default:"xmp-content"`
+	DownloadTimeout  time.Duration `yaml:"download_timeout" default:"10m"` // 10 minutes
 }
 
 type Campaign struct {
@@ -69,6 +81,72 @@ type Campaign struct {
 func (s *Campaign) Load(ac acceptor.Campaign) {
 	cBytes, _ := json.Marshal(ac)
 	_ = json.Unmarshal(cBytes, &s)
+	return
+}
+
+// check content and download it
+// content already checked: it hasn't been downloaded yet
+func (s *сampaigns) Download(c acceptor.Campaign) (err error) {
+	ctx := context.Background()
+	var cancelFn func()
+	if s.conf.DownloadTimeout > 0 {
+		ctx, cancelFn = context.WithTimeout(ctx, s.conf.DownloadTimeout)
+	}
+	// Ensure the context is canceled to prevent leaking.
+	// See context package for more information, https://golang.org/pkg/context/
+	defer cancelFn()
+	buff := &aws.WriteAtBuffer{}
+
+	var contentLength int64
+	contentLength, err = s.s3dl.DownloadWithContext(ctx, buff, &s3.GetObjectInput{
+		Bucket: aws.String(s.conf.Bucket),
+		Key:    aws.String(c.Lp),
+	})
+
+	if err != nil {
+		err = fmt.Errorf("Download: %s, error: %s", c.Id, err.Error())
+		aerr, ok := err.(awserr.Error)
+		if ok && aerr.Code() == request.CanceledErrorCode {
+			// If the SDK can determine the request or retry delay was canceled
+			// by a context the CanceledErrorCode error code will be returned.
+			log.WithFields(log.Fields{
+				"id":      c.Id,
+				"timeout": s.conf.DownloadTimeout,
+				"error":   err.Error(),
+			}).Error("download canceled due to timeout")
+		} else if ok && aerr.Code() == s3.ErrCodeNoSuchKey {
+			log.WithFields(log.Fields{
+				"id":    c.Id,
+				"error": err.Error(),
+			}).Error("no such object")
+
+		} else {
+			log.WithFields(log.Fields{
+				"id":    c.Id,
+				"error": err.Error(),
+			}).Error("failed to download object")
+		}
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"id":  c.Id,
+		"len": len(buff.Bytes()),
+	}).Debug("unzip...")
+
+	if err = unzip(buff.Bytes(), contentLength, s.conf.LandingsPath); err != nil {
+		err = fmt.Errorf("%s: unzip: %s", c.Id, err.Error())
+
+		log.WithFields(log.Fields{
+			"id":    c.Id,
+			"error": err.Error(),
+		}).Error("failed to unzip object")
+		return
+	}
+	log.WithFields(log.Fields{
+		"id":  c.Id,
+		"len": len(buff.Bytes()),
+	}).Info("unzip done")
 	return
 }
 
@@ -112,6 +190,18 @@ func (s *сampaigns) Set(campaigns map[string]acceptor.Campaign) {
 func (s *сampaigns) Update(campaign acceptor.Campaign) error {
 	if !s.conf.FromControlPanel {
 		return fmt.Errorf("Disabled%s", "")
+	}
+	if c, ok := s.ByUUID[campaign.Id]; ok {
+		if c.Lp != campaign.Lp {
+			log.WithFields(log.Fields{
+				"id":      campaign.Id,
+				"from_lp": campaign.Lp,
+				"to_lp":   c.Lp,
+			}).Debug("landing has changed")
+			if err := s.Download(campaign); err != nil {
+				return fmt.Errorf("Download: %s", err.Error())
+			}
+		}
 	}
 	s.ByUUID[campaign.Id] = campaign
 	s.setAll(s.ByUUID)
@@ -238,7 +328,6 @@ func (s *сampaigns) setAll(campaigns map[string]acceptor.Campaign) {
 	s.ByHash = make(map[string]Campaign, len(campaigns))
 	s.ByLink = make(map[string]Campaign, len(campaigns))
 	s.ByCode = make(map[string]Campaign, len(campaigns))
-	s.ByUUID = make(map[string]acceptor.Campaign, len(campaigns))
 	s.ByServiceCode = make(map[string][]Campaign)
 
 	for _, ac := range campaigns {

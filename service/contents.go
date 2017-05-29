@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
@@ -19,7 +20,6 @@ import (
 
 	acceptor "github.com/linkit360/go-acceptor-structs"
 	m "github.com/linkit360/go-utils/metrics"
-	"time"
 )
 
 type Contents interface {
@@ -31,8 +31,8 @@ type Contents interface {
 
 type contents struct {
 	sync.RWMutex
-	s3dl      *s3manager.Downloader
 	conf      ContentConfig
+	s3dl      *s3manager.Downloader
 	ByUUID    map[string]acceptor.Content
 	loadError prometheus.Gauge
 }
@@ -59,9 +59,8 @@ func initContents(appName string, contentConf ContentConfig) Contents {
 }
 
 // check content and download it
+// content already checked: it hasn't been downloaded yet
 func (s *contents) Download(c acceptor.Content) (err error) {
-	// todo: check if already downloaded
-
 	ctx := context.Background()
 	var cancelFn func()
 	if s.conf.DownloadTimeout > 0 {
@@ -87,7 +86,7 @@ func (s *contents) Download(c acceptor.Content) (err error) {
 				"id":      c.Id,
 				"timeout": s.conf.DownloadTimeout,
 				"error":   err.Error(),
-			}).Error("upload canceled due to timeout")
+			}).Error("download canceled due to timeout")
 
 		} else if ok && aerr.Code() == s3.ErrCodeNoSuchKey {
 			log.WithFields(log.Fields{

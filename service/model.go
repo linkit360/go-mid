@@ -37,6 +37,7 @@ type MemService struct {
 	m                  *serviceMetrics
 	dbConf             db.DataBaseConfig
 	conf               Config
+	prxConf            acceptor.ClientConfig
 	reporter           Collector
 	Campaigns          Campaigns
 	Services           Services
@@ -89,6 +90,7 @@ type EnabledConfig struct {
 	UniqueUrls         bool `yaml:"unique_urls" default:"true"`
 	Destinations       bool `yaml:"destinations"`
 	RedirectStatCounts bool `yaml:"redirect_stats_count"`
+	Reporter           bool `yaml:"reporter"`
 }
 
 type Consumers struct {
@@ -120,15 +122,15 @@ func Init(
 	Svc.conf = svcConf
 
 	initPrevSubscriptionsCache()
+	Svc.prxConf = acceptorClientConf
+	if svcConf.Enabled.Reporter {
+		Svc.reporter = initReporter(appName, instanceId, svcConf.StateFilePath, svcConf.Queue, consumerConf)
+	}
 
 	Svc.Campaigns = initCampaigns(appName, svcConf.Campaigns)
 	Svc.Services = initServices(appName, svcConf.Services)
 	Svc.Contents = initContents(appName, svcConf.Contents)
 	Svc.PixelSettings = initPixelSettings(appName, svcConf.Pixel)
-	Svc.reporter = initReporter(
-		appName, instanceId, svcConf.StateFilePath,
-		svcConf.Queue, consumerConf, acceptorClientConf,
-	)
 	Svc.SentContents = &SentContents{}
 	Svc.Operators = &Operators{}
 	Svc.BlackList = initBlackList(appName, svcConf.BlackList)
@@ -212,6 +214,10 @@ func Init(
 	if err := cqr.InitCQR(Svc.cqrConfig); err != nil {
 		log.Fatal("cqr.InitCQR: " + err.Error())
 	}
+}
+
+func Handshake() {
+	log.Debug("handshake")
 }
 
 func OnExit() {
