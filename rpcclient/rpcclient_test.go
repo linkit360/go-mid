@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	log "github.com/Sirupsen/logrus"
-	acceptor "github.com/linkit360/go-acceptor-structs"
-	"github.com/linkit360/go-mid/service"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/linkit360/go-mid/service"
+	go_utils_structs "github.com/linkit360/go-utils/structs"
+	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
 func init() {
@@ -22,7 +24,7 @@ func init() {
 func TestGetOperator(t *testing.T) {
 	res, err := GetOperatorByCode(41001)
 	assert.Nil(t, err)
-	expected := acceptor.Operator{
+	expected := xmp_api_structs.Operator{
 		Name:        "mobilink",
 		Code:        41001,
 		CountryName: "pakistan",
@@ -36,7 +38,7 @@ func TestGetCampaign(t *testing.T) {
 	res, err := GetCampaignByHash("f90f2aca5c640289d0a29417bcb63a37")
 	//fmt.Printf("%#v %#v\n", res, err)
 	assert.Nil(t, err)
-	ac := acceptor.Campaign{
+	ac := xmp_api_structs.Campaign{
 		Hash:             "f90f2aca5c640289d0a29417bcb63a37",
 		Link:             "mobilink-p2",
 		PageWelcome:      "9815a83cf640edd402983072a05b8312",
@@ -86,7 +88,7 @@ func TestGetServiceByCode(t *testing.T) {
 	res, err := GetServiceByCode("421924601")
 	////fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "Error while get service by id")
-	expected := acceptor.Service{
+	expected := xmp_api_structs.Service{
 		Id:                  "421924601",
 		Code:                "421924601",
 		Price:               10,
@@ -111,7 +113,7 @@ func TestGetServiceByCode(t *testing.T) {
 	res, err = GetServiceByCode("888")
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "Error while get service by id")
-	expected = acceptor.Service{
+	expected = xmp_api_structs.Service{
 		Id:               "888",
 		Code:             "888",
 		Price:            10,
@@ -144,7 +146,7 @@ func TestGetContentByCode(t *testing.T) {
 	res, err = GetContentById("30")
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "No error to get content by id")
-	expected := acceptor.Content{
+	expected := xmp_api_structs.Content{
 		Id:    "30",
 		Name:  "30.jpg",
 		Title: "WWF WALLPAPER 1",
@@ -161,7 +163,7 @@ func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 	res, err = GetPixelSettingByKeyWithRatio("290-mobusi")
 	//fmt.Printf("%#v %#v", res, err)
 
-	ap := acceptor.PixelSetting{
+	ap := xmp_api_structs.PixelSetting{
 		Id:           "1",
 		CampaignCode: "290",
 		OperatorCode: 41001,
@@ -185,7 +187,7 @@ func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 	// in case there are was a pointer error and it return same results
 	// for different keys
 	res, err = GetPixelSettingByKeyWithRatio("290-kimia")
-	ap = acceptor.PixelSetting{
+	ap = xmp_api_structs.PixelSetting{
 		Id:           "2",
 		CampaignCode: "290",
 		OperatorCode: 41001,
@@ -209,7 +211,7 @@ func TestGetPixelSettingByKeyWithRatio(t *testing.T) {
 	skipPixelSend := !expected.SkipPixelSend
 	res, err = GetPixelSettingByKeyWithRatio("290-kimia")
 	//fmt.Printf("%#v %#v", res, err)
-	ap = acceptor.PixelSetting{
+	ap = xmp_api_structs.PixelSetting{
 		Id:           "2",
 		CampaignCode: "290",
 		OperatorCode: 41001,
@@ -311,7 +313,7 @@ func TestRejected(t *testing.T) {
 }
 
 func TestUniqUrl(t *testing.T) {
-	req := service.ContentSentProperties{
+	req := go_utils_structs.ContentSentProperties{
 		Msisdn:       "79997777777",
 		Tid:          "test tid",
 		ServiceCode:  "421924601",

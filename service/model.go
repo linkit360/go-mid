@@ -16,12 +16,13 @@ import (
 	cache "github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 
-	acceptor "github.com/linkit360/go-acceptor-client"
 	"github.com/linkit360/go-utils/amqp"
 	"github.com/linkit360/go-utils/config"
 	"github.com/linkit360/go-utils/cqr"
 	"github.com/linkit360/go-utils/db"
 	m "github.com/linkit360/go-utils/metrics"
+	xmp_api "github.com/linkit360/xmp-api/src/client"
+	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
 var Svc MemService
@@ -37,13 +38,13 @@ type MemService struct {
 	m                  *serviceMetrics
 	dbConf             db.DataBaseConfig
 	conf               Config
-	prxConf            acceptor.ClientConfig
+	xmpAPIConf         xmp_api.ClientConfig
 	reporter           Collector
 	Campaigns          Campaigns
 	Services           Services
 	Contents           Contents
 	SentContents       *SentContents
-	Operators          *Operators
+	Operators          Operators
 	BlackList          BlackList
 	PostPaid           *PostPaid
 	PixelSettings      PixelSettings
@@ -66,6 +67,7 @@ type Config struct {
 	Contents      ContentConfig       `yaml:"content"`
 	BlackList     BlackListConfig     `yaml:"blacklist"`
 	Pixel         PixelSettingsConfig `yaml:"pixel"`
+	Operator      OperatorsConfig     `yaml:"operator"`
 	Enabled       EnabledConfig       `yaml:"enabled"`
 }
 
@@ -102,15 +104,12 @@ type Consumers struct {
 
 func Init(
 	appName string,
-	instanceId string,
+	xmpAPIConf xmp_api.ClientConfig,
 	svcConf Config,
 	consumerConf amqp.ConsumerConfig,
 	dbConf db.DataBaseConfig,
-	acceptorClientConf acceptor.ClientConfig,
-
 ) {
-
-	if err := acceptor.Init(acceptorClientConf); err != nil {
+	if err := xmp_api.Init(xmpAPIConf); err != nil {
 		log.Error("cannot init acceptor client")
 	}
 
@@ -120,11 +119,12 @@ func Init(
 	Svc.db = db.Init(dbConf)
 	Svc.dbConf = dbConf
 	Svc.conf = svcConf
+	Svc.xmpAPIConf = xmpAPIConf
 
 	initPrevSubscriptionsCache()
-	Svc.prxConf = acceptorClientConf
+
 	if svcConf.Enabled.Reporter {
-		Svc.reporter = initReporter(appName, instanceId, svcConf.StateFilePath, svcConf.Queue, consumerConf)
+		Svc.reporter = initReporter(appName, xmpAPIConf.InstanceId, svcConf.StateFilePath, svcConf.Queue, consumerConf)
 	}
 
 	Svc.Campaigns = initCampaigns(appName, svcConf.Campaigns)
@@ -132,7 +132,7 @@ func Init(
 	Svc.Contents = initContents(appName, svcConf.Contents)
 	Svc.PixelSettings = initPixelSettings(appName, svcConf.Pixel)
 	Svc.SentContents = &SentContents{}
-	Svc.Operators = &Operators{}
+	Svc.Operators = initOperators(appName, svcConf.Operator)
 	Svc.BlackList = initBlackList(appName, svcConf.BlackList)
 	Svc.PostPaid = &PostPaid{}
 	Svc.Publishers = &Publishers{}
@@ -214,10 +214,26 @@ func Init(
 	if err := cqr.InitCQR(Svc.cqrConfig); err != nil {
 		log.Fatal("cqr.InitCQR: " + err.Error())
 	}
-}
 
-func Handshake() {
-	log.Debug("handshake")
+	if xmpAPIConf.Enabled {
+		var xmpConfig xmp_api_structs.HandShake
+		hReq := struct {
+			InstanceId string
+		}{
+			InstanceId: xmpAPIConf.InstanceId,
+		}
+
+		if err := xmp_api.Call("initialization", xmpConfig, hReq); err != nil {
+			log.WithField("req", hReq).Fatal("xmp_api.Call: " + err.Error())
+		}
+
+		Svc.BlackList.Apply(xmpConfig.BlackList)
+		Svc.Services.Apply(xmpConfig.Services)
+		Svc.Campaigns.Apply(xmpConfig.Campaigns)
+		Svc.Operators.Apply(xmpConfig.Operators)
+		Svc.BlackList.Apply(xmpConfig.BlackList)
+		Svc.PixelSettings.Apply(xmpConfig.Pixels)
+	}
 }
 
 func OnExit() {
@@ -258,7 +274,7 @@ type serviceMetrics struct {
 
 func initMetrics(appName string) *serviceMetrics {
 	sm := &serviceMetrics{
-		NotFound:                m.NewGauge(appName, "its", "not_found", "inmemory cann't find something"),
+		NotFound:                m.NewGauge(appName, "its", "not_found", "mid cann't find something"),
 		LoadPublisherRegexError: m.PrometheusGauge(appName, "publisher_load_regex", "error", "publisher load regex error"),
 	}
 
@@ -316,23 +332,4 @@ func unzip(zipBytes []byte, contentLength int64, target string) error {
 		}
 	}
 	return nil
-}
-
-func exec(context, query string, params_optional ...[]interface{}) {
-	begin := time.Now().UTC()
-	res, err := Svc.db.Exec(query)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"query":   query,
-			"context": context,
-			"error":   err.Error(),
-		}).Error("cann't run query")
-
-	} else {
-		count, _ := res.RowsAffected()
-		log.WithFields(log.Fields{
-			"count": count,
-			"took":  time.Since(begin),
-		}).Info(context)
-	}
 }

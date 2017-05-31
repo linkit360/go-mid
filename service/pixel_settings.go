@@ -11,12 +11,13 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	acceptor "github.com/linkit360/go-acceptor-structs"
 	m "github.com/linkit360/go-utils/metrics"
+	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
 type PixelSettings interface {
-	Update(acceptor.PixelSetting) error
+	Apply([]xmp_api_structs.PixelSetting)
+	Update(xmp_api_structs.PixelSetting) error
 	Reload() error
 	GetByKey(string) (PixelSetting, error)
 	GetByCampaignCode(string) (PixelSetting, error)
@@ -33,11 +34,11 @@ type pixelSettings struct {
 	notFound       m.Gauge
 	ByKey          map[string]*PixelSetting
 	ByCampaignCode map[string]PixelSetting
-	ByUUID         map[string]acceptor.PixelSetting
+	ByUUID         map[string]xmp_api_structs.PixelSetting
 }
 
 type PixelSetting struct {
-	acceptor.PixelSetting
+	xmp_api_structs.PixelSetting
 	Count         int  `json:"count"`
 	SkipPixelSend bool `json:"skip_pixel_send"`
 }
@@ -52,7 +53,7 @@ func (ps *PixelSetting) SetOperatorCode(code int64) {
 	ps.OperatorCode = code
 }
 
-func (ps *PixelSetting) Load(as acceptor.PixelSetting) {
+func (ps *PixelSetting) Load(as xmp_api_structs.PixelSetting) {
 	psBytes, _ := json.Marshal(as)
 	json.Unmarshal(psBytes, &ps)
 	return
@@ -71,7 +72,7 @@ func initPixelSettings(appName string, pixelConf PixelSettingsConfig) PixelSetti
 	return ps
 }
 
-func (pss *pixelSettings) Update(ps acceptor.PixelSetting) error {
+func (pss *pixelSettings) Update(ps xmp_api_structs.PixelSetting) error {
 	if !pss.conf.FromControlPanel {
 		return fmt.Errorf("Disabled%s", "")
 	}
@@ -80,15 +81,8 @@ func (pss *pixelSettings) Update(ps acceptor.PixelSetting) error {
 	}
 
 	pss.ByUUID[ps.Id] = ps
-	pss.setAll(pss.getSlice(pss.ByUUID))
+	pss.updateOnUUID()
 	return nil
-}
-
-func (pss *pixelSettings) getSlice(in map[string]acceptor.PixelSetting) (res []acceptor.PixelSetting) {
-	for _, v := range in {
-		res = append(res, v)
-	}
-	return res
 }
 
 func (pss *pixelSettings) GetByKey(key string) (PixelSetting, error) {
@@ -170,9 +164,9 @@ func (ps *pixelSettings) Reload() (err error) {
 	}
 	defer rows.Close()
 
-	var records []acceptor.PixelSetting
+	var records []xmp_api_structs.PixelSetting
 	for rows.Next() {
-		ap := acceptor.PixelSetting{}
+		ap := xmp_api_structs.PixelSetting{}
 
 		if err = rows.Scan(
 			&ap.Id,
@@ -194,24 +188,29 @@ func (ps *pixelSettings) Reload() (err error) {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return
 	}
-
-	ps.setAll(records)
+	ps.Apply(records)
+	ps.updateOnUUID()
 	return nil
 }
-
-func (ps *pixelSettings) setAll(pixelSet []acceptor.PixelSetting) {
+func (ps *pixelSettings) Apply(pixelSet []xmp_api_structs.PixelSetting) {
+	ps.ByUUID = make(map[string]xmp_api_structs.PixelSetting, len(pixelSet))
+	for _, ap := range pixelSet {
+		p := PixelSetting{}
+		p.Load(ap)
+		ps.ByUUID[p.Id] = ap
+	}
+	ps.updateOnUUID()
+}
+func (ps *pixelSettings) updateOnUUID() {
 	ps.ByKey = make(map[string]*PixelSetting)
 	ps.ByCampaignCode = make(map[string]PixelSetting)
-	ps.ByUUID = make(map[string]acceptor.PixelSetting, len(pixelSet))
-
-	for _, ap := range pixelSet {
+	for _, ap := range ps.ByUUID {
 		p := PixelSetting{}
 		p.Load(ap)
 		pixelO := p
 		ps.ByKey[p.CampaignKey()] = &pixelO
 		ps.ByKey[p.OperatorKey()] = &pixelO
 		ps.ByKey[p.CampaignOperatorKey()] = &pixelO
-		ps.ByUUID[p.Id] = ap
 
 		ps.ByCampaignCode[p.CampaignCode] = p
 

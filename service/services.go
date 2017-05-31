@@ -11,15 +11,16 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
 
-	acceptor "github.com/linkit360/go-acceptor-structs"
 	m "github.com/linkit360/go-utils/metrics"
+	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
 type Services interface {
 	Reload() error
-	Update(acceptor.Service) error
-	GetByCode(string) (acceptor.Service, error)
-	GetAll() map[string]acceptor.Service
+	Apply(map[string]xmp_api_structs.Service)
+	Update(xmp_api_structs.Service) error
+	GetByCode(string) (xmp_api_structs.Service, error)
+	GetAll() map[string]xmp_api_structs.Service
 }
 
 type ServicesConfig struct {
@@ -30,8 +31,8 @@ type ServicesConfig struct {
 type services struct {
 	sync.RWMutex
 	conf      ServicesConfig
-	ByCode    map[string]acceptor.Service
-	ByUUID    map[string]acceptor.Service
+	ByCode    map[string]xmp_api_structs.Service
+	ByUUID    map[string]xmp_api_structs.Service
 	loadError prometheus.Gauge
 	notFound  m.Gauge
 }
@@ -51,7 +52,7 @@ func initServices(appName string, servConfig ServicesConfig) Services {
 	return svcs
 }
 
-func (s *services) Update(acceptorService acceptor.Service) error {
+func (s *services) Update(acceptorService xmp_api_structs.Service) error {
 	if !s.conf.FromControlPanel {
 		return fmt.Errorf("Disabled%s", "")
 	}
@@ -62,7 +63,7 @@ func (s *services) Update(acceptorService acceptor.Service) error {
 	// проверить весь контент и обновить только то, что новенькое -
 	// в панели управления запрещено редактировать контент
 	// поэтому у отредактированных контентов - новый айдишник
-	var newContents []acceptor.Content
+	var newContents []xmp_api_structs.Content
 	for _, oldServiceContent := range acceptorService.Contents {
 		if _, err := Svc.Contents.GetById(oldServiceContent.Id); err != nil {
 			newContents = append(newContents)
@@ -74,11 +75,7 @@ func (s *services) Update(acceptorService acceptor.Service) error {
 	}
 
 	s.ByUUID[acceptorService.Id] = acceptorService
-	var res []acceptor.Service
-	for _, v := range s.ByUUID {
-		res = append(res, v)
-	}
-	s.setAll(res)
+	s.updateOnUUID()
 	return nil
 }
 
@@ -144,9 +141,9 @@ func (s *services) loadFromCache() (err error) {
 	}
 	defer rows.Close()
 
-	var svcs []acceptor.Service
+	var svcs []xmp_api_structs.Service
 	for rows.Next() {
-		var srv acceptor.Service
+		var srv xmp_api_structs.Service
 		if err = rows.Scan(
 			&srv.Id,
 			&srv.Code,
@@ -230,24 +227,16 @@ func (s *services) loadFromCache() (err error) {
 		return
 	}
 
-	serviceContents := []acceptor.Service{}
+	serviceContents := make(map[string]xmp_api_structs.Service, len(svcs))
 	for _, v := range svcs {
 		if contentIds, ok := serviceContentIds[v.Code]; ok {
-			v.ContentCodes = contentIds
+			v.ContentIds = contentIds
 		}
-		serviceContents = append(serviceContents, v)
+		serviceContents[v.Id] = v
 	}
 
-	s.setAll(serviceContents)
+	s.Apply(serviceContents)
 	return nil
-}
-
-func (s *services) setAll(svcs []acceptor.Service) {
-	s.ByCode = make(map[string]acceptor.Service, len(svcs))
-
-	for _, v := range svcs {
-		s.ByCode[v.Code] = v
-	}
 }
 
 func (s *services) Reload() (err error) {
@@ -267,14 +256,30 @@ func (s *services) Reload() (err error) {
 	return nil
 }
 
-func (s *services) GetByCode(serviceCode string) (acceptor.Service, error) {
+func (s *services) Apply(svcs map[string]xmp_api_structs.Service) {
+	s.ByUUID = make(map[string]xmp_api_structs.Service, len(svcs))
+	for _, v := range svcs {
+		s.ByUUID[v.Id] = v
+	}
+	s.updateOnUUID()
+}
+
+func (s *services) updateOnUUID() {
+	s.ByCode = make(map[string]xmp_api_structs.Service, len(s.ByUUID))
+
+	for _, v := range s.ByUUID {
+		s.ByCode[v.Code] = v
+	}
+}
+
+func (s *services) GetByCode(serviceCode string) (xmp_api_structs.Service, error) {
 	if svc, ok := s.ByCode[serviceCode]; ok {
 		return svc, nil
 	}
-	return acceptor.Service{}, errNotFound()
+	return xmp_api_structs.Service{}, errNotFound()
 }
 
-func (s *services) GetAll() map[string]acceptor.Service {
+func (s *services) GetAll() map[string]xmp_api_structs.Service {
 	return s.ByCode
 }
 

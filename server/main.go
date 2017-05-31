@@ -5,7 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	inmem_server "github.com/linkit360/go-mid/server/src"
+	mid_server "github.com/linkit360/go-mid/server/src"
 )
 
 func main() {
@@ -13,9 +13,9 @@ func main() {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-c
-		inmem_server.OnExit()
+		mid_server.OnExit()
 		os.Exit(1)
 	}()
 
-	inmem_server.Run()
+	mid_server.Run()
 }

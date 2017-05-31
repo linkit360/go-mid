@@ -13,15 +13,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	amqp_driver "github.com/streadway/amqp"
 
-	acceptor_client "github.com/linkit360/go-acceptor-client"
-	acceptor "github.com/linkit360/go-acceptor-structs"
 	"github.com/linkit360/go-utils/amqp"
 	m "github.com/linkit360/go-utils/metrics"
+	xmp_api "github.com/linkit360/xmp-api/src/client"
+	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
 type Collector interface {
 	SaveState()
-	GetAggregate(time.Time, time.Time) ([]acceptor.Aggregate, error)
+	GetAggregate(time.Time, time.Time) ([]xmp_api_structs.Aggregate, error)
 }
 
 type Collect struct {
@@ -36,7 +36,6 @@ type Collect struct {
 
 type collectorService struct {
 	sync.RWMutex
-	instanceId    string
 	state         CollectorState
 	db            *sql.DB
 	m             *ReporterMetrics
@@ -52,9 +51,9 @@ type OperatorAgregate map[int64]adAggregate       // by operator code
 type CampaignAgregate map[string]OperatorAgregate // by campaign code
 
 type CollectorState struct {
-	LastSendTime time.Time            `json:"last_send_time"`
-	FilePath     string               `json:"file_path"`
-	Archive      []acceptor.Aggregate `json:"archive"`
+	LastSendTime time.Time                   `json:"last_send_time"`
+	FilePath     string                      `json:"file_path"`
+	Archive      []xmp_api_structs.Aggregate `json:"archive"`
 }
 
 type ReporterMetrics struct {
@@ -157,8 +156,8 @@ func (a *adAggregate) Sum() int64 {
 		a.Pixels.count
 }
 
-func (a *adAggregate) generateReport(instanceId, campaignCode string, operatorCode int64, reportAt time.Time) acceptor.Aggregate {
-	return acceptor.Aggregate{
+func (a *adAggregate) generateReport(instanceId, campaignCode string, operatorCode int64, reportAt time.Time) xmp_api_structs.Aggregate {
+	return xmp_api_structs.Aggregate{
 		ReportAt:               reportAt.UTC().Unix(),
 		InstanceId:             instanceId,
 		CampaignCode:           campaignCode,
@@ -187,11 +186,9 @@ func (a *adAggregate) generateReport(instanceId, campaignCode string, operatorCo
 	}
 }
 
-func initReporter(appName, instanceId, stateFilePath string,
+func initReporter(appName, provider, stateFilePath string,
 	queue QueuesConfig, consumerConf amqp.ConsumerConfig) Collector {
-	as := &collectorService{
-		instanceId: instanceId,
-	}
+	as := &collectorService{}
 
 	as.loadState(stateFilePath)
 	as.m = initReporterMetrics(appName)
@@ -269,7 +266,7 @@ func (as *collectorService) send() {
 	defer as.Unlock()
 
 	begin := time.Now()
-	var data []acceptor.Aggregate
+	var data []xmp_api_structs.Aggregate
 	aggregateSum := int64(.0)
 
 	for campaignCode, operatorAgregate := range as.adReport {
@@ -280,64 +277,44 @@ func (as *collectorService) send() {
 
 			aggregateSum = aggregateSum + coa.Sum()
 
-			aa := acceptor.Aggregate{
-				ReportAt:               time.Now().Unix(),
-				InstanceId:             as.instanceId,
-				CampaignCode:           campaignCode,
-				OperatorCode:           operatorCode,
-				LpHits:                 coa.LpHits.count,
-				LpMsisdnHits:           coa.LpMsisdnHits.count,
-				MoTotal:                coa.MoTotal.count,
-				MoChargeSuccess:        coa.MoChargeSuccess.count,
-				MoChargeSum:            coa.MoChargeSum.count,
-				MoChargeFailed:         coa.MoChargeFailed.count,
-				MoRejected:             coa.MoRejected.count,
-				Outflow:                coa.Outflow.count,
-				RenewalTotal:           coa.RenewalTotal.count,
-				RenewalChargeSuccess:   coa.RenewalChargeSuccess.count,
-				RenewalChargeSum:       coa.RenewalChargeSum.count,
-				RenewalFailed:          coa.RenewalFailed.count,
-				InjectionTotal:         coa.InjectionTotal.count,
-				InjectionChargeSuccess: coa.InjectionChargeSuccess.count,
-				InjectionChargeSum:     coa.InjectionChargeSum.count,
-				InjectionFailed:        coa.InjectionFailed.count,
-				ExpiredTotal:           coa.ExpiredTotal.count,
-				ExpiredChargeSuccess:   coa.ExpiredChargeSuccess.count,
-				ExpiredChargeSum:       coa.ExpiredChargeSum.count,
-				ExpiredFailed:          coa.ExpiredFailed.count,
-				Pixels:                 coa.Pixels.count,
-			}
-			data = append(data, aa)
+			data = append(data, coa.generateReport(
+				Svc.xmpAPIConf.InstanceId,
+				campaignCode,
+				operatorCode,
+				time.Now(),
+			))
+
 		}
 	}
 	as.state.Archive = append(as.state.Archive, data...)
+	as.breathe()
 
 	if len(as.state.Archive) > 0 {
 		log.WithFields(log.Fields{"took": time.Since(begin)}).Info("prepare")
-		resp, err := acceptor_client.SendAggregatedData(as.state.Archive)
-		if err != nil || !resp.Ok {
-			if err != nil {
-				log.WithFields(log.Fields{"error": err.Error()}).Error("cannot send data")
-			} else {
-				if !resp.Ok {
-					log.WithFields(log.Fields{"reason": resp.Error}).Warn("haven't received the data")
-				}
-			}
+		var resp struct {
+			Ok    bool   `json:"ok,omitempty"`
+			Error string `json:"error,omitempty"`
+		}
 
-			log.WithFields(log.Fields{"count": len(data)}).Debug("added data to the archive")
+		err := xmp_api.Call("aggregate", &resp, as.state.Archive)
+		if err != nil {
+			log.WithFields(log.Fields{"error": err.Error()}).Error("cannot send data")
+		} else if !resp.Ok {
+			log.WithFields(log.Fields{"reason": resp.Error}).Warn("haven't received the data")
 		} else {
 			queueJson, _ := json.Marshal(as.state.Archive)
 			log.WithFields(log.Fields{
 				"count": len(as.state.Archive),
 				"data":  string(queueJson),
 			}).Debug("sent")
-			as.state.Archive = []acceptor.Aggregate{}
+			as.state.Archive = []xmp_api_structs.Aggregate{}
 		}
-		as.breathe()
 	}
 	as.m.SendDuration.Observe(time.Since(begin).Seconds())
 	as.m.AggregateSum.Observe(float64(aggregateSum))
 }
+
+// clean stats of a second.
 func (as *collectorService) breathe() {
 	begin := time.Now()
 	for campaignCode, operatorAgregate := range as.adReport {
@@ -349,7 +326,7 @@ func (as *collectorService) breathe() {
 	log.WithFields(log.Fields{"took": time.Since(begin)}).Debug("breathe")
 	as.m.BreatheDuration.Observe(time.Since(begin).Seconds())
 }
-func (as *collectorService) GetAggregate(from, to time.Time) (res []acceptor.Aggregate, err error) {
+func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_structs.Aggregate, err error) {
 	agg := make(map[string]CampaignAgregate) // time.Time (date) - campaign - operator code
 
 	query := fmt.Sprintf("SELECT "+
@@ -511,7 +488,7 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []acceptor.Agg
 					return
 				}
 				res = append(res, ag.generateReport(
-					as.instanceId,
+					Svc.xmpAPIConf.InstanceId,
 					campaignCode,
 					operatorCode,
 					reportAt,
@@ -697,7 +674,7 @@ func (as *collectorService) processHit(deliveries <-chan amqp_driver.Delivery) {
 	for msg := range deliveries {
 		var c EventNotifyReporter
 
-		if !Svc.prxConf.Enabled {
+		if !Svc.xmpAPIConf.Enabled {
 			goto ack
 		}
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
@@ -724,7 +701,7 @@ func (as *collectorService) processPixel(deliveries <-chan amqp_driver.Delivery)
 	for msg := range deliveries {
 		var c EventNotifyReporter
 
-		if !Svc.prxConf.Enabled {
+		if !Svc.xmpAPIConf.Enabled {
 			goto ack
 		}
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
@@ -750,7 +727,7 @@ func (as *collectorService) processPixel(deliveries <-chan amqp_driver.Delivery)
 func (as *collectorService) processTransactions(deliveries <-chan amqp_driver.Delivery) {
 	for msg := range deliveries {
 		var c EventNotifyReporter
-		if !Svc.prxConf.Enabled {
+		if !Svc.xmpAPIConf.Enabled {
 			goto ack
 		}
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
@@ -776,7 +753,7 @@ func (as *collectorService) processTransactions(deliveries <-chan amqp_driver.De
 func (as *collectorService) processOutflow(deliveries <-chan amqp_driver.Delivery) {
 	for msg := range deliveries {
 		var c EventNotifyReporter
-		if !Svc.prxConf.Enabled {
+		if !Svc.xmpAPIConf.Enabled {
 			goto ack
 		}
 		if err := json.Unmarshal(msg.Body, &c); err != nil {

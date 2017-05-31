@@ -9,10 +9,10 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/jinzhu/configor"
 
-	acceptor_client "github.com/linkit360/go-acceptor-client"
 	"github.com/linkit360/go-mid/service"
 	"github.com/linkit360/go-utils/amqp"
 	"github.com/linkit360/go-utils/db"
+	xmp_api "github.com/linkit360/xmp-api/src/client"
 )
 
 type ServerConfig struct {
@@ -20,17 +20,16 @@ type ServerConfig struct {
 	HttpPort string `default:"50308" yaml:"http_port"`
 }
 type AppConfig struct {
-	AppName              string                       `yaml:"app_name"`
-	InstanceId           string                       `yaml:"instance"`
-	Server               ServerConfig                 `yaml:"server"`
-	Service              service.Config               `yaml:"service"`
-	DbConf               db.DataBaseConfig            `yaml:"db"`
-	Consumer             amqp.ConsumerConfig          `yaml:"consumer"`
-	AcceptorClientConfig acceptor_client.ClientConfig `yaml:"acceptor_client"`
+	AppName    string               `yaml:"app_name"`
+	Server     ServerConfig         `yaml:"server"`
+	XMPAPIConf xmp_api.ClientConfig `yaml:"xmp_api"`
+	Service    service.Config       `yaml:"service"`
+	DbConf     db.DataBaseConfig    `yaml:"db"`
+	Consumer   amqp.ConsumerConfig  `yaml:"consumer"`
 }
 
 func LoadConfig() AppConfig {
-	cfg := flag.String("config", "dev/inmem.yml", "configuration yml file")
+	cfg := flag.String("config", "dev/mid.yml", "configuration yml file")
 	flag.Parse()
 	var appConfig AppConfig
 
@@ -46,7 +45,7 @@ func LoadConfig() AppConfig {
 	if strings.Contains(appConfig.AppName, "-") {
 		log.Fatal("app name must be without '-' : it's not a valid metric name")
 	}
-	if appConfig.InstanceId == "" {
+	if appConfig.XMPAPIConf.InstanceId == "" {
 		log.Fatal("instance id must be specified")
 	}
 	appConfig.Server.RPCPort = envString("PORT", appConfig.Server.RPCPort)

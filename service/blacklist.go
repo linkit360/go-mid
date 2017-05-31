@@ -13,6 +13,7 @@ import (
 
 type BlackList interface {
 	Add(string) error
+	Apply(blackList []string)
 	Reload() error
 	IsBlacklisted(msisdn string) bool
 }
@@ -87,11 +88,15 @@ func (bl *blackList) Reload() error {
 		return err
 	}
 
+	bl.Apply(blackList)
+	return nil
+}
+
+func (bl *blackList) Apply(blackList []string) {
 	bl.ByMsisdn = make(map[string]struct{}, len(blackList))
 	for _, msisdn := range blackList {
 		bl.ByMsisdn[msisdn] = struct{}{}
 	}
-	return nil
 }
 
 func (bl *blackList) IsBlacklisted(msisdn string) bool {

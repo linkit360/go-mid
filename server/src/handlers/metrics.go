@@ -11,7 +11,6 @@ var (
 	errors           m.Gauge
 	notFound         m.Gauge
 	urlCacheNotFound m.Gauge
-	operatorNotFound m.Gauge
 	unknownPrefix    m.Gauge
 	keyWordNotFound  m.Gauge
 )
@@ -25,7 +24,6 @@ func InitMetrics(appName string) {
 	errors = m.NewGauge("", "", "errors", "errors")
 	notFound = midMetric(appName, "404")
 	urlCacheNotFound = midMetric(appName, "uniqueurl_not_found")
-	operatorNotFound = midMetric(appName, "operator_not_found")
 	unknownPrefix = midMetric(appName, "prefix_unknown")
 	keyWordNotFound = midMetric(appName, "keyword_not_found")
 
@@ -35,7 +33,6 @@ func InitMetrics(appName string) {
 			errors.Update()
 			notFound.Update()
 			urlCacheNotFound.Update()
-			operatorNotFound.Update()
 			unknownPrefix.Update()
 			keyWordNotFound.Update()
 		}

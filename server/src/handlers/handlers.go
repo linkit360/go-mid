@@ -5,9 +5,9 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	acceptor "github.com/linkit360/go-acceptor-structs"
 	"github.com/linkit360/go-mid/service"
 	"github.com/linkit360/go-utils/structs"
+	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
 type GetAllParams struct {
@@ -16,7 +16,7 @@ type GetAllCampaignsResponse struct {
 	Campaigns map[string]service.Campaign `json:"campaigns,omitempty"`
 }
 type GetAllServicesResponse struct {
-	Services map[string]acceptor.Service `json:"services,omitempty"`
+	Services map[string]xmp_api_structs.Service `json:"services,omitempty"`
 }
 type GetAllPublishersResponse struct {
 	Publishers map[string]service.Publisher `json:"publishers,omitempty"`
@@ -260,7 +260,7 @@ func (rpc *Service) All(
 }
 
 func (rpc *Service) ByCode(
-	req GetByCodeParams, res *acceptor.Service) error {
+	req GetByCodeParams, res *xmp_api_structs.Service) error {
 
 	svc, err := service.Svc.Services.GetByCode(req.Code)
 	if err != nil {
@@ -320,7 +320,7 @@ func (rpc *PixelSetting) ByKeyWithRatio(
 type Content struct{}
 
 func (rpc *Content) ById(
-	req GetByCodeParams, res *acceptor.Content) error {
+	req GetByCodeParams, res *xmp_api_structs.Content) error {
 
 	content, err := service.Svc.Contents.GetById(req.Code)
 	if err != nil {
@@ -337,12 +337,11 @@ func (rpc *Content) ById(
 type Operator struct{}
 
 func (rpc *Operator) ByCode(
-	req GetByIdParams, res *acceptor.Operator) error {
+	req GetByIdParams, res *xmp_api_structs.Operator) error {
 
-	operator, ok := service.Svc.Operators.ByCode[req.Id]
-	if !ok {
+	operator, err := service.Svc.Operators.GetByCode(req.Id)
+	if err != nil {
 		notFound.Inc()
-		operatorNotFound.Inc()
 		errors.Inc()
 		return nil
 	}

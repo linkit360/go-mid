@@ -3,20 +3,70 @@ package service
 import (
 	"database/sql"
 	"fmt"
-	"sync"
-
-	acceptor "github.com/linkit360/go-acceptor-structs"
 	"strings"
+	"sync"
+	"time"
+
+	m "github.com/linkit360/go-utils/metrics"
+
+	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
 // required only in pixels to send operator name (not code as we use)
 
-type Operators struct {
-	sync.RWMutex
-	ByCode map[int64]acceptor.Operator
+type Operators interface {
+	Reload() error
+	Apply(map[int64]xmp_api_structs.Operator)
+	Update(xmp_api_structs.Operator) error
+	GetByCode(int64) (xmp_api_structs.Operator, error)
 }
 
-func (ops *Operators) Reload() error {
+type OperatorsConfig struct {
+	FromControlPanel bool `yaml:"from_control_panel"`
+}
+type operators struct {
+	sync.RWMutex
+	conf     OperatorsConfig
+	notFound m.Gauge
+	ByCode   map[int64]xmp_api_structs.Operator
+}
+
+func initOperators(appName string, opConf OperatorsConfig) Operators {
+	ops := &operators{
+		conf:     opConf,
+		notFound: m.NewGauge(appName, "operator", "not_found", "operator not found error"),
+	}
+	go func() {
+		for range time.Tick(time.Minute) {
+			ops.notFound.Update()
+		}
+	}()
+	return ops
+}
+
+func (s *operators) GetByCode(code int64) (xmp_api_structs.Operator, error) {
+	if op, ok := s.ByCode[code]; ok {
+		return op, nil
+	}
+	return xmp_api_structs.Operator{}, errNotFound()
+}
+
+func (s *operators) Apply(operators map[int64]xmp_api_structs.Operator) {
+	s.ByCode = make(map[int64]xmp_api_structs.Operator, len(operators))
+	for _, ac := range operators {
+		s.ByCode[ac.Code] = ac
+	}
+}
+
+func (s *operators) Update(operator xmp_api_structs.Operator) error {
+	if !s.conf.FromControlPanel {
+		return fmt.Errorf("Disabled%s", "")
+	}
+	s.ByCode[operator.Code] = operator
+	return nil
+}
+
+func (ops *operators) Reload() error {
 	ops.Lock()
 	defer ops.Unlock()
 
@@ -38,9 +88,9 @@ func (ops *Operators) Reload() error {
 	}
 	defer rows.Close()
 
-	var operators []acceptor.Operator
+	var operators []xmp_api_structs.Operator
 	for rows.Next() {
-		var operator acceptor.Operator
+		var operator xmp_api_structs.Operator
 		if err = rows.Scan(
 			&operator.Name,
 			&operator.Code,
@@ -57,7 +107,7 @@ func (ops *Operators) Reload() error {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return err
 	}
-	ops.ByCode = make(map[int64]acceptor.Operator, len(operators))
+	ops.ByCode = make(map[int64]xmp_api_structs.Operator, len(operators))
 	for _, op := range operators {
 		ops.ByCode[op.Code] = op
 	}

@@ -23,14 +23,11 @@ func Run() {
 
 	service.Init(
 		appConfig.AppName,
-		appConfig.InstanceId,
+		appConfig.XMPAPIConf,
 		appConfig.Service,
 		appConfig.Consumer,
 		appConfig.DbConf,
-		appConfig.AcceptorClientConfig,
 	)
-
-	service.Handshake()
 
 	nuCPU := runtime.NumCPU()
 	runtime.GOMAXPROCS(nuCPU)

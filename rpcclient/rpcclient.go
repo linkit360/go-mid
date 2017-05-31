@@ -10,11 +10,11 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
 
-	acceptor "github.com/linkit360/go-acceptor-structs"
 	"github.com/linkit360/go-mid/server/src/handlers"
 	"github.com/linkit360/go-mid/service"
 	m "github.com/linkit360/go-utils/metrics"
 	"github.com/linkit360/go-utils/structs"
+	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
 var errNotFound = func(v interface{}) error {
@@ -42,10 +42,10 @@ type Metrics struct {
 
 func initMetrics() *Metrics {
 	m := &Metrics{
-		RPCConnectError: m.NewGauge("rpc", "inmem", "errors", "RPC call errors"),
-		RPCSuccess:      m.NewGauge("rpc", "inmem", "success", "RPC call success"),
-		RPCDuration:     m.NewSummary("rpc_inmem_duration_seconds", "RPC call duration seconds"),
-		NotFound:        m.NewGauge("rpc", "inmem", "404_errors", "RPC 404 errors"),
+		RPCConnectError: m.NewGauge("rpc", "mid", "errors", "RPC call errors"),
+		RPCSuccess:      m.NewGauge("rpc", "mid", "success", "RPC call success"),
+		RPCDuration:     m.NewSummary("rpc_mid_duration_seconds", "RPC call duration seconds"),
+		NotFound:        m.NewGauge("rpc", "mid", "404_errors", "RPC 404 errors"),
 	}
 	go func() {
 		for range time.Tick(time.Minute) {
@@ -64,10 +64,10 @@ func Init(clientConf ClientConfig) error {
 	}
 	if err = cli.dial(); err != nil {
 		err = fmt.Errorf("cli.dial: %s", err.Error())
-		log.WithField("error", err.Error()).Error("inmem rpc client unavialable")
+		log.WithField("error", err.Error()).Error("mid rpc client unavialable")
 		return err
 	}
-	log.WithField("conf", fmt.Sprintf("%#v", clientConf)).Info("inmem rpc client init done")
+	log.WithField("conf", fmt.Sprintf("%#v", clientConf)).Info("mid rpc client init done")
 
 	return nil
 }
@@ -82,7 +82,7 @@ func (c *Client) dial() error {
 		log.WithFields(log.Fields{
 			"dsn":   c.conf.DSN,
 			"error": err.Error(),
-		}).Error("dialing inmem")
+		}).Error("dialing mid")
 		return err
 	}
 	c.connection = jsonrpc.NewClient(conn)
@@ -205,7 +205,7 @@ func GetAllCampaigns() (map[string]service.Campaign, error) {
 	return res.Campaigns, err
 }
 
-func GetAllServices() (map[string]acceptor.Service, error) {
+func GetAllServices() (map[string]xmp_api_structs.Service, error) {
 	var res handlers.GetAllServicesResponse
 	err := call(
 		"Service.All",
@@ -219,8 +219,8 @@ func GetAllServices() (map[string]acceptor.Service, error) {
 	return res.Services, err
 }
 
-func GetOperatorByCode(code int64) (acceptor.Operator, error) {
-	var operator acceptor.Operator
+func GetOperatorByCode(code int64) (xmp_api_structs.Operator, error) {
+	var operator xmp_api_structs.Operator
 	err := call(
 		"Operator.ByCode",
 		handlers.GetByIdParams{Id: code},
@@ -233,8 +233,8 @@ func GetOperatorByCode(code int64) (acceptor.Operator, error) {
 	return operator, err
 }
 
-func GetServiceByCode(serviceCode string) (acceptor.Service, error) {
-	var svc acceptor.Service
+func GetServiceByCode(serviceCode string) (xmp_api_structs.Service, error) {
+	var svc xmp_api_structs.Service
 	err := call(
 		"Service.ByCode",
 		handlers.GetByCodeParams{Code: serviceCode},
@@ -246,8 +246,8 @@ func GetServiceByCode(serviceCode string) (acceptor.Service, error) {
 	return svc, err
 }
 
-func GetContentById(contentCode string) (acceptor.Content, error) {
-	var content acceptor.Content
+func GetContentById(contentCode string) (xmp_api_structs.Content, error) {
+	var content xmp_api_structs.Content
 	err := call(
 		"Content.ById",
 		handlers.GetByCodeParams{Code: contentCode},

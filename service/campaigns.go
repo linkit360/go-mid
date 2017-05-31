@@ -18,14 +18,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 
-	acceptor "github.com/linkit360/go-acceptor-structs"
 	m "github.com/linkit360/go-utils/metrics"
+	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
 type Campaigns interface {
-	Set(campaigns map[string]acceptor.Campaign)
-	Update(acceptor.Campaign) error
-	Download(c acceptor.Campaign) (err error)
+	Apply(campaigns map[string]xmp_api_structs.Campaign)
+	Update(xmp_api_structs.Campaign) error
+	Download(c xmp_api_structs.Campaign) (err error)
 	Reload() error
 	GetAll() map[string]Campaign
 	GetByLink(string) (Campaign, error)
@@ -40,7 +40,7 @@ type сampaigns struct {
 	s3dl          *s3manager.Downloader
 	loadError     prometheus.Gauge
 	notFound      m.Gauge
-	ByUUID        map[string]acceptor.Campaign
+	ByUUID        map[string]xmp_api_structs.Campaign
 	ByHash        map[string]Campaign
 	ByLink        map[string]Campaign
 	ByCode        map[string]Campaign
@@ -68,17 +68,17 @@ type CampaignsConfig struct {
 	WebHook          string        `yaml:"webhook" default:"http://localhost:50300/updateTemplates"`
 	LandingsPath     string        `yaml:"landing_path"`
 	Region           string        `yaml:"region" default:"ap-southeast-1"`
-	Bucket           string        `yaml:"bucket" default:"xmp-content"`
+	Bucket           string        `yaml:"bucket" default:"xmp-lp"`
 	DownloadTimeout  time.Duration `yaml:"download_timeout" default:"10m"` // 10 minutes
 }
 
 type Campaign struct {
 	AutoClickCount int64 `json:"-"`
 	CanAutoClick   bool  `json:"-"`
-	acceptor.Campaign
+	xmp_api_structs.Campaign
 }
 
-func (s *Campaign) Load(ac acceptor.Campaign) {
+func (s *Campaign) Load(ac xmp_api_structs.Campaign) {
 	cBytes, _ := json.Marshal(ac)
 	_ = json.Unmarshal(cBytes, &s)
 	return
@@ -86,7 +86,7 @@ func (s *Campaign) Load(ac acceptor.Campaign) {
 
 // check content and download it
 // content already checked: it hasn't been downloaded yet
-func (s *сampaigns) Download(c acceptor.Campaign) (err error) {
+func (s *сampaigns) Download(c xmp_api_structs.Campaign) (err error) {
 	ctx := context.Background()
 	var cancelFn func()
 	if s.conf.DownloadTimeout > 0 {
@@ -182,12 +182,7 @@ func (s *сampaigns) GetAll() map[string]Campaign {
 	return s.ByLink
 }
 
-func (s *сampaigns) Set(campaigns map[string]acceptor.Campaign) {
-	s.ByUUID = make(map[string]acceptor.Campaign, len(campaigns))
-	s.setAll(s.ByUUID)
-}
-
-func (s *сampaigns) Update(campaign acceptor.Campaign) error {
+func (s *сampaigns) Update(campaign xmp_api_structs.Campaign) error {
 	if !s.conf.FromControlPanel {
 		return fmt.Errorf("Disabled%s", "")
 	}
@@ -204,7 +199,7 @@ func (s *сampaigns) Update(campaign acceptor.Campaign) error {
 		}
 	}
 	s.ByUUID[campaign.Id] = campaign
-	s.setAll(s.ByUUID)
+	s.updateOnUUID()
 	return nil
 }
 
@@ -250,7 +245,7 @@ func (s *сampaigns) GetByServiceCode(serviceCode string) (camps []Campaign, err
 	return
 }
 
-func (s *сampaigns) getByCache() (campaigns map[string]acceptor.Campaign, err error) {
+func (s *сampaigns) getByCache() (campaigns map[string]xmp_api_structs.Campaign, err error) {
 	query := fmt.Sprintf("SELECT "+
 		"id, "+
 		"hash, "+
@@ -273,9 +268,9 @@ func (s *сampaigns) getByCache() (campaigns map[string]acceptor.Campaign, err e
 	}
 	defer rows.Close()
 
-	campaigns = make(map[string]acceptor.Campaign)
+	campaigns = make(map[string]xmp_api_structs.Campaign)
 	for rows.Next() {
-		campaign := acceptor.Campaign{}
+		campaign := xmp_api_structs.Campaign{}
 		if err = rows.Scan(
 			&campaign.Code,
 			&campaign.Hash,
@@ -311,28 +306,33 @@ func (s *сampaigns) Reload() (err error) {
 	defer s.Unlock()
 
 	s.loadError.Set(0.)
-	var campaigns map[string]acceptor.Campaign
+	var campaigns map[string]xmp_api_structs.Campaign
 	campaigns, err = s.getByCache()
 	if err != nil {
 		s.loadError.Set(1.)
 		log.Error(err.Error())
 		return
 	}
-
-	s.setAll(campaigns)
+	s.Apply(campaigns)
 	s.ShowLoaded()
 	return nil
 }
 
-func (s *сampaigns) setAll(campaigns map[string]acceptor.Campaign) {
-	s.ByHash = make(map[string]Campaign, len(campaigns))
-	s.ByLink = make(map[string]Campaign, len(campaigns))
-	s.ByCode = make(map[string]Campaign, len(campaigns))
-	s.ByServiceCode = make(map[string][]Campaign)
-
+func (s *сampaigns) Apply(campaigns map[string]xmp_api_structs.Campaign) {
+	s.ByUUID = make(map[string]xmp_api_structs.Campaign, len(campaigns))
 	for _, ac := range campaigns {
 		s.ByUUID[ac.Id] = ac
+	}
+	s.updateOnUUID()
+}
 
+func (s *сampaigns) updateOnUUID() {
+	s.ByHash = make(map[string]Campaign, len(s.ByUUID))
+	s.ByLink = make(map[string]Campaign, len(s.ByUUID))
+	s.ByCode = make(map[string]Campaign, len(s.ByUUID))
+	s.ByServiceCode = make(map[string][]Campaign)
+
+	for _, ac := range s.ByUUID {
 		campaign := Campaign{}
 		campaign.Load(ac)
 		s.ByHash[campaign.Hash] = campaign

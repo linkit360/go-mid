@@ -18,22 +18,22 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/prometheus/client_golang/prometheus"
 
-	acceptor "github.com/linkit360/go-acceptor-structs"
 	m "github.com/linkit360/go-utils/metrics"
+	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
 type Contents interface {
-	Update([]acceptor.Content) error
-	Download(acceptor.Content) error
+	Update([]xmp_api_structs.Content) error
+	Download(xmp_api_structs.Content) error
 	Reload() error
-	GetById(string) (acceptor.Content, error)
+	GetById(string) (xmp_api_structs.Content, error)
 }
 
 type contents struct {
 	sync.RWMutex
 	conf      ContentConfig
 	s3dl      *s3manager.Downloader
-	ByUUID    map[string]acceptor.Content
+	ByUUID    map[string]xmp_api_structs.Content
 	loadError prometheus.Gauge
 }
 
@@ -60,7 +60,7 @@ func initContents(appName string, contentConf ContentConfig) Contents {
 
 // check content and download it
 // content already checked: it hasn't been downloaded yet
-func (s *contents) Download(c acceptor.Content) (err error) {
+func (s *contents) Download(c xmp_api_structs.Content) (err error) {
 	ctx := context.Background()
 	var cancelFn func()
 	if s.conf.DownloadTimeout > 0 {
@@ -123,7 +123,7 @@ func (s *contents) Download(c acceptor.Content) (err error) {
 	return
 }
 
-func (s *contents) Update(cc []acceptor.Content) (err error) {
+func (s *contents) Update(cc []xmp_api_structs.Content) (err error) {
 	if !s.conf.FromControlPanel {
 		return fmt.Errorf("Disabled%s", "")
 	}
@@ -143,7 +143,7 @@ func (s *contents) Update(cc []acceptor.Content) (err error) {
 	return nil
 }
 
-func (s *contents) getSlice(in map[string]acceptor.Content) (res []acceptor.Content) {
+func (s *contents) getSlice(in map[string]xmp_api_structs.Content) (res []xmp_api_structs.Content) {
 	for _, v := range in {
 		res = append(res, v)
 	}
@@ -167,9 +167,9 @@ func (s *contents) loadFromCache() (err error) {
 	}
 	defer rows.Close()
 
-	var allContents []acceptor.Content
+	var allContents []xmp_api_structs.Content
 	for rows.Next() {
-		var c acceptor.Content
+		var c xmp_api_structs.Content
 		if err = rows.Scan(
 			&c.Id,
 			&c.Name,
@@ -185,7 +185,7 @@ func (s *contents) loadFromCache() (err error) {
 		return
 	}
 
-	s.ByUUID = make(map[string]acceptor.Content, len(allContents))
+	s.ByUUID = make(map[string]xmp_api_structs.Content, len(allContents))
 	for _, content := range allContents {
 		s.ByUUID[content.Id] = content
 	}
@@ -209,10 +209,10 @@ func (s *contents) Reload() (err error) {
 	return nil
 }
 
-func (s *contents) GetById(id string) (acceptor.Content, error) {
+func (s *contents) GetById(id string) (xmp_api_structs.Content, error) {
 	c, found := s.ByUUID[id]
 	if !found {
-		return acceptor.Content{}, fmt.Errorf("Not found: %s", id)
+		return xmp_api_structs.Content{}, fmt.Errorf("Not found: %s", id)
 	}
 	return c, nil
 }
