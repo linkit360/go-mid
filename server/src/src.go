@@ -42,6 +42,7 @@ func runGin(appConfig config.AppConfig) {
 
 	service.AddCQRHandlers(r)
 	service.AddTablesHandler(r)
+	service.AddAPIGetAgregateHandler(r)
 	m.AddHandler(r)
 
 	r.Run(":" + appConfig.Server.HttpPort)

@@ -51,9 +51,9 @@ type OperatorAgregate map[int64]adAggregate       // by operator code
 type CampaignAgregate map[string]OperatorAgregate // by campaign code
 
 type CollectorState struct {
-	LastSendTime time.Time                   `json:"last_send_time"`
-	FilePath     string                      `json:"file_path"`
-	Archive      []xmp_api_structs.Aggregate `json:"archive"`
+	LastSendTime time.Time     `json:"last_send_time"`
+	FilePath     string        `json:"file_path"`
+	Archive      []interface{} `json:"archive"`
 }
 
 type ReporterMetrics struct {
@@ -155,6 +155,31 @@ func (a *adAggregate) Sum() int64 {
 		a.Outflow.count +
 		a.Pixels.count
 }
+func newAdAggregate() adAggregate {
+	return adAggregate{
+		LpHits:                 &counter{},
+		LpMsisdnHits:           &counter{},
+		MoTotal:                &counter{},
+		MoChargeSuccess:        &counter{},
+		MoChargeSum:            &counter{},
+		MoChargeFailed:         &counter{},
+		MoRejected:             &counter{},
+		Outflow:                &counter{},
+		RenewalTotal:           &counter{},
+		RenewalChargeSuccess:   &counter{},
+		RenewalChargeSum:       &counter{},
+		RenewalFailed:          &counter{},
+		InjectionTotal:         &counter{},
+		InjectionChargeSuccess: &counter{},
+		InjectionChargeSum:     &counter{},
+		InjectionFailed:        &counter{},
+		ExpiredTotal:           &counter{},
+		ExpiredChargeSuccess:   &counter{},
+		ExpiredChargeSum:       &counter{},
+		ExpiredFailed:          &counter{},
+		Pixels:                 &counter{},
+	}
+}
 
 func (a *adAggregate) generateReport(instanceId, campaignCode string, operatorCode int64, reportAt time.Time) xmp_api_structs.Aggregate {
 	return xmp_api_structs.Aggregate{
@@ -186,8 +211,7 @@ func (a *adAggregate) generateReport(instanceId, campaignCode string, operatorCo
 	}
 }
 
-func initReporter(appName, provider, stateFilePath string,
-	queue QueuesConfig, consumerConf amqp.ConsumerConfig) Collector {
+func initReporter(appName, stateFilePath string, queue QueuesConfig, consumerConf amqp.ConsumerConfig) Collector {
 	as := &collectorService{}
 
 	as.loadState(stateFilePath)
@@ -266,7 +290,7 @@ func (as *collectorService) send() {
 	defer as.Unlock()
 
 	begin := time.Now()
-	var data []xmp_api_structs.Aggregate
+	var data []interface{}
 	aggregateSum := int64(.0)
 
 	for campaignCode, operatorAgregate := range as.adReport {
@@ -296,10 +320,12 @@ func (as *collectorService) send() {
 			Error string `json:"error,omitempty"`
 		}
 
-		err := xmp_api.Call("aggregate", &resp, as.state.Archive)
+		err := xmp_api.Call("aggregate", &resp, as.state.Archive...)
 		if err != nil {
+			as.m.Errors.Inc()
 			log.WithFields(log.Fields{"error": err.Error()}).Error("cannot send data")
 		} else if !resp.Ok {
+			as.m.Errors.Inc()
 			log.WithFields(log.Fields{"reason": resp.Error}).Warn("haven't received the data")
 		} else {
 			queueJson, _ := json.Marshal(as.state.Archive)
@@ -307,9 +333,10 @@ func (as *collectorService) send() {
 				"count": len(as.state.Archive),
 				"data":  string(queueJson),
 			}).Debug("sent")
-			as.state.Archive = []xmp_api_structs.Aggregate{}
+			as.state.Archive = []interface{}{}
 		}
 	}
+
 	as.m.SendDuration.Observe(time.Since(begin).Seconds())
 	as.m.AggregateSum.Observe(float64(aggregateSum))
 }
@@ -326,19 +353,26 @@ func (as *collectorService) breathe() {
 	log.WithFields(log.Fields{"took": time.Since(begin)}).Debug("breathe")
 	as.m.BreatheDuration.Observe(time.Since(begin).Seconds())
 }
+
+// api call to get data from database
 func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_structs.Aggregate, err error) {
+	log.WithFields(log.Fields{
+		"from": from.Format("2006-01-02"),
+		"to":   to.Format("2006-01-02"),
+	}).Debug("aggregate api get req")
+
 	agg := make(map[string]CampaignAgregate) // time.Time (date) - campaign - operator code
 
 	query := fmt.Sprintf("SELECT "+
 		"date(sent_at), "+
-		"campaign_id, "+
+		"id_campaign, "+
 		"operator_code, "+
 		"result, "+
 		"sum(price), "+
 		"count(*) "+
 		"FROM %stransactions "+
 		"WHERE sent_at > $1 AND sent_at < $2 "+
-		"GROUP BY date(sent_at), campaign_id result",
+		"GROUP BY date(sent_at), id_campaign, operator_code, result",
 		Svc.dbConf.TablePrefix,
 	)
 	var rows *sql.Rows
@@ -351,6 +385,7 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 
 	var campaignCode string
 	var operatorCode int64
+	var rowsCount int
 	defer rows.Close()
 	for rows.Next() {
 		var sentAt string
@@ -361,9 +396,16 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
-
+		sentAt = sentAt[0:10]
+		rowsCount++
 		if _, ok := agg[sentAt]; !ok {
 			agg[sentAt] = CampaignAgregate{}
+		}
+		if _, ok := agg[sentAt][campaignCode]; !ok {
+			agg[sentAt][campaignCode] = OperatorAgregate{}
+		}
+		if _, ok := agg[sentAt][campaignCode][operatorCode]; !ok {
+			agg[sentAt][campaignCode][operatorCode] = newAdAggregate()
 		}
 
 		switch result {
@@ -396,22 +438,29 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 			agg[sentAt][campaignCode][operatorCode].MoTotal.Add(count)
 			agg[sentAt][campaignCode][operatorCode].MoChargeFailed.Set(count)
 		}
-
 	}
 	if rows.Err() != nil {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return
 	}
 
+	log.WithFields(log.Fields{
+		"from":  from.Format("2006-01-02"),
+		"to":    to.Format("2006-01-02"),
+		"table": "transactions",
+		"count": rowsCount,
+	}).Debug("aggregate api get req")
+	rowsCount = 0
+
 	//============================
 	query = fmt.Sprintf("SELECT "+
 		"date(sent_at), "+
-		"campaign_id, "+
+		"id_campaign, "+
 		"operator_code, "+
 		"count(*) "+
 		"FROM %spixel_transactions "+
 		"WHERE sent_at > $1 AND sent_at < $2 "+
-		"GROUP BY date(sent_at)",
+		"GROUP BY date(sent_at), id_campaign, operator_code",
 		Svc.dbConf.TablePrefix,
 	)
 	rows, err = Svc.db.Query(query, from, to)
@@ -428,8 +477,16 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
+		sentAt = sentAt[0:10]
+		rowsCount++
 		if _, ok := agg[sentAt]; !ok {
 			agg[sentAt] = CampaignAgregate{}
+		}
+		if _, ok := agg[sentAt][campaignCode]; !ok {
+			agg[sentAt][campaignCode] = OperatorAgregate{}
+		}
+		if _, ok := agg[sentAt][campaignCode][operatorCode]; !ok {
+			agg[sentAt][campaignCode][operatorCode] = newAdAggregate()
 		}
 		agg[sentAt][campaignCode][operatorCode].Pixels.Set(count)
 	}
@@ -437,17 +494,24 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return
 	}
+	log.WithFields(log.Fields{
+		"from":  from.Format("2006-01-02"),
+		"to":    to.Format("2006-01-02"),
+		"table": "pixel_transactions",
+		"count": rowsCount,
+	}).Debug("aggregate api get req")
+	rowsCount = 0
 
 	//============================
 	query = fmt.Sprintf("SELECT "+
 		"date(sent_at), "+
-		"campaign_id, "+
+		"id_campaign, "+
 		"operator_code, "+
 		"CASE length(msisdn) WHEN 0 THEN false ELSE true END msisdn_present, "+
 		"count(*) "+
-		"FROM %spixel_transactions "+
+		"FROM %scampaigns_access "+
 		"WHERE sent_at > $1 AND sent_at < $2 "+
-		"GROUP BY date(sent_at), msisdn_present",
+		"GROUP BY date(sent_at), msisdn_present, id_campaign, operator_code",
 		Svc.dbConf.TablePrefix,
 	)
 	rows, err = Svc.db.Query(query, from, to)
@@ -465,8 +529,16 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
+		rowsCount++
+		sentAt = sentAt[0:10]
 		if _, ok := agg[sentAt]; !ok {
 			agg[sentAt] = CampaignAgregate{}
+		}
+		if _, ok := agg[sentAt][campaignCode]; !ok {
+			agg[sentAt][campaignCode] = OperatorAgregate{}
+		}
+		if _, ok := agg[sentAt][campaignCode][operatorCode]; !ok {
+			agg[sentAt][campaignCode][operatorCode] = newAdAggregate()
 		}
 		agg[sentAt][campaignCode][operatorCode].LpHits.Add(count)
 		if present {
@@ -477,7 +549,15 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return
 	}
+	log.WithFields(log.Fields{
+		"from":  from.Format("2006-01-02"),
+		"to":    to.Format("2006-01-02"),
+		"table": "campaigns_access",
+		"count": rowsCount,
+	}).Debug("aggregate api get req")
+	rowsCount = 0
 
+	res = []xmp_api_structs.Aggregate{}
 	for dateSent, agByCampaign := range agg {
 		for campaignCode, agByOperatorCode := range agByCampaign {
 			for operatorCode, ag := range agByOperatorCode {
@@ -497,6 +577,11 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 		}
 
 	}
+	log.WithFields(log.Fields{
+		"from": from.Format("2006-01-02"),
+		"to":   to.Format("2006-01-02"),
+		"len":  len(res),
+	}).Debug("aggregate api get req")
 	return
 }
 
@@ -528,29 +613,7 @@ func (as *collectorService) check(r Collect) error {
 	}
 	_, found = as.adReport[r.CampaignCode][r.OperatorCode]
 	if !found {
-		as.adReport[r.CampaignCode][r.OperatorCode] = adAggregate{
-			LpHits:                 &counter{},
-			LpMsisdnHits:           &counter{},
-			MoTotal:                &counter{},
-			MoChargeSuccess:        &counter{},
-			MoChargeSum:            &counter{},
-			MoChargeFailed:         &counter{},
-			MoRejected:             &counter{},
-			Outflow:                &counter{},
-			RenewalTotal:           &counter{},
-			RenewalChargeSuccess:   &counter{},
-			RenewalChargeSum:       &counter{},
-			RenewalFailed:          &counter{},
-			InjectionTotal:         &counter{},
-			InjectionChargeSuccess: &counter{},
-			InjectionChargeSum:     &counter{},
-			InjectionFailed:        &counter{},
-			ExpiredTotal:           &counter{},
-			ExpiredChargeSuccess:   &counter{},
-			ExpiredChargeSum:       &counter{},
-			ExpiredFailed:          &counter{},
-			Pixels:                 &counter{},
-		}
+		as.adReport[r.CampaignCode][r.OperatorCode] = newAdAggregate()
 	}
 	as.m.Success.Inc()
 	return nil
@@ -674,7 +737,7 @@ func (as *collectorService) processHit(deliveries <-chan amqp_driver.Delivery) {
 	for msg := range deliveries {
 		var c EventNotifyReporter
 
-		if !Svc.xmpAPIConf.Enabled {
+		if !Svc.conf.Enabled.Reporter {
 			goto ack
 		}
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
@@ -701,7 +764,7 @@ func (as *collectorService) processPixel(deliveries <-chan amqp_driver.Delivery)
 	for msg := range deliveries {
 		var c EventNotifyReporter
 
-		if !Svc.xmpAPIConf.Enabled {
+		if !Svc.conf.Enabled.Reporter {
 			goto ack
 		}
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
@@ -727,7 +790,7 @@ func (as *collectorService) processPixel(deliveries <-chan amqp_driver.Delivery)
 func (as *collectorService) processTransactions(deliveries <-chan amqp_driver.Delivery) {
 	for msg := range deliveries {
 		var c EventNotifyReporter
-		if !Svc.xmpAPIConf.Enabled {
+		if !Svc.conf.Enabled.Reporter {
 			goto ack
 		}
 		if err := json.Unmarshal(msg.Body, &c); err != nil {
@@ -753,7 +816,7 @@ func (as *collectorService) processTransactions(deliveries <-chan amqp_driver.De
 func (as *collectorService) processOutflow(deliveries <-chan amqp_driver.Delivery) {
 	for msg := range deliveries {
 		var c EventNotifyReporter
-		if !Svc.xmpAPIConf.Enabled {
+		if !Svc.conf.Enabled.Reporter {
 			goto ack
 		}
 		if err := json.Unmarshal(msg.Body, &c); err != nil {

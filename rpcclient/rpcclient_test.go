@@ -88,10 +88,7 @@ func TestGetServiceByCode(t *testing.T) {
 	res, err := GetServiceByCode("421924601")
 	////fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "Error while get service by id")
-	expected := xmp_api_structs.Service{
-		Id:                  "421924601",
-		Code:                "421924601",
-		Price:               10,
+	po := xmp_api_structs.ProviderOpts{
 		InactiveDays:        3,
 		RetryDays:           10,
 		GraceDays:           3,
@@ -100,11 +97,17 @@ func TestGetServiceByCode(t *testing.T) {
 		PeriodicAllowedFrom: 510,
 		PeriodicAllowedTo:   1410,
 		PeriodicDays:        `["any"]`,
-		ContentCodes:        []string{"55", "49"},
 		SMSOnSubscribe:      "Thank you for subscribe!",
 		SMSOnUnsubscribe:    "You have been unsubscribed",
 		SMSOnContent:        "Your content here: %s",
 	}
+	expected := xmp_api_structs.Service{
+		ProviderOpts: po,
+	}
+	expected.Id = "421924601"
+	expected.Code = "421924601"
+	expected.Price = 10
+	expected.ContentIds = []string{"56", "49"}
 
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "421924601 services differ")
@@ -113,21 +116,24 @@ func TestGetServiceByCode(t *testing.T) {
 	res, err = GetServiceByCode("888")
 	//fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "Error while get service by id")
-	expected = xmp_api_structs.Service{
-		Id:               "888",
-		Code:             "888",
-		Price:            10,
+	po = xmp_api_structs.ProviderOpts{
 		InactiveDays:     3,
 		RetryDays:        11,
 		GraceDays:        3,
 		PaidHours:        1,
 		DelayHours:       22,
 		PeriodicDays:     `[]`,
-		ContentCodes:     []string{"56", "61"},
 		SMSOnSubscribe:   "Thank you for subscribe!",
 		SMSOnUnsubscribe: "You have been unsubscribed",
 		SMSOnContent:     "Your content here: %s",
 	}
+	expected = xmp_api_structs.Service{
+		ProviderOpts: po,
+	}
+	expected.Id = "888"
+	expected.Code = "888"
+	expected.Price = 10
+	expected.ContentIds = []string{"56", "61"}
 
 	if !assert.ObjectsAreEqual(expected, res) {
 		assert.Equal(t, expected, res, "888 services differ")

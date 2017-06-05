@@ -123,9 +123,7 @@ func Init(
 
 	initPrevSubscriptionsCache()
 
-	if svcConf.Enabled.Reporter {
-		Svc.reporter = initReporter(appName, xmpAPIConf.InstanceId, svcConf.StateFilePath, svcConf.Queue, consumerConf)
-	}
+	Svc.reporter = initReporter(appName, svcConf.StateFilePath, svcConf.Queue, consumerConf)
 
 	Svc.Campaigns = initCampaigns(appName, svcConf.Campaigns)
 	Svc.Services = initServices(appName, svcConf.Services)
@@ -212,27 +210,26 @@ func Init(
 	}
 
 	if err := cqr.InitCQR(Svc.cqrConfig); err != nil {
-		log.Fatal("cqr.InitCQR: " + err.Error())
+		log.Info("cqr.InitCQR: " + err.Error())
 	}
 
 	if xmpAPIConf.Enabled {
 		var xmpConfig xmp_api_structs.HandShake
-		hReq := struct {
-			InstanceId string
-		}{
-			InstanceId: xmpAPIConf.InstanceId,
+		if err := xmp_api.Call("initialization", xmpConfig); err != nil {
+			log.Fatal("xmp_api.Call: " + err.Error())
 		}
-
-		if err := xmp_api.Call("initialization", xmpConfig, hReq); err != nil {
-			log.WithField("req", hReq).Fatal("xmp_api.Call: " + err.Error())
-		}
-
+		log.WithFields(log.Fields{
+			"blacklist": len(xmpConfig.BlackList),
+			"services":  len(xmpConfig.Services),
+			"campaigns": len(xmpConfig.Campaigns),
+			"operators": len(xmpConfig.Operators),
+			//"pixels":    len(xmpConfig.Pixels),
+		}).Info("xmp_api.Call OK")
 		Svc.BlackList.Apply(xmpConfig.BlackList)
 		Svc.Services.Apply(xmpConfig.Services)
 		Svc.Campaigns.Apply(xmpConfig.Campaigns)
 		Svc.Operators.Apply(xmpConfig.Operators)
-		Svc.BlackList.Apply(xmpConfig.BlackList)
-		Svc.PixelSettings.Apply(xmpConfig.Pixels)
+		//Svc.PixelSettings.Apply(xmpConfig.Pixels)
 	}
 }
 
@@ -242,6 +239,42 @@ func OnExit() {
 
 func AddTablesHandler(r *gin.Engine) {
 	r.GET("tables", tablesHandler)
+}
+
+func AddAPIGetAgregateHandler(e *gin.Engine) {
+	e.Group("api").GET("/aggregate/get", getAggregateHandler)
+}
+
+func getAggregateHandler(c *gin.Context) {
+
+	fromTimeString, ok := c.GetQuery("from")
+	if !ok {
+		c.JSON(500, gin.H{"error": "From bound required (time from to)"})
+		return
+	}
+	from, err := time.Parse("2006-01-02", fromTimeString)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Error parse time: " + err.Error()})
+		return
+	}
+	toTimeString, ok := c.GetQuery("to")
+	if !ok {
+		c.JSON(500, gin.H{"error": "To bound required (time from to)"})
+		return
+	}
+	to, err := time.Parse("2006-01-02", toTimeString)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Error parse time: " + err.Error()})
+		return
+	}
+
+	res, err := Svc.reporter.GetAggregate(from, to)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Error while get aggregate: " + err.Error()})
+		return
+	}
+
+	c.JSON(200, res)
 }
 
 func tablesHandler(c *gin.Context) {

@@ -5,7 +5,7 @@ server:
   http_port: 50308
 
 xmp_api:
-  enabled: false
+  enabled: true
   dsn: 52.220.50.252:50318
   timeout: 10
   instance_id: a7da1e9f-fcc1-4087-9c58-4d31bcdbd515
@@ -40,10 +40,10 @@ service:
       threads_count: 10
 
   service:
-    from_control_panel: false
+    from_control_panel: true
 
   campaign:
-    from_control_panel: false
+    from_control_panel: true
     webhook: http://localhost:50300/updateTemplates
     landing_path: /var/www/xmp.linkit360.ru/web/
     region: ap-southeast-1
@@ -52,25 +52,23 @@ service:
 
   content:
     enabled: true
-    from_control_panel: false
+    from_control_panel: true
     content_path: /var/www/xmp.linkit360.ru/web/
     region: ap-southeast-1
     bucket: xmp-content
     download_timeout: 10m
 
   blacklist:
-    from_control_panel: false
-
-  content:
-    from_control_panel: false
+    from_control_panel: true
 
   pixel:
-    from_control_panel: false
+    from_control_panel: true
 
   operator:
-    from_control_panel: false
+    from_control_panel: true
 
   enabled:
+    reporter: true
     destinations: false
     redirect_stats_count: false
 

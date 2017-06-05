@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	m "github.com/linkit360/go-utils/metrics"
+	"github.com/linkit360/xmp-api/src/client"
 	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
@@ -49,7 +50,24 @@ func initServices(appName string, servConfig ServicesConfig) Services {
 		}
 	}()
 
+	go svcs.catchUpdates(xmp_api_client.ChanServices)
+
 	return svcs
+}
+
+func (as *services) catchUpdates(updates <-chan xmp_api_structs.Service) {
+	for s := range updates {
+		if err := as.Update(s); err != nil {
+			log.WithFields(log.Fields{
+				"error": err.Error(),
+				"id":    s.Id,
+			}).Error("failed to update service")
+		} else {
+			log.WithFields(log.Fields{
+				"id": s.Id,
+			}).Info("update service")
+		}
+	}
 }
 
 func (s *services) Update(acceptorService xmp_api_structs.Service) error {
@@ -60,6 +78,7 @@ func (s *services) Update(acceptorService xmp_api_structs.Service) error {
 		return fmt.Errorf("service id is empty%s", "")
 	}
 
+	defer s.ShowLoaded()
 	// проверить весь контент и обновить только то, что новенькое -
 	// в панели управления запрещено редактировать контент
 	// поэтому у отредактированных контентов - новый айдишник

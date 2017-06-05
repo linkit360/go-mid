@@ -245,7 +245,16 @@ func (s *сampaigns) GetByServiceCode(serviceCode string) (camps []Campaign, err
 	return
 }
 
-func (s *сampaigns) getByCache() (campaigns map[string]xmp_api_structs.Campaign, err error) {
+func (s *сampaigns) Reload() (err error) {
+	if s.conf.FromControlPanel {
+		return fmt.Errorf("Disabled%s", "")
+	}
+
+	s.Lock()
+	defer s.Unlock()
+
+	s.loadError.Set(0.)
+	var campaigns map[string]xmp_api_structs.Campaign
 	query := fmt.Sprintf("SELECT "+
 		"id, "+
 		"hash, "+
@@ -286,7 +295,7 @@ func (s *сampaigns) getByCache() (campaigns map[string]xmp_api_structs.Campaign
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
-
+		campaign.Id = campaign.Code
 		campaigns[campaign.Code] = campaign
 	}
 	if rows.Err() != nil {
@@ -294,25 +303,6 @@ func (s *сampaigns) getByCache() (campaigns map[string]xmp_api_structs.Campaign
 		return
 	}
 
-	return
-}
-
-func (s *сampaigns) Reload() (err error) {
-	if s.conf.FromControlPanel {
-		return fmt.Errorf("Disabled%s", "")
-	}
-
-	s.Lock()
-	defer s.Unlock()
-
-	s.loadError.Set(0.)
-	var campaigns map[string]xmp_api_structs.Campaign
-	campaigns, err = s.getByCache()
-	if err != nil {
-		s.loadError.Set(1.)
-		log.Error(err.Error())
-		return
-	}
 	s.Apply(campaigns)
 	s.ShowLoaded()
 	return nil

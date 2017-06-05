@@ -105,6 +105,7 @@ func (rpc *Campaign) ByLink(
 	success.Inc()
 	return nil
 }
+
 func (rpc *Campaign) ByCode(
 	req GetByCodeParams, res *service.Campaign) error {
 
@@ -118,6 +119,7 @@ func (rpc *Campaign) ByCode(
 	success.Inc()
 	return nil
 }
+
 func (rpc *Campaign) ByServiceCode(
 	req GetByCodeParams, res *service.Campaign) error {
 
@@ -131,6 +133,7 @@ func (rpc *Campaign) ByServiceCode(
 	success.Inc()
 	return nil
 }
+
 func (rpc *Campaign) ByKeyWord(
 	req GetByKeyWordParams, res *service.Campaign) error {
 

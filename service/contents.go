@@ -127,6 +127,7 @@ func (s *contents) Update(cc []xmp_api_structs.Content) (err error) {
 	if !s.conf.FromControlPanel {
 		return fmt.Errorf("Disabled%s", "")
 	}
+
 	for _, c := range cc {
 		if err = s.Download(c); err != nil {
 			return fmt.Errorf("Download: %s", err.Error())
