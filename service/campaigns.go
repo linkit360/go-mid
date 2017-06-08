@@ -221,9 +221,6 @@ func (s *сampaigns) GetAll() map[string]Campaign {
 }
 
 func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
-	if !s.conf.FromControlPanel {
-		return fmt.Errorf("Disabled%s", "")
-	}
 	if ac.Id == "" {
 		return fmt.Errorf("Campaign Id is empty%s", "")
 	}
@@ -412,8 +409,13 @@ func (s *сampaigns) Apply(campaigns map[string]xmp_api_structs.Campaign) {
 	s.loadError.Set(0)
 	for _, ac := range campaigns {
 		if err := s.Update(ac); err == nil {
+			log.WithField("id", ac.Id).Debug("update campaign ok")
 		} else {
 			s.loadError.Set(1)
+			log.WithFields(log.Fields{
+				"id":    ac.Id,
+				"error": err.Error(),
+			}).Debug("update campaign")
 		}
 	}
 }
@@ -425,12 +427,11 @@ func (s *сampaigns) ShowLoaded() {
 	byServiceCode, _ := json.Marshal(s.ByServiceCode)
 
 	log.WithFields(log.Fields{
-		"hash":   string(byHash),
-		"link":   string(byLink),
-		"code":   string(byCode),
-		"sid":    string(byServiceCode),
-		"action": "campaigns",
-	}).Debug("")
+		"hash": string(byHash),
+		"link": string(byLink),
+		"code": string(byCode),
+		"sid":  string(byServiceCode),
+	}).Debug("campaigns")
 }
 
 func (s *сampaigns) GetJson() string {

@@ -281,8 +281,6 @@ func (p *Publishers) Reload() (err error) {
 		if err != nil {
 			log.WithField("regex", p.RegexString).Error("wrong regex")
 			loadPublisherErrorFlag = true
-		} else {
-			log.WithField("regex", p.RegexString).Debug("regex ok")
 		}
 		records = append(records, p)
 	}

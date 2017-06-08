@@ -96,6 +96,9 @@ func (s *SentContents) Push(msisdn, serviceCode string, contentCode string) {
 	s.Lock()
 	defer s.Unlock()
 
+	if s.ByKey == nil {
+		s.ByKey = make(map[string]map[string]struct{})
+	}
 	t := structs.ContentSentProperties{Msisdn: msisdn, ServiceCode: serviceCode}
 	if _, ok := s.ByKey[t.Key()]; !ok {
 		s.ByKey[t.Key()] = make(map[string]struct{})

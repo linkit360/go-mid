@@ -144,9 +144,9 @@ func (s *contents) Update(cc []xmp_api_structs.Content) (err error) {
 		if err = s.Download(c); err != nil {
 			return fmt.Errorf("Download: %s", err.Error())
 		}
-		c.Name = s.conf.ContentPath + c.Name
 
-		if _, err := os.Stat(c.Name); os.IsNotExist(err) {
+		contentPath := s.conf.ContentPath + c.Name
+		if _, err := os.Stat(contentPath); os.IsNotExist(err) {
 			return fmt.Errorf("Cannot find file: %s", err.Error())
 		}
 

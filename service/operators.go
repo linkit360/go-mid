@@ -2,6 +2,7 @@ package service
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -9,8 +10,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	m "github.com/linkit360/go-utils/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 
-	"encoding/json"
 	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
@@ -30,15 +31,17 @@ type OperatorsConfig struct {
 }
 type operators struct {
 	sync.RWMutex
-	conf     OperatorsConfig
-	notFound m.Gauge
-	ByCode   map[int64]xmp_api_structs.Operator
+	conf      OperatorsConfig
+	notFound  m.Gauge
+	loadError prometheus.Gauge
+	ByCode    map[int64]xmp_api_structs.Operator
 }
 
 func initOperators(appName string, opConf OperatorsConfig) Operators {
 	ops := &operators{
-		conf:     opConf,
-		notFound: m.NewGauge(appName, "operator", "not_found", "operator not found error"),
+		conf:      opConf,
+		notFound:  m.NewGauge(appName, "operator", "not_found", "operator not found error"),
+		loadError: m.PrometheusGauge(appName, "operator", "load_error", "operator load error"),
 	}
 	go func() {
 		for range time.Tick(time.Minute) {
@@ -57,7 +60,24 @@ func (s *operators) GetByCode(code int64) (xmp_api_structs.Operator, error) {
 
 func (s *operators) Apply(operators map[int64]xmp_api_structs.Operator) {
 	s.ByCode = make(map[int64]xmp_api_structs.Operator, len(operators))
+	s.loadError.Set(1)
 	for _, ac := range operators {
+		if ac.Name == "" {
+			s.loadError.Set(1)
+			log.Error("operator name is empty")
+			ac.Name = strings.ToLower(ac.Name)
+		}
+		if ac.Code == 0 {
+			s.loadError.Set(1)
+			log.Error("operator code is empty")
+			continue
+		}
+		if ac.CountryName == "" {
+			s.loadError.Set(1)
+			log.Error("operator country is empty")
+		} else {
+			ac.CountryName = strings.ToLower(ac.CountryName)
+		}
 		s.ByCode[ac.Code] = ac
 	}
 }
@@ -126,7 +146,7 @@ func (ops *operators) ShowLoaded() {
 	byCode, _ := json.Marshal(ops.ByCode)
 
 	log.WithFields(log.Fields{
-		"len":    len(byCode),
+		"len":    len(ops.ByCode),
 		"bycode": string(byCode),
 	}).Debug("operators")
 }

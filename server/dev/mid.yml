@@ -55,9 +55,8 @@ service:
     download_timeout: 10m
 
   content:
-    enabled: true
     from_control_panel: true
-    content_path: /var/www/xmp.linkit360.ru/web/
+    content_path: /var/www/xmp.linkit360.ru/web/uploaded_content/
     region: ap-southeast-1
     bucket: xmp-content
     download_timeout: 10m
@@ -66,7 +65,7 @@ service:
     from_control_panel: true
 
   pixel:
-    from_control_panel: false
+    from_control_panel: true
 
   operator:
     from_control_panel: true
@@ -75,7 +74,7 @@ service:
     services: false
     campaigns: false
     blacklist: false
-    operator: false
+    operators: false
     contents: false
     reporter: true
     destinations: false

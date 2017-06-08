@@ -151,6 +151,11 @@ func Init(
 
 	Svc.cqrConfig = []cqr.CQRConfig{
 		{
+			Tables:  []string{"operator"},
+			Data:    Svc.Operators,
+			Enabled: Svc.conf.Enabled.Operators,
+		},
+		{
 			Tables:  []string{"campaigns"},
 			Data:    Svc.Campaigns,
 			WebHook: Svc.conf.Campaigns.WebHook,
@@ -168,14 +173,9 @@ func Init(
 			Enabled: Svc.conf.Enabled.Contents,
 		},
 		{
-			Tables:  []string{"content_sent"},
-			Data:    Svc.SentContents,
-			Enabled: Svc.conf.Enabled.SentContents,
-		},
-		{
-			Tables:  []string{"operator"},
-			Data:    Svc.Operators,
-			Enabled: Svc.conf.Enabled.Operators,
+			Tables:  []string{"pixel_setting"},
+			Data:    Svc.PixelSettings,
+			Enabled: Svc.conf.Enabled.PixelSettings,
 		},
 		{
 			Tables:  []string{"msisdn_blacklist"},
@@ -188,14 +188,14 @@ func Init(
 			Enabled: Svc.conf.Enabled.PostPaid,
 		},
 		{
-			Tables:  []string{"pixel_setting"},
-			Data:    Svc.PixelSettings,
-			Enabled: Svc.conf.Enabled.PixelSettings,
-		},
-		{
 			Tables:  []string{"publishers"},
 			Data:    Svc.Publishers,
 			Enabled: Svc.conf.Enabled.Publishers,
+		},
+		{
+			Tables:  []string{"content_sent"},
+			Data:    Svc.SentContents,
+			Enabled: Svc.conf.Enabled.SentContents,
 		},
 		{
 			Tables:  []string{"keyword"},

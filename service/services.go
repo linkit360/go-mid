@@ -77,9 +77,6 @@ func (as *services) catchUpdates(updates <-chan xmp_api_structs.Service) {
 }
 
 func (s *services) Update(acceptorService xmp_api_structs.Service) error {
-	if !s.conf.FromControlPanel {
-		return fmt.Errorf("Disabled%s", "")
-	}
 	if acceptorService.Id == "" {
 		return fmt.Errorf("service id is empty%s", "")
 	}
@@ -110,6 +107,8 @@ func (s *services) Update(acceptorService xmp_api_structs.Service) error {
 		}
 	}
 
+	s.Lock()
+	defer s.Unlock()
 	var contentIds []string
 	for _, cids := range acceptorService.Contents {
 		contentIds = append(contentIds, cids.Id)
@@ -121,8 +120,6 @@ func (s *services) Update(acceptorService xmp_api_structs.Service) error {
 	if s.ByUUID == nil {
 		s.ByUUID = make(map[string]xmp_api_structs.Service)
 	}
-	s.Lock()
-	defer s.Unlock()
 	s.ByUUID[acceptorService.Id] = acceptorService
 	s.ByCode[acceptorService.Code] = acceptorService
 	return nil
@@ -352,9 +349,13 @@ func (s *services) Apply(svcs map[string]xmp_api_structs.Service) {
 	s.loadError.Set(0)
 	for _, v := range svcs {
 		if err := s.Update(v); err == nil {
-			// ok
+			log.WithField("id", v.Id).Debug("update service ok")
 		} else {
 			s.loadError.Set(1)
+			log.WithFields(log.Fields{
+				"id":    v.Id,
+				"error": err.Error(),
+			}).Error("update service")
 		}
 	}
 }
@@ -375,7 +376,7 @@ func (s *services) ShowLoaded() {
 	byUUID, _ := json.Marshal(s.ByUUID)
 
 	log.WithFields(log.Fields{
-		"len":    len(byCode),
+		"len":    len(s.ByUUID),
 		"bycode": string(byCode),
 		"byuuid": string(byUUID),
 	}).Debug("services")
