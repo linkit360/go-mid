@@ -7,8 +7,10 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	m "github.com/linkit360/go-utils/metrics"
 
+	"encoding/json"
 	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
@@ -19,6 +21,8 @@ type Operators interface {
 	Apply(map[int64]xmp_api_structs.Operator)
 	Update(xmp_api_structs.Operator) error
 	GetByCode(int64) (xmp_api_structs.Operator, error)
+	GetJson() string
+	ShowLoaded()
 }
 
 type OperatorsConfig struct {
@@ -112,4 +116,17 @@ func (ops *operators) Reload() error {
 		ops.ByCode[op.Code] = op
 	}
 	return nil
+}
+func (ops *operators) GetJson() string {
+	sJson, _ := json.Marshal(ops.ByCode)
+	return string(sJson)
+}
+
+func (ops *operators) ShowLoaded() {
+	byCode, _ := json.Marshal(ops.ByCode)
+
+	log.WithFields(log.Fields{
+		"len":    len(byCode),
+		"bycode": string(byCode),
+	}).Debug("operators")
 }

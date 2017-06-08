@@ -16,6 +16,7 @@ type BlackList interface {
 	Apply(blackList []string)
 	Reload() error
 	IsBlacklisted(msisdn string) bool
+	Len() int
 }
 
 type blackList struct {
@@ -102,4 +103,15 @@ func (bl *blackList) Apply(blackList []string) {
 func (bl *blackList) IsBlacklisted(msisdn string) bool {
 	_, found := bl.ByMsisdn[msisdn]
 	return found
+}
+
+func (bl *blackList) ShowLoaded() {
+	log.WithFields(log.Fields{
+		"action": "blacklist",
+		"len":    len(bl.ByMsisdn),
+	}).Info("")
+}
+
+func (bl *blackList) Len() int {
+	return len(bl.ByMsisdn)
 }

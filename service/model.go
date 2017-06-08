@@ -17,7 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/linkit360/go-utils/amqp"
-	"github.com/linkit360/go-utils/config"
+	qconf "github.com/linkit360/go-utils/config"
 	"github.com/linkit360/go-utils/cqr"
 	"github.com/linkit360/go-utils/db"
 	m "github.com/linkit360/go-utils/metrics"
@@ -57,10 +57,17 @@ type MemService struct {
 	RedirectStatCounts *RedirectStatCounts
 }
 
+type AWSConfig struct {
+	Region string `yaml:"region"`
+	Id     string `yaml:"access_key_id"`
+	Secret string `yaml:"secret_access_key"`
+}
+
 type Config struct {
 	StateFilePath string              `yaml:"state_file_path"`
 	UniqueDays    int                 `yaml:"unique_days" default:"10"`
 	StaticPath    string              `yaml:"static_path" default:""`
+	Region        string              `yaml:"region" default:"ap-southeast-1"`
 	Queue         QueuesConfig        `yaml:"queue"`
 	Services      ServicesConfig      `yaml:"service"`
 	Campaigns     CampaignsConfig     `yaml:"campaign"`
@@ -72,15 +79,17 @@ type Config struct {
 }
 
 type QueuesConfig struct {
-	ReporterHit         config.ConsumeQueueConfig `yaml:"reporter_hit"`
-	ReporterTransaction config.ConsumeQueueConfig `yaml:"reporter_transaction"`
-	ReporterPixel       config.ConsumeQueueConfig `yaml:"reporter_pixel"`
-	ReporterOutflow     config.ConsumeQueueConfig `yaml:"reporter_outflow"`
+	ReporterHit         qconf.ConsumeQueueConfig `yaml:"reporter_hit"`
+	ReporterTransaction qconf.ConsumeQueueConfig `yaml:"reporter_transaction"`
+	ReporterPixel       qconf.ConsumeQueueConfig `yaml:"reporter_pixel"`
+	ReporterOutflow     qconf.ConsumeQueueConfig `yaml:"reporter_outflow"`
 }
 
 type EnabledConfig struct {
-	Campaigns          bool `yaml:"campaigns" default:"true"`
-	Contents           bool `yaml:"contents" default:"true"`
+	Services           bool `yaml:"services"`
+	Campaigns          bool `yaml:"campaigns"`
+	Contents           bool `yaml:"contents"`
+	BlackList          bool `yaml:"blacklist"`
 	SentContents       bool `yaml:"sent_contents" default:"true"`
 	IpRanges           bool `yaml:"ip_ranges" default:"true"`
 	Operators          bool `yaml:"operators" default:"true"`
@@ -105,6 +114,7 @@ type Consumers struct {
 func Init(
 	appName string,
 	xmpAPIConf xmp_api.ClientConfig,
+	awsConfig AWSConfig,
 	svcConf Config,
 	consumerConf amqp.ConsumerConfig,
 	dbConf db.DataBaseConfig,
@@ -125,9 +135,9 @@ func Init(
 
 	Svc.reporter = initReporter(appName, svcConf.StateFilePath, svcConf.Queue, consumerConf)
 
-	Svc.Campaigns = initCampaigns(appName, svcConf.Campaigns)
+	Svc.Campaigns = initCampaigns(appName, svcConf.Campaigns, awsConfig)
 	Svc.Services = initServices(appName, svcConf.Services)
-	Svc.Contents = initContents(appName, svcConf.Contents)
+	Svc.Contents = initContents(appName, svcConf.Contents, awsConfig)
 	Svc.PixelSettings = initPixelSettings(appName, svcConf.Pixel)
 	Svc.SentContents = &SentContents{}
 	Svc.Operators = initOperators(appName, svcConf.Operator)
@@ -144,13 +154,13 @@ func Init(
 			Tables:  []string{"campaigns"},
 			Data:    Svc.Campaigns,
 			WebHook: Svc.conf.Campaigns.WebHook,
-			Enabled: true, // always enabled
+			Enabled: Svc.conf.Enabled.Campaigns, // always enabled
 		},
 		{
 			Tables: []string{"service", "service_content"},
 			Data:   Svc.Services,
 			//WebHook: Svc.conf.Services.WebHook,
-			Enabled: true, // always enabled
+			Enabled: Svc.conf.Enabled.Services, // always enabled
 		},
 		{
 			Tables:  []string{"content"},
@@ -170,7 +180,7 @@ func Init(
 		{
 			Tables:  []string{"msisdn_blacklist"},
 			Data:    Svc.BlackList,
-			Enabled: true,
+			Enabled: Svc.conf.Enabled.BlackList,
 		},
 		{
 			Tables:  []string{"msisdn_postpaid"},
@@ -215,21 +225,42 @@ func Init(
 
 	if xmpAPIConf.Enabled {
 		var xmpConfig xmp_api_structs.HandShake
-		if err := xmp_api.Call("initialization", xmpConfig); err != nil {
+
+		if err := xmp_api.Call("initialization", &xmpConfig); err != nil {
 			log.Fatal("xmp_api.Call: " + err.Error())
 		}
-		log.WithFields(log.Fields{
+
+		f := log.Fields{
 			"blacklist": len(xmpConfig.BlackList),
-			"services":  len(xmpConfig.Services),
-			"campaigns": len(xmpConfig.Campaigns),
-			"operators": len(xmpConfig.Operators),
+			"services":  fmt.Sprintf("%#v", xmpConfig.Services),
+			"campaigns": fmt.Sprintf("%#v", xmpConfig.Campaigns),
+			"operators": fmt.Sprintf("%#v", xmpConfig.Operators),
 			//"pixels":    len(xmpConfig.Pixels),
-		}).Info("xmp_api.Call OK")
-		Svc.BlackList.Apply(xmpConfig.BlackList)
-		Svc.Services.Apply(xmpConfig.Services)
-		Svc.Campaigns.Apply(xmpConfig.Campaigns)
-		Svc.Operators.Apply(xmpConfig.Operators)
-		//Svc.PixelSettings.Apply(xmpConfig.Pixels)
+			"ok": xmpConfig.Ok,
+		}
+		if xmpConfig.Error != "" {
+			f["error"] = xmpConfig.Error
+		}
+		log.WithFields(f).Info("xmp_api.Call OK")
+
+		if svcConf.BlackList.FromControlPanel {
+			Svc.BlackList.Apply(xmpConfig.BlackList)
+		}
+		if svcConf.Services.FromControlPanel {
+			Svc.Services.Apply(xmpConfig.Services)
+			Svc.Services.ShowLoaded()
+		}
+		if svcConf.Campaigns.FromControlPanel {
+			Svc.Campaigns.Apply(xmpConfig.Campaigns)
+			Svc.Campaigns.ShowLoaded()
+		}
+		if svcConf.Operator.FromControlPanel {
+			Svc.Operators.Apply(xmpConfig.Operators)
+			Svc.Operators.ShowLoaded()
+		}
+		if svcConf.Pixel.FromControlPanel {
+			//Svc.PixelSettings.Apply(xmpConfig.Pixels)
+		}
 	}
 }
 
@@ -243,6 +274,91 @@ func AddTablesHandler(r *gin.Engine) {
 
 func AddAPIGetAgregateHandler(e *gin.Engine) {
 	e.Group("api").GET("/aggregate/get", getAggregateHandler)
+}
+func AddStatusHandler(e *gin.Engine) {
+	e.Group("status").GET("/get", getStatus)
+}
+
+func getStatus(c *gin.Context) {
+	opt, ok := c.GetQuery("t")
+
+	if !ok {
+		log.WithFields(log.Fields{
+			"blacklist": Svc.BlackList.Len(),
+			"services":  Svc.Services.GetJson(),
+			"content":   Svc.Contents.GetJson(),
+			"campaigns": Svc.Campaigns.GetJson(),
+			"operators": Svc.Operators.GetJson(),
+			"pixels":    Svc.PixelSettings.GetJson(),
+		}).Info("status")
+
+		c.JSON(200, gin.H{
+			"blacklist": Svc.BlackList.Len(),
+			"services":  Svc.Services.GetJson(),
+			"content":   Svc.Contents.GetJson(),
+			"campaigns": Svc.Campaigns.GetJson(),
+			"operators": Svc.Operators.GetJson(),
+			"pixels":    Svc.PixelSettings.GetJson(),
+		})
+		return
+	}
+
+	switch opt {
+	case "blacklist":
+		log.WithFields(log.Fields{
+			"blacklist": Svc.BlackList.Len(),
+		}).Info("status")
+
+		c.JSON(200, gin.H{
+			"blacklist": Svc.BlackList.Len(),
+		})
+		return
+	case "services":
+		log.WithFields(log.Fields{
+			"services": Svc.Services.GetJson(),
+		}).Info("status")
+
+		c.JSON(200, gin.H{
+			"services": Svc.Services.GetJson(),
+		})
+		return
+	case "content":
+		log.WithFields(log.Fields{
+			"content": Svc.Contents.GetJson(),
+		}).Info("status")
+
+		c.JSON(200, gin.H{
+			"content": Svc.Contents.GetJson(),
+		})
+		return
+	case "campaigns":
+		log.WithFields(log.Fields{
+			"campaigns": Svc.Campaigns.GetJson(),
+		}).Info("status")
+
+		c.JSON(200, gin.H{
+			"campaigns": Svc.Campaigns.GetJson(),
+		})
+		return
+	case "operators":
+		log.WithFields(log.Fields{
+			"operators": Svc.Operators.GetJson(),
+		}).Info("status")
+
+		c.JSON(200, gin.H{
+			"operators": Svc.Operators.GetJson(),
+		})
+		return
+	case "pixels":
+		log.WithFields(log.Fields{
+			"pixels": Svc.PixelSettings.GetJson(),
+		}).Info("status")
+
+		c.JSON(200, gin.H{
+			"pixels": Svc.PixelSettings.GetJson(),
+		})
+		return
+	}
 }
 
 func getAggregateHandler(c *gin.Context) {
@@ -351,7 +467,6 @@ func unzip(zipBytes []byte, contentLength int64, target string) error {
 		}
 		defer fileReader.Close()
 
-		fmt.Printf("path %v\n", path)
 		targetFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 		if err != nil {
 			err = fmt.Errorf("name: %s, file.OpenFile: %s", file.Name, err.Error())
@@ -364,5 +479,6 @@ func unzip(zipBytes []byte, contentLength int64, target string) error {
 			return err
 		}
 	}
+
 	return nil
 }

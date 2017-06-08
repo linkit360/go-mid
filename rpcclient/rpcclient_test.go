@@ -85,7 +85,7 @@ func TestGetAllCampaigns(t *testing.T) {
 }
 
 func TestGetServiceByCode(t *testing.T) {
-	res, err := GetServiceByCode("421924601")
+	res, err := GetServiceByCode("23")
 	////fmt.Printf("%#v %#v", res, err)
 	assert.NoError(t, err, "Error while get service by id")
 	po := xmp_api_structs.ProviderOpts{

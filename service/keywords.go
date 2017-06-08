@@ -1,7 +1,6 @@
 package service
 
 // campaign ids by keyword in sms (yondu,etc)
-
 import (
 	"database/sql"
 	"fmt"
@@ -15,6 +14,7 @@ type KeyWords struct {
 	sync.RWMutex
 	ByKeyWord map[string]string
 }
+
 type KeyWord struct {
 	KeyWord      string `json:"key_word"`
 	CampaignCode string `json:"code_campaign"`

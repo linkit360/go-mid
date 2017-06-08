@@ -44,7 +44,7 @@ func (s *SentContents) Reload() (err error) {
 		if err = rows.Scan(
 			&record.Msisdn,
 			&record.ServiceCode,
-			&record.ContentCode,
+			&record.ContentId,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
@@ -61,7 +61,7 @@ func (s *SentContents) Reload() (err error) {
 		if _, ok := s.ByKey[sentContent.Key()]; !ok {
 			s.ByKey[sentContent.Key()] = make(map[string]struct{})
 		}
-		s.ByKey[sentContent.Key()][sentContent.ContentCode] = struct{}{}
+		s.ByKey[sentContent.Key()][sentContent.ContentId] = struct{}{}
 	}
 	return nil
 }

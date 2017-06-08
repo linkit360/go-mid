@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -22,11 +23,13 @@ type Services interface {
 	Update(xmp_api_structs.Service) error
 	GetByCode(string) (xmp_api_structs.Service, error)
 	GetAll() map[string]xmp_api_structs.Service
+	GetJson() string
+	ShowLoaded()
 }
 
 type ServicesConfig struct {
-	FromControlPanel bool `yaml:"from_control_panel"`
-	//WebHook          string `yaml:"web_hook" default:"http://localhost:50306/update"`
+	FromControlPanel bool   `yaml:"from_control_panel"`
+	WebHook          string `yaml:"web_hook" default:""`
 }
 
 type services struct {
@@ -56,17 +59,20 @@ func initServices(appName string, servConfig ServicesConfig) Services {
 }
 
 func (as *services) catchUpdates(updates <-chan xmp_api_structs.Service) {
+	as.loadError.Set(0)
 	for s := range updates {
 		if err := as.Update(s); err != nil {
 			log.WithFields(log.Fields{
 				"error": err.Error(),
 				"id":    s.Id,
 			}).Error("failed to update service")
+			as.loadError.Set(1)
 		} else {
 			log.WithFields(log.Fields{
 				"id": s.Id,
-			}).Info("update service")
+			}).Info("update service done")
 		}
+		as.ShowLoaded()
 	}
 }
 
@@ -77,24 +83,83 @@ func (s *services) Update(acceptorService xmp_api_structs.Service) error {
 	if acceptorService.Id == "" {
 		return fmt.Errorf("service id is empty%s", "")
 	}
+	if acceptorService.Code == "" {
+		return fmt.Errorf("service code is empty%s", "")
+	}
+	if err := s.setupContent(acceptorService); err != nil {
+		return fmt.Errorf("update content error: %s", err.Error())
+	}
 
-	defer s.ShowLoaded()
+	if s.conf.WebHook != "" {
+		resp, err := http.Get(s.conf.WebHook)
+		if err != nil || resp.StatusCode != 200 {
+			fields := log.Fields{
+				"webhook": s.conf.WebHook,
+			}
+			if resp != nil {
+				fields["code"] = resp.Status
+			}
+			if err != nil {
+				fields["error"] = err.Error()
+			}
+			log.WithFields(fields).Error("hook failed")
+		} else {
+			log.WithFields(log.Fields{
+				"webhook": s.conf.WebHook,
+			}).Debug("service update webhook done")
+		}
+	}
+
+	var contentIds []string
+	for _, cids := range acceptorService.Contents {
+		contentIds = append(contentIds, cids.Id)
+	}
+	acceptorService.ContentIds = contentIds
+	if s.ByCode == nil {
+		s.ByCode = make(map[string]xmp_api_structs.Service)
+	}
+	if s.ByUUID == nil {
+		s.ByUUID = make(map[string]xmp_api_structs.Service)
+	}
+	s.Lock()
+	defer s.Unlock()
+	s.ByUUID[acceptorService.Id] = acceptorService
+	s.ByCode[acceptorService.Code] = acceptorService
+	return nil
+}
+
+func (s *services) setupContent(acceptorService xmp_api_structs.Service) error {
 	// проверить весь контент и обновить только то, что новенькое -
 	// в панели управления запрещено редактировать контент
 	// поэтому у отредактированных контентов - новый айдишник
 	var newContents []xmp_api_structs.Content
-	for _, oldServiceContent := range acceptorService.Contents {
-		if _, err := Svc.Contents.GetById(oldServiceContent.Id); err != nil {
-			newContents = append(newContents)
+	for _, serviceContent := range acceptorService.Contents {
+		if _, err := Svc.Contents.GetById(serviceContent.Id); err != nil {
+			if serviceContent.Id == "" {
+				return fmt.Errorf("ContentId is empty%s", "")
+			}
+			if serviceContent.Name == "" {
+				return fmt.Errorf("Content Name is empty%s", "")
+			}
+			newContents = append(newContents, serviceContent)
 		}
+	}
+	if len(newContents) > 0 {
+		log.WithFields(log.Fields{
+			"content": len(newContents),
+			"id":      acceptorService.Id,
+			"action":  "update service",
+		}).Debug("found new content")
+	} else {
+		log.WithFields(log.Fields{
+			"id":     acceptorService.Id,
+			"action": "update service",
+		}).Debug("no new content")
 	}
 
 	if err := Svc.Contents.Update(newContents); err != nil {
 		return fmt.Errorf("Update: %s", err.Error())
 	}
-
-	s.ByUUID[acceptorService.Id] = acceptorService
-	s.updateOnUUID()
 	return nil
 }
 
@@ -254,7 +319,12 @@ func (s *services) loadFromCache() (err error) {
 		serviceContents[v.Id] = v
 	}
 
-	s.Apply(serviceContents)
+	s.ByUUID = make(map[string]xmp_api_structs.Service, len(svcs))
+	s.ByCode = make(map[string]xmp_api_structs.Service, len(s.ByUUID))
+	for _, v := range serviceContents {
+		s.ByUUID[v.Id] = v
+		s.ByCode[v.Code] = v
+	}
 	return nil
 }
 
@@ -272,22 +342,20 @@ func (s *services) Reload() (err error) {
 		err = fmt.Errorf("s.getFromCache: %s", err.Error())
 		return
 	}
+
 	return nil
 }
 
 func (s *services) Apply(svcs map[string]xmp_api_structs.Service) {
 	s.ByUUID = make(map[string]xmp_api_structs.Service, len(svcs))
+	s.ByCode = make(map[string]xmp_api_structs.Service, len(svcs))
+	s.loadError.Set(0)
 	for _, v := range svcs {
-		s.ByUUID[v.Id] = v
-	}
-	s.updateOnUUID()
-}
-
-func (s *services) updateOnUUID() {
-	s.ByCode = make(map[string]xmp_api_structs.Service, len(s.ByUUID))
-
-	for _, v := range s.ByUUID {
-		s.ByCode[v.Code] = v
+		if err := s.Update(v); err == nil {
+			// ok
+		} else {
+			s.loadError.Set(1)
+		}
 	}
 }
 
@@ -304,10 +372,17 @@ func (s *services) GetAll() map[string]xmp_api_structs.Service {
 
 func (s *services) ShowLoaded() {
 	byCode, _ := json.Marshal(s.ByCode)
+	byUUID, _ := json.Marshal(s.ByUUID)
 
 	log.WithFields(log.Fields{
-		"action": "services",
 		"len":    len(byCode),
 		"bycode": string(byCode),
-	}).Debug("")
+		"byuuid": string(byUUID),
+	}).Debug("services")
+	Svc.Contents.ShowLoaded()
+}
+
+func (s *services) GetJson() string {
+	sJson, _ := json.Marshal(s.ByUUID)
+	return string(sJson)
 }

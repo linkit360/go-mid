@@ -22,6 +22,7 @@ type ServerConfig struct {
 type AppConfig struct {
 	AppName    string               `yaml:"app_name"`
 	Server     ServerConfig         `yaml:"server"`
+	AWS        service.AWSConfig    `yaml:"aws"`
 	XMPAPIConf xmp_api.ClientConfig `yaml:"xmp_api"`
 	Service    service.Config       `yaml:"service"`
 	DbConf     db.DataBaseConfig    `yaml:"db"`
@@ -51,6 +52,7 @@ func LoadConfig() AppConfig {
 	appConfig.Server.RPCPort = envString("PORT", appConfig.Server.RPCPort)
 	appConfig.Server.HttpPort = envString("METRICS_PORT", appConfig.Server.HttpPort)
 
+	fmt.Printf("env:" + os.Getenv("AWS_SDK_LOAD_CONFIG"))
 	log.WithField("config", fmt.Sprintf("%#v", appConfig)).Info("Config loaded")
 	return appConfig
 }

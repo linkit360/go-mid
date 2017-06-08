@@ -22,6 +22,7 @@ type PixelSettings interface {
 	GetByKey(string) (PixelSetting, error)
 	GetByCampaignCode(string) (PixelSetting, error)
 	ByKeyWithRatio(string) (PixelSetting, error)
+	GetJson() string
 }
 
 type PixelSettingsConfig struct {
@@ -57,6 +58,11 @@ func (ps *PixelSetting) Load(as xmp_api_structs.PixelSetting) {
 	psBytes, _ := json.Marshal(as)
 	json.Unmarshal(psBytes, &ps)
 	return
+}
+
+func (s *pixelSettings) GetJson() string {
+	sJson, _ := json.Marshal(s.ByUUID)
+	return string(sJson)
 }
 
 func initPixelSettings(appName string, pixelConf PixelSettingsConfig) PixelSettings {

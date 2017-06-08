@@ -49,5 +49,5 @@ operators:
 tables:
 	curl http://localhost:50308/tables
 
-call:
-	curl -H 'Content-Type: application/json' -H 'Accept: application/json' --data-binary '{"jsonrpc":"1.0","id":"curltext","method":"SVC.ByHash","params":{ "hash": "f90f2aca5c640289d0a29417bcb63a37"}}' -H 'content-type:text/plain;' http://localhost:50307/
+update_service:
+	curl -X POST -H 'Content-Type: application/json' --data-binary '{"type": "service.new", "data": "{\"id\":\"edf52693-97f1-48c2-a59e-eeee4814df02\",\"title\":\"zzzzzzzzz\",\"description\":v"zzzzzzzzzzz\",\"price\":23434,\"contents\":[{\"id\":\"527b8c57-6ee9-4af8-8fa2-180921698765\",\"title\":\"test-content51\",\"name\":\"file\"}],\"sms_on_content\":\"Привет Лена!\"}" }' http://localhost:50319/update

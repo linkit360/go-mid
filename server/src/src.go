@@ -24,6 +24,7 @@ func Run() {
 	service.Init(
 		appConfig.AppName,
 		appConfig.XMPAPIConf,
+		appConfig.AWS,
 		appConfig.Service,
 		appConfig.Consumer,
 		appConfig.DbConf,
@@ -43,6 +44,7 @@ func runGin(appConfig config.AppConfig) {
 	service.AddCQRHandlers(r)
 	service.AddTablesHandler(r)
 	service.AddAPIGetAgregateHandler(r)
+	service.AddStatusHandler(r)
 	m.AddHandler(r)
 
 	r.Run(":" + appConfig.Server.HttpPort)

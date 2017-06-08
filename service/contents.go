@@ -12,6 +12,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -27,32 +28,43 @@ type Contents interface {
 	Download(xmp_api_structs.Content) error
 	Reload() error
 	GetById(string) (xmp_api_structs.Content, error)
+	GetJson() string
+	ShowLoaded()
 }
 
 type contents struct {
 	sync.RWMutex
-	conf      ContentConfig
-	s3dl      *s3manager.Downloader
-	ByUUID    map[string]xmp_api_structs.Content
-	loadError prometheus.Gauge
+	conf            ContentConfig
+	s3dl            *s3manager.Downloader
+	ByUUID          map[string]xmp_api_structs.Content
+	loadError       prometheus.Gauge
+	awsSessionError prometheus.Gauge
 }
 
 type ContentConfig struct {
 	FromControlPanel bool          `yaml:"from_control_panel"`
 	ContentPath      string        `yaml:"content_path"`
-	Region           string        `yaml:"region" default:"ap-southeast-1"`
 	Bucket           string        `yaml:"bucket" default:"xmp-content"`
 	DownloadTimeout  time.Duration `yaml:"download_timeout" default:"10m"` // 10 minutes
 }
 
-func initContents(appName string, contentConf ContentConfig) Contents {
+func initContents(appName string, contentConf ContentConfig, awsConfig AWSConfig) Contents {
 	contentSvc := &contents{
-		conf:      contentConf,
-		loadError: m.PrometheusGauge(appName, "content_load", "error", "load content error"),
+		conf:            contentConf,
+		loadError:       m.PrometheusGauge(appName, "content_load", "error", "load content error"),
+		awsSessionError: m.PrometheusGauge(appName, "aws_session_contents", "error", "aws session init error"),
 	}
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(contentConf.Region),
-	}))
+
+	sess, err := session.NewSession(&aws.Config{
+		Region:      aws.String(Svc.conf.Region),
+		Credentials: credentials.NewStaticCredentials(awsConfig.Id, awsConfig.Secret, ""),
+	})
+	if err != nil {
+		contentSvc.awsSessionError.Set(1)
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("aws load")
+	}
 	contentSvc.s3dl = s3manager.NewDownloader(sess)
 
 	return contentSvc
@@ -132,33 +144,37 @@ func (s *contents) Update(cc []xmp_api_structs.Content) (err error) {
 		if err = s.Download(c); err != nil {
 			return fmt.Errorf("Download: %s", err.Error())
 		}
-		c.Name = s.conf.ContentPath + "/" + c.Name
+		c.Name = s.conf.ContentPath + c.Name
 
 		if _, err := os.Stat(c.Name); os.IsNotExist(err) {
-			return fmt.Errorf("Unzip: %s", err.Error())
+			return fmt.Errorf("Cannot find file: %s", err.Error())
 		}
 
+		// only in content need this
+		if s.ByUUID == nil {
+			s.ByUUID = make(map[string]xmp_api_structs.Content)
+		}
 		s.ByUUID[c.Id] = c
 	}
 
 	return nil
 }
 
-func (s *contents) getSlice(in map[string]xmp_api_structs.Content) (res []xmp_api_structs.Content) {
-	for _, v := range in {
-		res = append(res, v)
-	}
-	return res
-}
-
 func (s *contents) loadFromCache() (err error) {
 	query := fmt.Sprintf("SELECT "+
-		"id, "+
+		"%scontent.id, "+
 		"object, "+
 		"content_name "+
-		"FROM %scontent "+
-		"WHERE status = $1",
-		Svc.dbConf.TablePrefix)
+		"FROM %scontent, %sservice_content, %sservices "+
+		"WHERE %scontent.status = $1 "+
+		"AND xmp_services.id = xmp_service_content.id_service "+
+		"AND xmp_service_content.id_content = xmp_content.id",
+		Svc.dbConf.TablePrefix,
+		Svc.dbConf.TablePrefix,
+		Svc.dbConf.TablePrefix,
+		Svc.dbConf.TablePrefix,
+		Svc.dbConf.TablePrefix,
+	)
 
 	var rows *sql.Rows
 	rows, err = Svc.db.Query(query, ACTIVE_STATUS)
@@ -220,5 +236,10 @@ func (s *contents) GetById(id string) (xmp_api_structs.Content, error) {
 
 func (s *contents) ShowLoaded() {
 	contentJson, _ := json.Marshal(s.ByUUID)
-	log.WithField("byid", string(contentJson)).Debug()
+	log.WithField("byid", string(contentJson)).Debug("content")
+}
+
+func (s *contents) GetJson() string {
+	sJson, _ := json.Marshal(s.ByUUID)
+	return string(sJson)
 }
