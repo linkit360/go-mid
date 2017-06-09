@@ -65,7 +65,7 @@ service:
     from_control_panel: true
 
   pixel:
-    from_control_panel: true
+    from_control_panel: false
 
   operator:
     from_control_panel: true

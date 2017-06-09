@@ -23,6 +23,7 @@ import (
 	m "github.com/linkit360/go-utils/metrics"
 	xmp_api "github.com/linkit360/xmp-api/src/client"
 	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
+	"strings"
 )
 
 var Svc MemService
@@ -64,6 +65,7 @@ type AWSConfig struct {
 }
 
 type Config struct {
+	CountryName   string              `yaml:"country_name"` // get them from control panel, otherwise from config
 	StateFilePath string              `yaml:"state_file_path"`
 	UniqueDays    int                 `yaml:"unique_days" default:"10"`
 	StaticPath    string              `yaml:"static_path" default:""`
@@ -261,6 +263,7 @@ func Init(
 		if svcConf.Pixel.FromControlPanel {
 			//Svc.PixelSettings.Apply(xmpConfig.Pixels)
 		}
+		Svc.conf.CountryName = strings.ToLower(xmpConfig.Country.Name)
 	}
 }
 
@@ -481,4 +484,8 @@ func unzip(zipBytes []byte, contentLength int64, target string) error {
 	}
 
 	return nil
+}
+
+func GetCountry() string {
+	return Svc.conf.CountryName
 }

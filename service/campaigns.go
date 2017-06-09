@@ -91,8 +91,9 @@ func (camp *сampaigns) catchUpdates(updates <-chan xmp_api_structs.Campaign) {
 		if err := camp.Update(s); err != nil {
 			camp.loadError.Set(1)
 			log.WithFields(log.Fields{
-				"error": err.Error(),
-				"id":    s.Id,
+				"error":    err.Error(),
+				"campaign": fmt.Sprintf("%#v", s),
+				"id":       s.Id,
 			}).Error("failed to update campaign")
 		} else {
 			log.WithFields(log.Fields{
@@ -230,6 +231,18 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 	if ac.Hash == "" {
 		ac.Hash = ac.Id
 	}
+	if ac.Status == 0 {
+		s.Lock()
+		delete(s.ByUUID, ac.Id)
+		delete(s.ByHash, ac.Id)
+		delete(s.ByLink, ac.Link)
+		delete(s.ByCode, ac.Code)
+		s.Unlock()
+		log.WithFields(log.Fields{
+			"id": ac.Id,
+		}).Debug("campaign deleted")
+		return nil
+	}
 	if c, ok := s.ByUUID[ac.Id]; ok {
 		if c.Lp != ac.Lp && c.Lp != "" {
 			log.WithFields(log.Fields{
@@ -240,6 +253,10 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 			if err := s.Download(ac); err != nil {
 				return fmt.Errorf("Download: %s", err.Error())
 			}
+		}
+	} else {
+		if err := s.Download(ac); err != nil {
+			return fmt.Errorf("Download: %s", err.Error())
 		}
 	}
 
@@ -258,6 +275,7 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 		s.ByLink = make(map[string]Campaign)
 		s.ByHash = make(map[string]Campaign)
 	}
+
 	if s.ByServiceCode == nil {
 		s.ByServiceCode = make(map[string][]Campaign)
 	}
@@ -265,6 +283,11 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 		s.ByUUID[ac.Id] = ac
 	}
 
+	serv, err := Svc.Services.GetById(ac.ServiceId)
+	if err != nil {
+		return fmt.Errorf("unknown service id: %s", ac.ServiceId)
+	}
+	ac.ServiceCode = serv.Code
 	campaign := Campaign{}
 	campaign.Load(ac)
 	s.ByUUID[campaign.Id] = ac

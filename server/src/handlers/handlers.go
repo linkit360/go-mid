@@ -10,8 +10,8 @@ import (
 	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
-type GetAllParams struct {
-}
+type GetAllParams struct{}
+
 type GetAllCampaignsResponse struct {
 	Campaigns map[string]service.Campaign `json:"campaigns,omitempty"`
 }
@@ -349,6 +349,11 @@ func (rpc *Operator) ByCode(
 		return nil
 	}
 	*res = operator
+	success.Inc()
+	return nil
+}
+func (rpc *Operator) GetCountry(req GetAllParams, res *string) error {
+	*res = service.GetCountry()
 	success.Inc()
 	return nil
 }

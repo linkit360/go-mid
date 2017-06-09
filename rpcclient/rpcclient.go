@@ -232,7 +232,15 @@ func GetOperatorByCode(code int64) (xmp_api_structs.Operator, error) {
 
 	return operator, err
 }
-
+func GetCountryName() string {
+	var country string
+	call(
+		"Operator.GetCountry",
+		handlers.GetAllParams{},
+		&country,
+	)
+	return country
+}
 func GetServiceByCode(serviceCode string) (xmp_api_structs.Service, error) {
 	var svc xmp_api_structs.Service
 	err := call(

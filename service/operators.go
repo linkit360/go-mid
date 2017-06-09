@@ -72,12 +72,6 @@ func (s *operators) Apply(operators map[int64]xmp_api_structs.Operator) {
 			log.Error("operator code is empty")
 			continue
 		}
-		if ac.CountryName == "" {
-			s.loadError.Set(1)
-			log.Error("operator country is empty")
-		} else {
-			ac.CountryName = strings.ToLower(ac.CountryName)
-		}
 		s.ByCode[ac.Code] = ac
 	}
 }
@@ -118,12 +112,10 @@ func (ops *operators) Reload() error {
 		if err = rows.Scan(
 			&operator.Name,
 			&operator.Code,
-			&operator.CountryName,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return err
 		}
-		operator.CountryName = strings.ToLower(operator.CountryName)
 		operator.Name = strings.ToLower(operator.Name)
 		operators = append(operators, operator)
 	}

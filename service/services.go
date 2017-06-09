@@ -22,6 +22,7 @@ type Services interface {
 	Apply(map[string]xmp_api_structs.Service)
 	Update(xmp_api_structs.Service) error
 	GetByCode(string) (xmp_api_structs.Service, error)
+	GetById(string) (xmp_api_structs.Service, error)
 	GetAll() map[string]xmp_api_structs.Service
 	GetJson() string
 	ShowLoaded()
@@ -85,6 +86,16 @@ func (s *services) Update(acceptorService xmp_api_structs.Service) error {
 	}
 	if err := s.setupContent(acceptorService); err != nil {
 		return fmt.Errorf("update content error: %s", err.Error())
+	}
+	if acceptorService.Status == 0 {
+		s.Lock()
+		delete(s.ByUUID, acceptorService.Id)
+		delete(s.ByCode, acceptorService.Code)
+		s.Unlock()
+		log.WithFields(log.Fields{
+			"id": acceptorService.Id,
+		}).Debug("service deleted")
+		return nil
 	}
 
 	if s.conf.WebHook != "" {
@@ -358,6 +369,12 @@ func (s *services) Apply(svcs map[string]xmp_api_structs.Service) {
 			}).Error("update service")
 		}
 	}
+}
+func (s *services) GetById(serviceId string) (xmp_api_structs.Service, error) {
+	if svc, ok := s.ByUUID[serviceId]; ok {
+		return svc, nil
+	}
+	return xmp_api_structs.Service{}, errNotFound()
 }
 
 func (s *services) GetByCode(serviceCode string) (xmp_api_structs.Service, error) {
