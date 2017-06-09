@@ -91,11 +91,8 @@ func (ops *operators) Reload() error {
 	var err error
 	query := fmt.Sprintf("SELECT "+
 		"name, "+
-		"code,  "+
-		"( SELECT %scountries.name as country_name FROM %scountries WHERE country_code = code ) "+
+		"code  "+
 		"FROM %soperators",
-		Svc.dbConf.TablePrefix,
-		Svc.dbConf.TablePrefix,
 		Svc.dbConf.TablePrefix,
 	)
 	var rows *sql.Rows

@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -23,7 +24,6 @@ import (
 	m "github.com/linkit360/go-utils/metrics"
 	xmp_api "github.com/linkit360/xmp-api/src/client"
 	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
-	"strings"
 )
 
 var Svc MemService
@@ -454,12 +454,27 @@ func unzip(zipBytes []byte, contentLength int64, target string) error {
 
 	for _, file := range reader.File {
 		log.WithFields(log.Fields{
-			"file": target + "/" + file.Name,
+			"file": target + file.Name,
 		}).Debug("unzip")
 
 		path := filepath.Join(target, file.Name)
-		if file.FileInfo().IsDir() {
-			os.MkdirAll(path, file.Mode())
+
+		log.WithFields(log.Fields{
+			"dir":          file.FileInfo().IsDir(),
+			"filepath_dir": filepath.Dir(path),
+			"target":       filepath.Dir(target),
+		}).Debug(file.Name)
+
+		flagNeedCreateDir := false
+		if _, err := os.Stat(filepath.Dir(path)); os.IsNotExist(err) {
+			flagNeedCreateDir = true
+		}
+
+		if file.FileInfo().IsDir() || flagNeedCreateDir {
+			if err := os.MkdirAll(path, 0755); err != nil {
+				err = fmt.Errorf("File: %s, unzip path: %s, os.MkdirAll: %s", file.Name, path, err.Error())
+				return err
+			}
 			continue
 		}
 
@@ -469,6 +484,7 @@ func unzip(zipBytes []byte, contentLength int64, target string) error {
 			return err
 		}
 		defer fileReader.Close()
+		//log.WithFields(log.Fields{}).Debug("file opened")
 
 		targetFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 		if err != nil {
@@ -477,10 +493,12 @@ func unzip(zipBytes []byte, contentLength int64, target string) error {
 		}
 		defer targetFile.Close()
 
+		//log.WithFields(log.Fields{}).Debug("prepare to copy")
 		if _, err := io.Copy(targetFile, fileReader); err != nil {
 			err = fmt.Errorf("name: %s, io.Copy: %s", file.Name, err.Error())
 			return err
 		}
+		//log.WithFields(log.Fields{}).Debug("copied")
 	}
 
 	return nil

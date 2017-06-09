@@ -50,7 +50,7 @@ service:
   campaign:
     from_control_panel: true
     webhook: http://localhost:50300/updateTemplates
-    landing_path: /var/www/xmp.linkit360.ru/web/
+    landing_path: /var/www/xmp.linkit360.ru/web/campaign/
     bucket: xmp-lp
     download_timeout: 10m
 
@@ -82,8 +82,8 @@ service:
 
 db:
   conn_ttl: -1
-  max_open_conns: 15
-  max_idle_conns: 10
+  max_open_conns: 3
+  max_idle_conns: 1
   timeout: 30
   name: linkit_dev
   user: linkit

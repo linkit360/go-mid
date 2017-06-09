@@ -23,6 +23,7 @@ import (
 	m "github.com/linkit360/go-utils/metrics"
 	xmp_api_client "github.com/linkit360/xmp-api/src/client"
 	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
+	"os"
 )
 
 type Campaigns interface {
@@ -173,7 +174,8 @@ func (s *сampaigns) Download(c xmp_api_structs.Campaign) (err error) {
 		"len": len(buff.Bytes()),
 	}).Debug("unzip...")
 
-	if err = unzip(buff.Bytes(), contentLength, s.conf.LandingsPath); err != nil {
+	unzipPath := s.conf.LandingsPath + c.Id + "/"
+	if err = unzip(buff.Bytes(), contentLength, unzipPath); err != nil {
 		err = fmt.Errorf("%s: unzip: %s", c.Id, err.Error())
 
 		log.WithFields(log.Fields{
@@ -182,10 +184,23 @@ func (s *сampaigns) Download(c xmp_api_structs.Campaign) (err error) {
 		}).Error("failed to unzip object")
 		return
 	}
+
+	fromPath := unzipPath + "index.html"
+	toPath := unzipPath + c.Id + ".html"
+	if err := os.Rename(fromPath, toPath); err != nil {
+		err = fmt.Errorf("os.Rename: %s", err.Error())
+		log.WithFields(log.Fields{
+			"id":       c.Id,
+			"fromPath": fromPath,
+			"toPath":   toPath,
+			"error":    err.Error(),
+		}).Error("failed to rename index")
+	}
+
 	log.WithFields(log.Fields{
 		"id":  c.Id,
 		"len": len(buff.Bytes()),
-	}).Info("unzip done")
+	}).Info("unpack campaign done")
 	return
 }
 
@@ -200,7 +215,7 @@ func (camp *Campaign) SimpleServe(c *gin.Context, data interface{}) {
 	}).Debug("serve")
 
 	c.Writer.Header().Set("Content-Type", "text/html; charset-utf-8")
-	c.HTML(http.StatusOK, camp.PageWelcome+".html", data)
+	c.HTML(http.StatusOK, camp.Id+".html", data)
 }
 
 func (camp *Campaign) incRatio() {
