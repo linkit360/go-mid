@@ -7,8 +7,8 @@ import (
 	"os"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 
 	m "github.com/linkit360/go-utils/metrics"
 	"github.com/linkit360/go-utils/zip"
@@ -33,6 +33,7 @@ type blackList struct {
 
 type BlackListConfig struct {
 	FromControlPanel bool   `yaml:"from_control_panel"`
+	BlackListBucket  string `yaml:"bucket"`
 	BlackListTempDir string `yaml:"zip_temp_dir"`
 }
 
@@ -131,22 +132,17 @@ func (bl *blackList) LoadFromAws(bucket, key string) (err error) {
 
 	buff, size, err := Svc.downloader.Download(bucket, key)
 	if err != nil {
+		err = fmt.Errorf("Blacklist Download: %s", err.Error())
 		return
 	}
 
 	fileList, err := zip.Unzip(buff, size, bl.conf.BlackListTempDir)
 	if err != nil {
 		err = fmt.Errorf("Blacklist unzip: %s", err.Error())
-
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("failed to unzip")
 		return
 	}
 	if len(fileList) != 1 {
-		log.WithFields(log.Fields{
-			"error": "unexpected blacklist file",
-		}).Error("failed to unzip")
+		err = fmt.Errorf("unexpected blacklist count of files: %d", len(fileList))
 		return
 	}
 	fid, err := os.Open(fileList[0])
@@ -160,8 +156,8 @@ func (bl *blackList) LoadFromAws(bucket, key string) (err error) {
 		msisdn := scanner.Text()
 		bl.Add(msisdn)
 	}
-	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "scanner.Err: %s", err.Error())
+	if err = scanner.Err(); err != nil {
+		err = fmt.Errorf("scanner.Err: %s", err.Error())
 		return err
 	}
 

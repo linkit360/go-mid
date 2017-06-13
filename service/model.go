@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	cache "github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/linkit360/go-utils/amqp"
 	"github.com/linkit360/go-utils/aws"
@@ -238,7 +238,11 @@ func Init(
 		log.WithFields(f).Info("xmp_api.Call OK")
 
 		if svcConf.BlackList.FromControlPanel {
-			Svc.BlackList.Apply(xmpConfig.BlackList)
+			if err := Svc.BlackList.LoadFromAws(svcConf.BlackList.BlackListBucket, xmpConfig.BlackList); err != nil {
+				log.WithFields(log.Fields{
+					"error": err.Error(),
+				}).Error("load blacklist")
+			}
 		}
 		if svcConf.Services.FromControlPanel {
 			Svc.Services.Apply(xmpConfig.Services)

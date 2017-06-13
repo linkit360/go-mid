@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	m "github.com/linkit360/go-utils/metrics"
 	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"

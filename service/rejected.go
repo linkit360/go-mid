@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	cache "github.com/patrickmn/go-cache"
+	log "github.com/sirupsen/logrus"
 )
 
 func initPrevSubscriptionsCache() {

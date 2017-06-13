@@ -7,8 +7,8 @@ import (
 	"net/rpc/jsonrpc"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/linkit360/go-mid/server/src/handlers"
 	"github.com/linkit360/go-mid/service"

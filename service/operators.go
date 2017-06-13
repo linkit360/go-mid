@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	m "github.com/linkit360/go-utils/metrics"
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 
 	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )

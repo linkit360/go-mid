@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 
 	m "github.com/linkit360/go-utils/metrics"
 	"github.com/linkit360/go-utils/zip"

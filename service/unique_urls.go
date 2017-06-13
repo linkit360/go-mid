@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/linkit360/go-utils/structs"
+	log "github.com/sirupsen/logrus"
 )
 
 type UniqueUrls struct {
