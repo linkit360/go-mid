@@ -1,19 +1,23 @@
 package service
 
 import (
+	"bufio"
 	"database/sql"
 	"fmt"
+	"os"
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/prometheus/client_golang/prometheus"
 
 	m "github.com/linkit360/go-utils/metrics"
+	"github.com/linkit360/go-utils/zip"
 )
 
 type BlackList interface {
 	Add(string) error
 	Apply(blackList []string)
+	LoadFromAws(bucket, key string) error
 	Reload() error
 	IsBlacklisted(msisdn string) bool
 	Len() int
@@ -28,7 +32,8 @@ type blackList struct {
 }
 
 type BlackListConfig struct {
-	FromControlPanel bool `yaml:"from_control_panel"`
+	FromControlPanel bool   `yaml:"from_control_panel"`
+	BlackListTempDir string `yaml:"zip_temp_dir"`
 }
 
 func initBlackList(appName string, c BlackListConfig) *blackList {
@@ -43,6 +48,9 @@ func (bl *blackList) Add(msisdn string) error {
 	if !bl.conf.FromControlPanel {
 		return fmt.Errorf("Disabled%s", "")
 	}
+
+	bl.Lock()
+	defer bl.Unlock()
 	bl.ByMsisdn[msisdn] = struct{}{}
 	return nil
 }
@@ -94,6 +102,9 @@ func (bl *blackList) Reload() error {
 }
 
 func (bl *blackList) Apply(blackList []string) {
+	bl.Lock()
+	defer bl.Unlock()
+
 	bl.ByMsisdn = make(map[string]struct{}, len(blackList))
 	for _, msisdn := range blackList {
 		bl.ByMsisdn[msisdn] = struct{}{}
@@ -114,4 +125,45 @@ func (bl *blackList) ShowLoaded() {
 
 func (bl *blackList) Len() int {
 	return len(bl.ByMsisdn)
+}
+
+func (bl *blackList) LoadFromAws(bucket, key string) (err error) {
+
+	buff, size, err := Svc.downloader.Download(bucket, key)
+	if err != nil {
+		return
+	}
+
+	fileList, err := zip.Unzip(buff, size, bl.conf.BlackListTempDir)
+	if err != nil {
+		err = fmt.Errorf("Blacklist unzip: %s", err.Error())
+
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Error("failed to unzip")
+		return
+	}
+	if len(fileList) != 1 {
+		log.WithFields(log.Fields{
+			"error": "unexpected blacklist file",
+		}).Error("failed to unzip")
+		return
+	}
+	fid, err := os.Open(fileList[0])
+	if err != nil {
+		err = fmt.Errorf("os.Open: %s, path: %s", err.Error(), fileList[0])
+		return
+	}
+	defer fid.Close()
+	scanner := bufio.NewScanner(fid)
+	for scanner.Scan() {
+		msisdn := scanner.Text()
+		bl.Add(msisdn)
+	}
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintln(os.Stderr, "scanner.Err: %s", err.Error())
+		return err
+	}
+
+	return nil
 }

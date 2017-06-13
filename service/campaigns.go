@@ -1,28 +1,20 @@
 package service
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 
 	m "github.com/linkit360/go-utils/metrics"
+	"github.com/linkit360/go-utils/zip"
 	xmp_api_client "github.com/linkit360/xmp-api/src/client"
 	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
@@ -42,12 +34,11 @@ type Campaigns interface {
 }
 
 type CampaignsConfig struct {
-	FromControlPanel bool          `yaml:"from_control_panel"`
-	WebHook          string        `yaml:"webhook" default:"http://localhost:50300/updateTemplates"`
-	LandingsPath     string        `yaml:"landing_path"`
-	LandingsReload   bool          `yaml:"landing_reload"` // remove old downloaded lp-s and get new
-	Bucket           string        `yaml:"bucket" default:"xmp-lp"`
-	DownloadTimeout  time.Duration `yaml:"download_timeout" default:"10m"` // 10 minutes
+	FromControlPanel bool   `yaml:"from_control_panel"`
+	WebHook          string `yaml:"webhook" default:"http://localhost:50300/updateTemplates"`
+	LandingsPath     string `yaml:"landing_path"`
+	LandingsReload   bool   `yaml:"landing_reload"` // remove old downloaded lp-s and get new
+	Bucket           string `yaml:"bucket" default:"xmp-lp"`
 }
 
 type Campaign struct {
@@ -91,7 +82,6 @@ func (camp *Campaign) incRatio() {
 type сampaigns struct {
 	sync.RWMutex
 	conf            CampaignsConfig
-	s3dl            *s3manager.Downloader
 	loadError       prometheus.Gauge
 	awsSessionError prometheus.Gauge
 	notFound        m.Gauge
@@ -102,27 +92,13 @@ type сampaigns struct {
 	ByServiceCode   map[string][]Campaign
 }
 
-func initCampaigns(appName string, campConfig CampaignsConfig, awsConfig AWSConfig) Campaigns {
+func initCampaigns(appName string, campConfig CampaignsConfig) Campaigns {
 	campaigns := &сampaigns{
 		conf:            campConfig,
 		loadError:       m.PrometheusGauge(appName, "campaigns_load", "error", "load campaigns error"),
 		awsSessionError: m.PrometheusGauge(appName, "campaigns_aws_session", "error", "aws session campaigns error"),
 		notFound:        m.NewGauge(appName, "campaign", "not_found", "campaign not found error"),
 	}
-	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String(Svc.conf.Region),
-		Credentials: credentials.NewStaticCredentials(awsConfig.Id, awsConfig.Secret, ""),
-	})
-	if err != nil {
-		campaigns.awsSessionError.Set(1)
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("aws load")
-	} else {
-		campaigns.awsSessionError.Set(0)
-	}
-	campaigns.s3dl = s3manager.NewDownloader(sess)
-
 	go func() {
 		for range time.Tick(time.Minute) {
 			campaigns.notFound.Update()
@@ -160,103 +136,33 @@ func (s *сampaigns) Download(c xmp_api_structs.Campaign) (err error) {
 		"lp": c.Lp,
 	}).Debug("campaign land check..")
 
-	if fs, err := os.Stat(filepath.Dir(unzipPath)); os.IsNotExist(err) {
-		// ok
-	} else {
-		if err != nil {
-			log.WithFields(log.Fields{
-				"id":    c.Id,
-				"error": err.Error(),
-			}).Error("campaign stat is nok, try to cleanup")
-			// try to clean up
-			if err = os.RemoveAll(unzipPath); err != nil {
-				err = fmt.Errorf("os.RemoveAll: %s", err.Error())
-				log.WithFields(log.Fields{
-					"id":    c.Id,
-					"error": err.Error(),
-				}).Error("campaign cleanup failed")
-				return err
-			}
-		} else {
-			// if we configured to reload, reload land, otherwise return
-			if s.conf.LandingsReload {
-				if err = os.RemoveAll(unzipPath); err != nil {
-					err = fmt.Errorf("os.RemoveAll: %s", err.Error())
-					log.WithFields(log.Fields{
-						"id":    c.Id,
-						"error": err.Error(),
-					}).Error("campaign remove failed")
-					return err
-				} else {
-					log.WithFields(log.Fields{
-						"id": c.Id,
-					}).Debug("campaign cleaned")
-				}
-			} else {
-				if fs.Size() > 0 {
-					log.WithFields(log.Fields{
-						"id":   c.Id,
-						"size": fs.Size(),
-					}).Info("campaign already downloaded")
-					return nil
-				} else {
-					log.WithFields(log.Fields{
-						"id":   c.Id,
-						"size": fs.Size(),
-					}).Warn("campaign folder exists but empty")
-				}
-			}
-		}
-	}
-
-	ctx := context.Background()
-	var cancelFn func()
-	if s.conf.DownloadTimeout > 0 {
-		ctx, cancelFn = context.WithTimeout(ctx, s.conf.DownloadTimeout)
-	}
-	// Ensure the context is canceled to prevent leaking.
-	// See context package for more information, https://golang.org/pkg/context/
-	defer cancelFn()
-	buff := &aws.WriteAtBuffer{}
-
-	var contentLength int64
-	contentLength, err = s.s3dl.DownloadWithContext(ctx, buff, &s3.GetObjectInput{
-		Bucket: aws.String(s.conf.Bucket),
-		Key:    aws.String(c.Lp),
-	})
-
+	should, err := Svc.downloader.ShouldDownload(unzipPath, s.conf.LandingsReload)
 	if err != nil {
-		err = fmt.Errorf("Download: %s, error: %s", c.Id, err.Error())
-		aerr, ok := err.(awserr.Error)
-		if ok && aerr.Code() == request.CanceledErrorCode {
-			// If the SDK can determine the request or retry delay was canceled
-			// by a context the CanceledErrorCode error code will be returned.
-			log.WithFields(log.Fields{
-				"id":      c.Id,
-				"timeout": s.conf.DownloadTimeout,
-				"error":   err.Error(),
-			}).Error("download canceled due to timeout")
-		} else if ok && aerr.Code() == s3.ErrCodeNoSuchKey {
-			log.WithFields(log.Fields{
-				"id":    c.Id,
-				"error": err.Error(),
-			}).Error("no such object")
+		log.WithFields(log.Fields{
+			"id":    c.Id,
+			"error": err.Error(),
+		}).Error("campaign check failed")
+		return err
+	}
+	if !should {
+		return nil
+	}
 
-		} else {
-			log.WithFields(log.Fields{
-				"id":    c.Id,
-				"error": err.Error(),
-			}).Error("failed to download object")
-		}
-		return
+	buff, size, err := Svc.downloader.Download(s.conf.Bucket, c.Lp)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"id":    c.Id,
+			"error": err.Error(),
+		}).Error("campaign download failed")
+		return err
 	}
 
 	log.WithFields(log.Fields{
 		"id":  c.Id,
-		"len": len(buff.Bytes()),
+		"len": size,
 	}).Debug("unzip...")
 
-	if err = unzip(buff.Bytes(), contentLength, unzipPath); err != nil {
+	if _, err = zip.Unzip(buff, size, unzipPath); err != nil {
 		err = fmt.Errorf("%s: unzip: %s", c.Id, err.Error())
 
 		log.WithFields(log.Fields{
@@ -280,7 +186,7 @@ func (s *сampaigns) Download(c xmp_api_structs.Campaign) (err error) {
 
 	log.WithFields(log.Fields{
 		"id":  c.Id,
-		"len": len(buff.Bytes()),
+		"len": len(buff),
 	}).Info("unpack campaign done")
 	return
 }

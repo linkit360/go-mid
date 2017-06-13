@@ -11,6 +11,7 @@ import (
 
 	"github.com/linkit360/go-mid/service"
 	"github.com/linkit360/go-utils/amqp"
+	"github.com/linkit360/go-utils/aws"
 	"github.com/linkit360/go-utils/db"
 	xmp_api "github.com/linkit360/xmp-api/src/client"
 )
@@ -19,10 +20,11 @@ type ServerConfig struct {
 	RPCPort  string `default:"50307" yaml:"rpc_port"`
 	HttpPort string `default:"50308" yaml:"http_port"`
 }
+
 type AppConfig struct {
 	AppName    string               `yaml:"app_name"`
 	Server     ServerConfig         `yaml:"server"`
-	AWS        service.AWSConfig    `yaml:"aws"`
+	AWS        aws.Config           `yaml:"aws"`
 	XMPAPIConf xmp_api.ClientConfig `yaml:"xmp_api"`
 	Service    service.Config       `yaml:"service"`
 	DbConf     db.DataBaseConfig    `yaml:"db"`

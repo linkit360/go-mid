@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -10,16 +9,11 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/prometheus/client_golang/prometheus"
 
 	m "github.com/linkit360/go-utils/metrics"
+	"github.com/linkit360/go-utils/zip"
 	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
 
@@ -34,11 +28,10 @@ type Contents interface {
 
 type contents struct {
 	sync.RWMutex
-	conf            ContentConfig
-	s3dl            *s3manager.Downloader
-	ByUUID          map[string]xmp_api_structs.Content
-	loadError       prometheus.Gauge
-	awsSessionError prometheus.Gauge
+	conf      ContentConfig
+	s3dl      *s3manager.Downloader
+	ByUUID    map[string]xmp_api_structs.Content
+	loadError prometheus.Gauge
 }
 
 type ContentConfig struct {
@@ -48,24 +41,11 @@ type ContentConfig struct {
 	DownloadTimeout  time.Duration `yaml:"download_timeout" default:"10m"` // 10 minutes
 }
 
-func initContents(appName string, contentConf ContentConfig, awsConfig AWSConfig) Contents {
+func initContents(appName string, contentConf ContentConfig) Contents {
 	contentSvc := &contents{
-		conf:            contentConf,
-		loadError:       m.PrometheusGauge(appName, "content_load", "error", "load content error"),
-		awsSessionError: m.PrometheusGauge(appName, "aws_session_contents", "error", "aws session init error"),
+		conf:      contentConf,
+		loadError: m.PrometheusGauge(appName, "content_load", "error", "load content error"),
 	}
-
-	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String(Svc.conf.Region),
-		Credentials: credentials.NewStaticCredentials(awsConfig.Id, awsConfig.Secret, ""),
-	})
-	if err != nil {
-		contentSvc.awsSessionError.Set(1)
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Error("aws load")
-	}
-	contentSvc.s3dl = s3manager.NewDownloader(sess)
 
 	return contentSvc
 }
@@ -73,53 +53,21 @@ func initContents(appName string, contentConf ContentConfig, awsConfig AWSConfig
 // check content and download it
 // content already checked: it hasn't been downloaded yet
 func (s *contents) Download(c xmp_api_structs.Content) (err error) {
-	ctx := context.Background()
-	var cancelFn func()
-	if s.conf.DownloadTimeout > 0 {
-		ctx, cancelFn = context.WithTimeout(ctx, s.conf.DownloadTimeout)
-	}
-	// Ensure the context is canceled to prevent leaking.
-	// See context package for more information, https://golang.org/pkg/context/
-	defer cancelFn()
-	buff := &aws.WriteAtBuffer{}
 
-	var contentLength int64
-	contentLength, err = s.s3dl.DownloadWithContext(ctx, buff, &s3.GetObjectInput{
-		Bucket: aws.String(s.conf.Bucket),
-		Key:    aws.String(c.Id),
-	})
+	buff, size, err := Svc.downloader.Download(s.conf.Bucket, c.Id)
 	if err != nil {
-		err = fmt.Errorf("Download: %s, error: %s", c.Id, err.Error())
-		aerr, ok := err.(awserr.Error)
-		if ok && aerr.Code() == request.CanceledErrorCode {
-			// If the SDK can determine the request or retry delay was canceled
-			// by a context the CanceledErrorCode error code will be returned.
-			log.WithFields(log.Fields{
-				"id":      c.Id,
-				"timeout": s.conf.DownloadTimeout,
-				"error":   err.Error(),
-			}).Error("download canceled due to timeout")
-
-		} else if ok && aerr.Code() == s3.ErrCodeNoSuchKey {
-			log.WithFields(log.Fields{
-				"id":    c.Id,
-				"error": err.Error(),
-			}).Error("no such object")
-
-		} else {
-			log.WithFields(log.Fields{
-				"id":    c.Id,
-				"error": err.Error(),
-			}).Error("failed to download object")
-		}
-		return
+		log.WithFields(log.Fields{
+			"id":    c.Id,
+			"error": err.Error(),
+		}).Error("campaign download failed")
+		return err
 	}
 
 	log.WithFields(log.Fields{
 		"id":  c.Id,
-		"len": len(buff.Bytes()),
+		"len": len(buff),
 	}).Debug("unzip...")
-	if err = unzip(buff.Bytes(), contentLength, s.conf.ContentPath); err != nil {
+	if _, err = zip.Unzip(buff, size, s.conf.ContentPath); err != nil {
 		err = fmt.Errorf("%s: unzip: %s", c.Id, err.Error())
 
 		log.WithFields(log.Fields{
@@ -130,7 +78,7 @@ func (s *contents) Download(c xmp_api_structs.Content) (err error) {
 	}
 	log.WithFields(log.Fields{
 		"id":  c.Id,
-		"len": len(buff.Bytes()),
+		"len": len(buff),
 	}).Info("unzip done")
 	return
 }

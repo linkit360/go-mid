@@ -1,14 +1,9 @@
 package service
 
 import (
-	"archive/zip"
-	"bytes"
 	"database/sql"
 	"errors"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/linkit360/go-utils/amqp"
+	"github.com/linkit360/go-utils/aws"
 	qconf "github.com/linkit360/go-utils/config"
 	"github.com/linkit360/go-utils/cqr"
 	"github.com/linkit360/go-utils/db"
@@ -38,6 +34,7 @@ type MemService struct {
 	cqrConfig          []cqr.CQRConfig
 	m                  *serviceMetrics
 	dbConf             db.DataBaseConfig
+	downloader         aws.S3
 	conf               Config
 	xmpAPIConf         xmp_api.ClientConfig
 	reporter           Collector
@@ -56,12 +53,6 @@ type MemService struct {
 	UniqueUrls         *UniqueUrls
 	Destinations       *Destinations
 	RedirectStatCounts *RedirectStatCounts
-}
-
-type AWSConfig struct {
-	Region string `yaml:"region"`
-	Id     string `yaml:"access_key_id"`
-	Secret string `yaml:"secret_access_key"`
 }
 
 type Config struct {
@@ -116,7 +107,7 @@ type Consumers struct {
 func Init(
 	appName string,
 	xmpAPIConf xmp_api.ClientConfig,
-	awsConfig AWSConfig,
+	awsConfig aws.Config,
 	svcConf Config,
 	consumerConf amqp.ConsumerConfig,
 	dbConf db.DataBaseConfig,
@@ -132,14 +123,15 @@ func Init(
 	Svc.dbConf = dbConf
 	Svc.conf = svcConf
 	Svc.xmpAPIConf = xmpAPIConf
+	Svc.downloader = aws.New(awsConfig)
 
 	initPrevSubscriptionsCache()
 
 	Svc.reporter = initReporter(appName, svcConf.StateFilePath, svcConf.Queue, consumerConf)
 
-	Svc.Campaigns = initCampaigns(appName, svcConf.Campaigns, awsConfig)
+	Svc.Campaigns = initCampaigns(appName, svcConf.Campaigns)
 	Svc.Services = initServices(appName, svcConf.Services)
-	Svc.Contents = initContents(appName, svcConf.Contents, awsConfig)
+	Svc.Contents = initContents(appName, svcConf.Contents)
 	Svc.PixelSettings = initPixelSettings(appName, svcConf.Pixel)
 	Svc.SentContents = &SentContents{}
 	Svc.Operators = initOperators(appName, svcConf.Operator)
@@ -437,68 +429,6 @@ func initMetrics(appName string) *serviceMetrics {
 	}()
 
 	return sm
-}
-
-// unzip(bytes, size,, "/tmp/xxx/")
-func unzip(zipBytes []byte, contentLength int64, target string) error {
-	if err := os.MkdirAll(target, 0755); err != nil {
-		err = fmt.Errorf("file: %s, os.MkdirAll: %s", target, err.Error())
-		return err
-	}
-
-	reader, err := zip.NewReader(bytes.NewReader(zipBytes), contentLength)
-	if err != nil {
-		err = fmt.Errorf("zip.NewReader: %s", err.Error())
-		return err
-	}
-
-	for _, file := range reader.File {
-		log.WithFields(log.Fields{
-			"file": target + file.Name,
-		}).Debug("unzip")
-
-		path := filepath.Join(target, file.Name)
-
-		flagNeedCreateDir := false
-		if _, err := os.Stat(filepath.Dir(path)); os.IsNotExist(err) {
-			flagNeedCreateDir = true
-		}
-
-		if file.FileInfo().IsDir() || flagNeedCreateDir {
-			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-				err = fmt.Errorf("File: %s, unzip path: %s, os.MkdirAll: %s", file.Name, path, err.Error())
-				return err
-			}
-			log.WithFields(log.Fields{
-				"dir":      filepath.Dir(path),
-				"for file": file.Name,
-			}).Debug("create dir")
-		}
-
-		fileReader, err := file.Open()
-		if err != nil {
-			err = fmt.Errorf("name: %s, file.Open: %s", file.Name, err.Error())
-			return err
-		}
-		defer fileReader.Close()
-		//log.WithFields(log.Fields{}).Debug("file opened")
-
-		targetFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
-		if err != nil {
-			err = fmt.Errorf("name: %s, file.OpenFile: %s", file.Name, err.Error())
-			return err
-		}
-		defer targetFile.Close()
-
-		//log.WithFields(log.Fields{}).Debug("prepare to copy")
-		if _, err := io.Copy(targetFile, fileReader); err != nil {
-			err = fmt.Errorf("name: %s, io.Copy: %s", file.Name, err.Error())
-			return err
-		}
-		//log.WithFields(log.Fields{}).Debug("copied")
-	}
-
-	return nil
 }
 
 func GetCountry() string {
