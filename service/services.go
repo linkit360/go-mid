@@ -370,6 +370,7 @@ func (s *services) Apply(svcs map[string]xmp_api_structs.Service) {
 		}
 	}
 }
+
 func (s *services) GetById(serviceId string) (xmp_api_structs.Service, error) {
 	if svc, ok := s.ByUUID[serviceId]; ok {
 		return svc, nil

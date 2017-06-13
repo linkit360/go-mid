@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -23,7 +25,6 @@ import (
 	m "github.com/linkit360/go-utils/metrics"
 	xmp_api_client "github.com/linkit360/xmp-api/src/client"
 	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
-	"os"
 )
 
 type Campaigns interface {
@@ -108,6 +109,7 @@ type CampaignsConfig struct {
 	FromControlPanel bool          `yaml:"from_control_panel"`
 	WebHook          string        `yaml:"webhook" default:"http://localhost:50300/updateTemplates"`
 	LandingsPath     string        `yaml:"landing_path"`
+	LandingsReload   bool          `yaml:"landing_reload"` // remove old downloaded lp-s and get new
 	Bucket           string        `yaml:"bucket" default:"xmp-lp"`
 	DownloadTimeout  time.Duration `yaml:"download_timeout" default:"10m"` // 10 minutes
 }
@@ -127,6 +129,53 @@ func (s *Campaign) Load(ac xmp_api_structs.Campaign) {
 // check content and download it
 // content already checked: it hasn't been downloaded yet
 func (s *сampaigns) Download(c xmp_api_structs.Campaign) (err error) {
+	unzipPath := s.conf.LandingsPath + c.Id + "/"
+
+	if fs, err := os.Stat(filepath.Dir(unzipPath)); os.IsNotExist(err) {
+		// ok
+	} else {
+		if err != nil {
+			log.WithFields(log.Fields{
+				"id":    c.Id,
+				"error": err.Error(),
+			}).Error("campaign stat is nok, try to cleanup")
+			// try to clean up
+			if err = os.RemoveAll(unzipPath); err != nil {
+				err = fmt.Errorf("os.RemoveAll: %s", err.Error())
+				log.WithFields(log.Fields{
+					"id":    c.Id,
+					"error": err.Error(),
+				}).Error("campaign cleanup failed")
+				return err
+			}
+		} else {
+			// if we configured to reload, reload land, otherwise return
+			if s.conf.LandingsReload {
+				if err = os.RemoveAll(unzipPath); err != nil {
+					err = fmt.Errorf("os.RemoveAll: %s", err.Error())
+					log.WithFields(log.Fields{
+						"id":    c.Id,
+						"error": err.Error(),
+					}).Error("campaign remove failed")
+					return err
+				}
+			} else {
+				if fs.Size() > 0 {
+					log.WithFields(log.Fields{
+						"id":   c.Id,
+						"size": fs.Size(),
+					}).Info("campaign already downloaded")
+					return nil
+				} else {
+					log.WithFields(log.Fields{
+						"id":   c.Id,
+						"size": fs.Size(),
+					}).Warn("campaign folder exists but empty")
+				}
+			}
+		}
+	}
+
 	ctx := context.Background()
 	var cancelFn func()
 	if s.conf.DownloadTimeout > 0 {
@@ -174,7 +223,6 @@ func (s *сampaigns) Download(c xmp_api_structs.Campaign) (err error) {
 		"len": len(buff.Bytes()),
 	}).Debug("unzip...")
 
-	unzipPath := s.conf.LandingsPath + c.Id + "/"
 	if err = unzip(buff.Bytes(), contentLength, unzipPath); err != nil {
 		err = fmt.Errorf("%s: unzip: %s", c.Id, err.Error())
 
@@ -215,7 +263,7 @@ func (camp *Campaign) SimpleServe(c *gin.Context, data interface{}) {
 	}).Debug("serve")
 
 	c.Writer.Header().Set("Content-Type", "text/html; charset-utf-8")
-	c.HTML(http.StatusOK, camp.Id+".html", data)
+	c.HTML(http.StatusOK, camp.Hash+".html", data)
 }
 
 func (camp *Campaign) incRatio() {
