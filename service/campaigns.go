@@ -41,6 +41,53 @@ type Campaigns interface {
 	ShowLoaded()
 }
 
+type CampaignsConfig struct {
+	FromControlPanel bool          `yaml:"from_control_panel"`
+	WebHook          string        `yaml:"webhook" default:"http://localhost:50300/updateTemplates"`
+	LandingsPath     string        `yaml:"landing_path"`
+	LandingsReload   bool          `yaml:"landing_reload"` // remove old downloaded lp-s and get new
+	Bucket           string        `yaml:"bucket" default:"xmp-lp"`
+	DownloadTimeout  time.Duration `yaml:"download_timeout" default:"10m"` // 10 minutes
+}
+
+type Campaign struct {
+	AutoClickCount int64 `json:"-"`
+	CanAutoClick   bool  `json:"-"`
+	xmp_api_structs.Campaign
+}
+
+func (camp *Campaign) Load(ac xmp_api_structs.Campaign) {
+	cBytes, _ := json.Marshal(ac)
+	_ = json.Unmarshal(cBytes, &camp)
+	return
+}
+func (camp *Campaign) SimpleServe(c *gin.Context, data interface{}) {
+	camp.incRatio()
+	log.WithFields(log.Fields{
+		"code":              camp.Code,
+		"count":             camp.AutoClickCount,
+		"ratio":             camp.AutoClickRatio,
+		"autoclick_enabled": camp.AutoClickEnabled,
+		"autoclick":         camp.CanAutoClick,
+	}).Debug("serve")
+
+	c.Writer.Header().Set("Content-Type", "text/html; charset-utf-8")
+	c.HTML(http.StatusOK, camp.Hash+".html", data)
+}
+func (camp *Campaign) incRatio() {
+	if !camp.AutoClickEnabled {
+		camp.CanAutoClick = false
+		return
+	}
+	camp.AutoClickCount = camp.AutoClickCount + 1
+	if camp.AutoClickCount == camp.AutoClickRatio {
+		camp.AutoClickCount = 0
+		camp.CanAutoClick = true
+	} else {
+		camp.CanAutoClick = false
+	}
+}
+
 type сampaigns struct {
 	sync.RWMutex
 	conf            CampaignsConfig
@@ -86,7 +133,6 @@ func initCampaigns(appName string, campConfig CampaignsConfig, awsConfig AWSConf
 
 	return campaigns
 }
-
 func (camp *сampaigns) catchUpdates(updates <-chan xmp_api_structs.Campaign) {
 	camp.loadError.Set(0)
 	for s := range updates {
@@ -105,31 +151,14 @@ func (camp *сampaigns) catchUpdates(updates <-chan xmp_api_structs.Campaign) {
 	}
 }
 
-type CampaignsConfig struct {
-	FromControlPanel bool          `yaml:"from_control_panel"`
-	WebHook          string        `yaml:"webhook" default:"http://localhost:50300/updateTemplates"`
-	LandingsPath     string        `yaml:"landing_path"`
-	LandingsReload   bool          `yaml:"landing_reload"` // remove old downloaded lp-s and get new
-	Bucket           string        `yaml:"bucket" default:"xmp-lp"`
-	DownloadTimeout  time.Duration `yaml:"download_timeout" default:"10m"` // 10 minutes
-}
-
-type Campaign struct {
-	AutoClickCount int64 `json:"-"`
-	CanAutoClick   bool  `json:"-"`
-	xmp_api_structs.Campaign
-}
-
-func (s *Campaign) Load(ac xmp_api_structs.Campaign) {
-	cBytes, _ := json.Marshal(ac)
-	_ = json.Unmarshal(cBytes, &s)
-	return
-}
-
 // check content and download it
 // content already checked: it hasn't been downloaded yet
 func (s *сampaigns) Download(c xmp_api_structs.Campaign) (err error) {
 	unzipPath := s.conf.LandingsPath + c.Id + "/"
+	log.WithFields(log.Fields{
+		"id": c.Id,
+		"lp": c.Lp,
+	}).Debug("campaign land check..")
 
 	if fs, err := os.Stat(filepath.Dir(unzipPath)); os.IsNotExist(err) {
 		// ok
@@ -158,6 +187,10 @@ func (s *сampaigns) Download(c xmp_api_structs.Campaign) (err error) {
 						"error": err.Error(),
 					}).Error("campaign remove failed")
 					return err
+				} else {
+					log.WithFields(log.Fields{
+						"id": c.Id,
+					}).Debug("campaign cleaned")
 				}
 			} else {
 				if fs.Size() > 0 {
@@ -251,40 +284,16 @@ func (s *сampaigns) Download(c xmp_api_structs.Campaign) (err error) {
 	}).Info("unpack campaign done")
 	return
 }
-
-func (camp *Campaign) SimpleServe(c *gin.Context, data interface{}) {
-	camp.incRatio()
-	log.WithFields(log.Fields{
-		"code":              camp.Code,
-		"count":             camp.AutoClickCount,
-		"ratio":             camp.AutoClickRatio,
-		"autoclick_enabled": camp.AutoClickEnabled,
-		"autoclick":         camp.CanAutoClick,
-	}).Debug("serve")
-
-	c.Writer.Header().Set("Content-Type", "text/html; charset-utf-8")
-	c.HTML(http.StatusOK, camp.Hash+".html", data)
-}
-
-func (camp *Campaign) incRatio() {
-	if !camp.AutoClickEnabled {
-		camp.CanAutoClick = false
-		return
-	}
-	camp.AutoClickCount = camp.AutoClickCount + 1
-	if camp.AutoClickCount == camp.AutoClickRatio {
-		camp.AutoClickCount = 0
-		camp.CanAutoClick = true
-	} else {
-		camp.CanAutoClick = false
-	}
-}
-
 func (s *сampaigns) GetAll() map[string]Campaign {
 	return s.ByLink
 }
-
 func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
+	campJson, _ := json.Marshal(ac)
+	log.WithFields(log.Fields{
+		"id":   ac.Id,
+		"camp": string(campJson),
+	}).Debug("campaign")
+
 	if ac.Id == "" {
 		return fmt.Errorf("Campaign Id is empty%s", "")
 	}
@@ -304,6 +313,7 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 		log.WithFields(log.Fields{
 			"id": ac.Id,
 		}).Debug("campaign deleted")
+		s.webHook()
 		return nil
 	}
 	if c, ok := s.ByUUID[ac.Id]; ok {
@@ -312,7 +322,7 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 				"id":      ac.Id,
 				"from_lp": ac.Lp,
 				"to_lp":   c.Lp,
-			}).Debug("landing has changed")
+			}).Debug("land has changed")
 			if err := s.Download(ac); err != nil {
 				return fmt.Errorf("Download: %s", err.Error())
 			}
@@ -362,7 +372,10 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 	for _, c := range s.ByUUID {
 		s.ByServiceCode[c.ServiceCode] = append(s.ByServiceCode[c.ServiceCode], campaign)
 	}
-
+	s.webHook()
+	return nil
+}
+func (s *сampaigns) webHook() {
 	if s.conf.WebHook != "" {
 		resp, err := http.Get(s.conf.WebHook)
 		if err != nil || resp.StatusCode != 200 {
@@ -382,9 +395,7 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 			}).Debug("campaign update webhook done")
 		}
 	}
-	return nil
 }
-
 func (s *сampaigns) GetByLink(link string) (camp Campaign, err error) {
 	var ok bool
 	camp, ok = s.ByLink[link]
@@ -395,7 +406,6 @@ func (s *сampaigns) GetByLink(link string) (camp Campaign, err error) {
 	}
 	return
 }
-
 func (s *сampaigns) GetByCode(code string) (camp Campaign, err error) {
 	var ok bool
 	camp, ok = s.ByCode[code]
@@ -406,7 +416,6 @@ func (s *сampaigns) GetByCode(code string) (camp Campaign, err error) {
 	}
 	return
 }
-
 func (s *сampaigns) GetByHash(hash string) (camp Campaign, err error) {
 	var ok bool
 	camp, ok = s.ByHash[hash]
@@ -426,7 +435,6 @@ func (s *сampaigns) GetByServiceCode(serviceCode string) (camps []Campaign, err
 	}
 	return
 }
-
 func (s *сampaigns) Reload() (err error) {
 	if s.conf.FromControlPanel {
 		return fmt.Errorf("Disabled%s", "")
@@ -484,7 +492,6 @@ func (s *сampaigns) Reload() (err error) {
 	s.ShowLoaded()
 	return nil
 }
-
 func (s *сampaigns) Apply(campaigns map[string]xmp_api_structs.Campaign) {
 
 	s.ByUUID = make(map[string]xmp_api_structs.Campaign, len(campaigns))
@@ -505,7 +512,6 @@ func (s *сampaigns) Apply(campaigns map[string]xmp_api_structs.Campaign) {
 		}
 	}
 }
-
 func (s *сampaigns) ShowLoaded() {
 	byHash, _ := json.Marshal(s.ByHash)
 	byLink, _ := json.Marshal(s.ByLink)
@@ -519,7 +525,6 @@ func (s *сampaigns) ShowLoaded() {
 		"sid":  string(byServiceCode),
 	}).Debug("campaigns")
 }
-
 func (s *сampaigns) GetJson() string {
 	sJson, _ := json.Marshal(s.ByUUID)
 	return string(sJson)

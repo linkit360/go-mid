@@ -459,23 +459,20 @@ func unzip(zipBytes []byte, contentLength int64, target string) error {
 
 		path := filepath.Join(target, file.Name)
 
-		log.WithFields(log.Fields{
-			"dir":          file.FileInfo().IsDir(),
-			"filepath_dir": filepath.Dir(path),
-			"target":       filepath.Dir(target),
-		}).Debug(file.Name)
-
 		flagNeedCreateDir := false
 		if _, err := os.Stat(filepath.Dir(path)); os.IsNotExist(err) {
 			flagNeedCreateDir = true
 		}
 
 		if file.FileInfo().IsDir() || flagNeedCreateDir {
-			if err := os.MkdirAll(path, 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 				err = fmt.Errorf("File: %s, unzip path: %s, os.MkdirAll: %s", file.Name, path, err.Error())
 				return err
 			}
-			continue
+			log.WithFields(log.Fields{
+				"dir":      filepath.Dir(path),
+				"for file": file.Name,
+			}).Debug("create dir")
 		}
 
 		fileReader, err := file.Open()
