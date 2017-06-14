@@ -52,6 +52,9 @@ func (bl *blackList) Add(msisdn string) error {
 
 	bl.Lock()
 	defer bl.Unlock()
+	if bl.ByMsisdn == nil {
+		bl.ByMsisdn = make(map[string]struct{})
+	}
 	bl.ByMsisdn[msisdn] = struct{}{}
 	return nil
 }
@@ -129,6 +132,16 @@ func (bl *blackList) Len() int {
 }
 
 func (bl *blackList) LoadFromAws(bucket, key string) (err error) {
+	if bucket == "" {
+		return fmt.Errorf("Empty bucket in config%s", "")
+	}
+	if key == "" {
+		return fmt.Errorf("Empty key in config%s", "")
+	}
+	log.WithFields(log.Fields{
+		"bucket": bucket,
+		"key":    key,
+	}).Debug("loading form s3")
 
 	buff, size, err := Svc.downloader.Download(bucket, key)
 	if err != nil {
@@ -160,6 +173,19 @@ func (bl *blackList) LoadFromAws(bucket, key string) (err error) {
 		err = fmt.Errorf("scanner.Err: %s", err.Error())
 		return err
 	}
+	log.WithFields(log.Fields{
+		"bucket": bucket,
+		"key":    key,
+		"len":    len(bl.ByMsisdn),
+	}).Debug("blacklisted msisdns count")
 
+	if err = os.Remove(fileList[0]); err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+			"len":   len(bl.ByMsisdn),
+		}).Warn("cannot remove file")
+	} else {
+		log.WithFields(log.Fields{}).Debug("blacklisted file removed")
+	}
 	return nil
 }

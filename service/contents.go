@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/prometheus/client_golang/prometheus"
@@ -35,10 +34,9 @@ type contents struct {
 }
 
 type ContentConfig struct {
-	FromControlPanel bool          `yaml:"from_control_panel"`
-	ContentPath      string        `yaml:"content_path"`
-	Bucket           string        `yaml:"bucket" default:"xmp-content"`
-	DownloadTimeout  time.Duration `yaml:"download_timeout" default:"10m"` // 10 minutes
+	FromControlPanel bool   `yaml:"from_control_panel"`
+	ContentPath      string `yaml:"content_path"`
+	Bucket           string `yaml:"bucket" default:"xmp-content"`
 }
 
 func initContents(appName string, contentConf ContentConfig) Contents {

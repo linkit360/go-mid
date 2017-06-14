@@ -8,12 +8,14 @@ xmp_api:
   enabled: true
   dsn: 52.220.50.252:50318
   timeout: 10
-  instance_id: a7da1e9f-fcc1-4087-9c58-4d31bcdbd515
+#  instance_id: a7da1e9f-fcc1-4087-9c58-4d31bcdbd515
+  instance_id: 58fbedf7-1abc-402b-8c2a-89fe256d32d9
 
 aws:
   region: ap-southeast-1
   access_key_id: AKIAJNOENJABOE62GPYQ
   secret_access_key: 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
+  download_timeout: 2m
 
 service:
   state_file_path: /home/centos/linkit/mid.state.json
@@ -63,6 +65,8 @@ service:
 
   blacklist:
     from_control_panel: true
+    bucket: xmp-blacklist
+    zip_temp_dir: /var/www/xmp.linkit360.ru/blacklist/
 
   pixel:
     from_control_panel: false

@@ -225,7 +225,7 @@ func Init(
 		}
 
 		f := log.Fields{
-			"blacklist": len(xmpConfig.BlackList),
+			"blacklist": xmpConfig.BlackList,
 			"services":  fmt.Sprintf("%#v", xmpConfig.Services),
 			"campaigns": fmt.Sprintf("%#v", xmpConfig.Campaigns),
 			"operators": fmt.Sprintf("%#v", xmpConfig.Operators),
@@ -237,13 +237,27 @@ func Init(
 		}
 		log.WithFields(f).Info("xmp_api.Call OK")
 
-		if svcConf.BlackList.FromControlPanel {
+		if svcConf.BlackList.FromControlPanel && xmpConfig.BlackList != "" {
 			if err := Svc.BlackList.LoadFromAws(svcConf.BlackList.BlackListBucket, xmpConfig.BlackList); err != nil {
 				log.WithFields(log.Fields{
-					"error": err.Error(),
+					"key":    xmpConfig.BlackList,
+					"bucket": svcConf.BlackList.BlackListBucket,
+					"error":  err.Error(),
 				}).Error("load blacklist")
+				if err = Svc.BlackList.Reload(); err != nil {
+					log.WithFields(log.Fields{
+						"error": err.Error(),
+					}).Error("load blacklist from db failed")
+				} else {
+					log.WithFields(log.Fields{
+						"len": Svc.BlackList.Len(),
+					}).Debug("load blacklist from db")
+				}
 			}
+		} else {
+			log.WithFields(log.Fields{}).Error("blacklist key is empty")
 		}
+
 		if svcConf.Services.FromControlPanel {
 			Svc.Services.Apply(xmpConfig.Services)
 			Svc.Services.ShowLoaded()
