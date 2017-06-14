@@ -80,6 +80,7 @@ service:
     blacklist: false
     operators: false
     contents: false
+    pixel_settings: true
     reporter: true
     destinations: false
     redirect_stats_count: false

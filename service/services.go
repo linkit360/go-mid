@@ -78,6 +78,12 @@ func (as *services) catchUpdates(updates <-chan xmp_api_structs.Service) {
 }
 
 func (s *services) Update(acceptorService xmp_api_structs.Service) error {
+	servJson, _ := json.Marshal(acceptorService)
+	log.WithFields(log.Fields{
+		"id":      acceptorService.Id,
+		"service": string(servJson),
+	}).Debug("service")
+
 	if acceptorService.Id == "" {
 		return fmt.Errorf("service id is empty%s", "")
 	}

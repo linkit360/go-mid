@@ -31,6 +31,9 @@ func (uuc *UniqueUrls) Set(r structs.ContentSentProperties) {
 	if !found {
 		uuc.Lock()
 		defer uuc.Unlock()
+		if uuc.ByUrl == nil {
+			uuc.ByUrl = make(map[string]structs.ContentSentProperties)
+		}
 		uuc.ByUrl[r.UniqueUrl] = r
 		log.WithFields(log.Fields{
 			"tid": r.Tid,

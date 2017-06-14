@@ -98,7 +98,7 @@ retry:
 
 		if err == rpc.ErrShutdown {
 
-			if retryCount < 2 {
+			if retryCount < 10 {
 				retryCount = retryCount + 1
 				cli.connection.Close()
 				cli.dial()
