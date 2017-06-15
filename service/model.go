@@ -326,36 +326,28 @@ func getStatus(c *gin.Context) {
 		})
 		return
 	case "services":
-		log.WithFields(log.Fields{
-			"services": Svc.Services.GetJson(),
-		}).Info("status")
+		Svc.Services.ShowLoaded()
 
 		c.JSON(200, gin.H{
 			"services": Svc.Services.GetJson(),
 		})
 		return
 	case "content":
-		log.WithFields(log.Fields{
-			"content": Svc.Contents.GetJson(),
-		}).Info("status")
+		Svc.Contents.ShowLoaded()
 
 		c.JSON(200, gin.H{
 			"content": Svc.Contents.GetJson(),
 		})
 		return
 	case "campaigns":
-		log.WithFields(log.Fields{
-			"campaigns": Svc.Campaigns.GetJson(),
-		}).Info("status")
+		Svc.Campaigns.ShowLoaded()
 
 		c.JSON(200, gin.H{
 			"campaigns": Svc.Campaigns.GetJson(),
 		})
 		return
 	case "operators":
-		log.WithFields(log.Fields{
-			"operators": Svc.Operators.GetJson(),
-		}).Info("status")
+		Svc.Operators.ShowLoaded()
 
 		c.JSON(200, gin.H{
 			"operators": Svc.Operators.GetJson(),

@@ -209,6 +209,7 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 	if ac.Hash == "" {
 		ac.Hash = ac.Id
 	}
+
 	if ac.ServiceId == "" && ac.ServiceCode == "" {
 		return fmt.Errorf("Both service id and Service Code are empty%s", "")
 	}
@@ -287,7 +288,9 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 
 	s.ByServiceCode = make(map[string][]Campaign)
 	for _, c := range s.ByUUID {
-		s.ByServiceCode[c.ServiceCode] = append(s.ByServiceCode[c.ServiceCode], campaign)
+		intCamp := Campaign{}
+		intCamp.Load(c)
+		s.ByServiceCode[c.ServiceCode] = append(s.ByServiceCode[c.ServiceCode], intCamp)
 	}
 	s.webHook()
 	return nil
@@ -430,16 +433,18 @@ func (s *сampaigns) Apply(campaigns map[string]xmp_api_structs.Campaign) {
 	}
 }
 func (s *сampaigns) ShowLoaded() {
+	byUUID, _ := json.Marshal(s.ByUUID)
 	byHash, _ := json.Marshal(s.ByHash)
 	byLink, _ := json.Marshal(s.ByLink)
 	byCode, _ := json.Marshal(s.ByCode)
 	byServiceCode, _ := json.Marshal(s.ByServiceCode)
 
 	log.WithFields(log.Fields{
-		"hash": string(byHash),
-		"link": string(byLink),
-		"code": string(byCode),
-		"sid":  string(byServiceCode),
+		"byUUID": string(byUUID),
+		"hash":   string(byHash),
+		"link":   string(byLink),
+		"code":   string(byCode),
+		"sid":    string(byServiceCode),
 	}).Debug("campaigns")
 }
 func (s *сampaigns) GetJson() string {
