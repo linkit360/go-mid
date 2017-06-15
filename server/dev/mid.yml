@@ -15,6 +15,7 @@ aws:
   access_key_id: AKIAJNOENJABOE62GPYQ
   secret_access_key: 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
   download_timeout: 2m
+  download_concurrency: 1
 
 service:
   state_file_path: /home/centos/linkit/mid.state.json
@@ -50,17 +51,14 @@ service:
 
   campaign:
     from_control_panel: true
-    webhook: http://localhost:50300/updateTemplates
     landing_path: /var/www/xmp.linkit360.ru/web/campaign/
     bucket: xmp-lp
-    download_timeout: 10m
+    webhook: http://localhost:50300/updateTemplates
 
   content:
     from_control_panel: true
     content_path: /var/www/xmp.linkit360.ru/web/uploaded_content/
-    region: ap-southeast-1
     bucket: xmp-content
-    download_timeout: 10m
 
   blacklist:
     from_control_panel: true
