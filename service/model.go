@@ -150,16 +150,16 @@ func Init(
 			Enabled: Svc.conf.Enabled.Operators,
 		},
 		{
-			Tables:  []string{"campaigns"},
-			Data:    Svc.Campaigns,
-			WebHook: Svc.conf.Campaigns.WebHook,
-			Enabled: Svc.conf.Enabled.Campaigns, // always enabled
-		},
-		{
 			Tables: []string{"service", "service_content"},
 			Data:   Svc.Services,
 			//WebHook: Svc.conf.Services.WebHook,
 			Enabled: Svc.conf.Enabled.Services, // always enabled
+		},
+		{
+			Tables:  []string{"campaigns"},
+			Data:    Svc.Campaigns,
+			WebHook: Svc.conf.Campaigns.WebHook,
+			Enabled: Svc.conf.Enabled.Campaigns, // always enabled
 		},
 		{
 			Tables:  []string{"content"},
@@ -219,6 +219,7 @@ func Init(
 
 	if xmpAPIConf.Enabled {
 		var xmpConfig xmp_api_structs.HandShake
+		log.Debug("xmp_api.Call..")
 
 		if err := xmp_api.Call("initialization", &xmpConfig); err != nil {
 			log.Fatal("xmp_api.Call: " + err.Error())
@@ -254,8 +255,6 @@ func Init(
 					}).Debug("load blacklist from db")
 				}
 			}
-		} else {
-			log.WithFields(log.Fields{}).Error("blacklist key is empty")
 		}
 
 		if svcConf.Services.FromControlPanel {

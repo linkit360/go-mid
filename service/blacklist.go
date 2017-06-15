@@ -60,8 +60,8 @@ func (bl *blackList) Add(msisdn string) error {
 }
 
 func (bl *blackList) getBlackListedDBCache() (msisdns []string, err error) {
-	query := fmt.Sprintf("SELECT msisdn FROM %smsisdn_blacklist",
-		Svc.dbConf.TablePrefix)
+	query := fmt.Sprintf("SELECT msisdn FROM %smsisdn_blacklist", Svc.dbConf.TablePrefix)
+
 	var rows *sql.Rows
 	rows, err = Svc.db.Query(query)
 	if err != nil {

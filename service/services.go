@@ -93,7 +93,7 @@ func (s *services) Update(acceptorService xmp_api_structs.Service) error {
 	if err := s.setupContent(acceptorService); err != nil {
 		return fmt.Errorf("update content error: %s", err.Error())
 	}
-	if acceptorService.Status == 0 {
+	if s.conf.FromControlPanel && acceptorService.Status == 0 {
 		s.Lock()
 		delete(s.ByUUID, acceptorService.Id)
 		delete(s.ByCode, acceptorService.Code)

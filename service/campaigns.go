@@ -209,7 +209,16 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 	if ac.Hash == "" {
 		ac.Hash = ac.Id
 	}
-	if ac.Status == 0 {
+	if ac.ServiceId == "" && ac.ServiceCode == "" {
+		return fmt.Errorf("Both service id and Service Code are empty%s", "")
+	}
+	if ac.ServiceId == "" {
+		ac.ServiceId = ac.ServiceCode
+	}
+	if ac.ServiceCode == "" {
+		ac.ServiceCode = ac.ServiceId
+	}
+	if s.conf.FromControlPanel && ac.Status == 0 {
 		s.Lock()
 		delete(s.ByUUID, ac.Id)
 		delete(s.ByHash, ac.Id)
@@ -222,20 +231,22 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 		s.webHook()
 		return nil
 	}
-	if c, ok := s.ByUUID[ac.Id]; ok {
-		if c.Lp != ac.Lp && c.Lp != "" {
-			log.WithFields(log.Fields{
-				"id":      ac.Id,
-				"from_lp": ac.Lp,
-				"to_lp":   c.Lp,
-			}).Debug("land has changed")
+	if s.conf.FromControlPanel {
+		if c, ok := s.ByUUID[ac.Id]; ok {
+			if c.Lp != ac.Lp && c.Lp != "" {
+				log.WithFields(log.Fields{
+					"id":      ac.Id,
+					"from_lp": ac.Lp,
+					"to_lp":   c.Lp,
+				}).Debug("land has changed")
+				if err := s.Download(ac); err != nil {
+					return fmt.Errorf("Download: %s", err.Error())
+				}
+			}
+		} else {
 			if err := s.Download(ac); err != nil {
 				return fmt.Errorf("Download: %s", err.Error())
 			}
-		}
-	} else {
-		if err := s.Download(ac); err != nil {
-			return fmt.Errorf("Download: %s", err.Error())
 		}
 	}
 
