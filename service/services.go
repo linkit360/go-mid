@@ -93,6 +93,15 @@ func (s *services) Update(acceptorService xmp_api_structs.Service) error {
 	if err := s.setupContent(acceptorService); err != nil {
 		return fmt.Errorf("update content error: %s", err.Error())
 	}
+	if acceptorService.Price == 0 && acceptorService.PriceCents == 0 {
+		return fmt.Errorf("no price%s", "")
+	}
+	if acceptorService.PriceCents == 0 {
+		acceptorService.PriceCents = 100 * acceptorService.Price
+	}
+	if acceptorService.Price == 0 {
+		acceptorService.Price = acceptorService.PriceCents / 100
+	}
 	if s.conf.FromControlPanel && acceptorService.Status == 0 {
 		s.Lock()
 		delete(s.ByUUID, acceptorService.Id)
@@ -211,6 +220,7 @@ func (s *services) loadFromCache() (err error) {
 		"id, "+
 		"id, "+
 		"price, "+
+		"price_cents, "+
 		"retry_days, "+
 		"inactive_days, "+
 		"grace_days, "+
@@ -246,6 +256,7 @@ func (s *services) loadFromCache() (err error) {
 			&srv.Id,
 			&srv.Code,
 			&srv.Price,
+			&srv.PriceCents,
 			&srv.RetryDays,
 			&srv.InactiveDays,
 			&srv.GraceDays,
@@ -276,8 +287,15 @@ func (s *services) loadFromCache() (err error) {
 				strings.Join(days, ","), strings.Join(allowedDays, ","))
 			return
 		}
+		if srv.Price == 0 {
+			srv.Price = srv.PriceCents / 100
+		}
+		if srv.PriceCents == 0 {
+			srv.PriceCents = 100 * srv.Price
+		}
 		svcs = append(svcs, srv)
 	}
+
 	if rows.Err() != nil {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
 		return

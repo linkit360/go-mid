@@ -7,8 +7,9 @@ server:
 xmp_api:
   enabled: true
   dsn: 52.220.50.252:50318
+  client_port: 50319
   timeout: 10
-  instance_id: 58fbedf7-1abc-402b-8c2a-89fe256d32d9
+  instance_id: 30700101-636d-4f80-9148-978446a8d727
 
 aws:
   region: ap-southeast-1

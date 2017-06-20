@@ -235,8 +235,10 @@ func Init(
 		}
 		if xmpConfig.Error != "" {
 			f["error"] = xmpConfig.Error
+			log.WithFields(f).Error("xmp_api.Call ERROR")
+		} else {
+			log.WithFields(f).Info("xmp_api.Call OK")
 		}
-		log.WithFields(f).Info("xmp_api.Call OK")
 
 		if svcConf.BlackList.FromControlPanel && xmpConfig.BlackList != "" {
 			if err := Svc.BlackList.LoadFromAws(svcConf.BlackList.BlackListBucket, xmpConfig.BlackList); err != nil {

@@ -60,6 +60,7 @@ func (camp *Campaign) SimpleServe(c *gin.Context, data interface{}) {
 		"ratio":             camp.AutoClickRatio,
 		"autoclick_enabled": camp.AutoClickEnabled,
 		"autoclick":         camp.CanAutoClick,
+		"id":                camp.Id,
 	}).Debug("serve")
 
 	c.Writer.Header().Set("Content-Type", "text/html; charset-utf-8")
