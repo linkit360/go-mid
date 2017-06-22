@@ -123,6 +123,8 @@ retry:
 		return err
 	}
 	log.WithFields(log.Fields{
+		"port": cli.conf.DSN,
+		"req":  req,
 		"func": funcName,
 		"took": time.Since(begin),
 	}).Debug("rpccall")

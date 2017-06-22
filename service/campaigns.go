@@ -4,17 +4,18 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mholt/archiver"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 
 	m "github.com/linkit360/go-utils/metrics"
-	"github.com/linkit360/go-utils/zip"
 	xmp_api_client "github.com/linkit360/xmp-api/src/client"
 	xmp_api_structs "github.com/linkit360/xmp-api/src/structs"
 )
@@ -158,12 +159,22 @@ func (s *сampaigns) Download(c xmp_api_structs.Campaign) (err error) {
 		return err
 	}
 
+	campaignZipPath := "/tmp/" + c.Id
+	if err = ioutil.WriteFile(campaignZipPath, buff, 0644); err != nil {
+		log.WithFields(log.Fields{
+			"id":    c.Id,
+			"error": err.Error(),
+		}).Error("campaign save to zip failed")
+		return err
+	}
+
 	log.WithFields(log.Fields{
-		"id":  c.Id,
-		"len": size,
+		"id":      c.Id,
+		"zippath": campaignZipPath,
+		"len":     size,
 	}).Debug("unzip...")
 
-	if _, err = zip.Unzip(buff, size, unzipPath); err != nil {
+	if err = archiver.Zip.Open(campaignZipPath, unzipPath); err != nil {
 		err = fmt.Errorf("%s: unzip: %s", c.Id, err.Error())
 
 		log.WithFields(log.Fields{
