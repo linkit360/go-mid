@@ -198,7 +198,7 @@ type AllowedTime struct {
 
 type Days []string
 
-var allowedDays = []string{"", "any", "sun", "mon", "tue", "wed", "thu", "fri", "sat"}
+var allowedDays = []string{"", "any", "sun", "mon", "tue", "wed", "thu", "fri", "sat", "weekly"}
 
 func (scd Days) ok(days []string) bool {
 	for _, d := range days {
@@ -219,7 +219,6 @@ func (s *services) loadFromCache() (err error) {
 	query := fmt.Sprintf("SELECT "+
 		"id, "+
 		"id, "+
-		"price, "+
 		"price_cents, "+
 		"retry_days, "+
 		"inactive_days, "+
@@ -255,7 +254,6 @@ func (s *services) loadFromCache() (err error) {
 		if err = rows.Scan(
 			&srv.Id,
 			&srv.Code,
-			&srv.Price,
 			&srv.PriceCents,
 			&srv.RetryDays,
 			&srv.InactiveDays,
