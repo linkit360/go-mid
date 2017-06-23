@@ -16,8 +16,8 @@ type KeyWords struct {
 }
 
 type KeyWord struct {
-	KeyWord      string `json:"key_word"`
-	CampaignCode string `json:"code_campaign"`
+	KeyWord    string `json:"key_word"`
+	CampaignId string `json:"id_campaign"`
 }
 
 func (kws *KeyWords) Reload() error {
@@ -43,7 +43,7 @@ func (kws *KeyWords) Reload() error {
 		var kw KeyWord
 		if err = rows.Scan(
 			&kw.KeyWord,
-			&kw.CampaignCode,
+			&kw.CampaignId,
 		); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return err
@@ -58,7 +58,7 @@ func (kws *KeyWords) Reload() error {
 
 	kws.ByKeyWord = make(map[string]string, len(keywords))
 	for _, kw := range keywords {
-		kws.ByKeyWord[strings.ToLower(kw.KeyWord)] = kw.CampaignCode
+		kws.ByKeyWord[strings.ToLower(kw.KeyWord)] = kw.CampaignId
 	}
 	return nil
 }

@@ -140,7 +140,7 @@ func GetCampaignByHash(hash string) (service.Campaign, error) {
 		handlers.GetByHashParams{Hash: hash},
 		&campaign,
 	)
-	if campaign.Code == "" {
+	if campaign.Id == "" {
 		return campaign, errNotFound(hash)
 	}
 	return campaign, err
@@ -152,7 +152,7 @@ func GetCampaignByLink(link string) (service.Campaign, error) {
 		handlers.GetByLinkParams{Link: link},
 		&campaign,
 	)
-	if campaign.Code == "" {
+	if campaign.Id == "" {
 		return campaign, errNotFound(link)
 	}
 	return campaign, err
@@ -164,20 +164,20 @@ func GetCampaignByKeyWord(keyWord string) (service.Campaign, error) {
 		handlers.GetByKeyWordParams{Key: keyWord},
 		&campaign,
 	)
-	if campaign.Code == "" {
+	if campaign.Id == "" {
 		return campaign, errNotFound(keyWord)
 	}
 	return campaign, err
 }
-func GetCampaignByUUID(code string) (service.Campaign, error) {
+func GetCampaignByUUID(uuid string) (service.Campaign, error) {
 	var campaign service.Campaign
 	err := call(
 		"Campaign.ByUUID",
-		handlers.GetByCodeParams{Code: code},
+		handlers.GetByUUIDParams{UUID: uuid},
 		&campaign,
 	)
-	if campaign.Code == "" {
-		return campaign, errNotFound(code)
+	if campaign.Id == "" {
+		return campaign, errNotFound(uuid)
 	}
 	return campaign, err
 }
@@ -188,7 +188,7 @@ func GetCampaignByServiceCode(serviceCode string) (service.Campaign, error) {
 		handlers.GetByCodeParams{Code: serviceCode},
 		&campaign,
 	)
-	if campaign.Code == "" {
+	if campaign.Id == "" {
 		return campaign, errNotFound(serviceCode)
 	}
 	return campaign, err
@@ -256,16 +256,16 @@ func GetServiceByCode(serviceCode string) (xmp_api_structs.Service, error) {
 	return svc, err
 }
 
-func GetContentById(contentCode string) (xmp_api_structs.Content, error) {
+func GetContentById(uuid string) (xmp_api_structs.Content, error) {
 	var content xmp_api_structs.Content
 	err := call(
 		"Content.ById",
-		handlers.GetByCodeParams{Code: contentCode},
+		handlers.GetByUUIDParams{UUID: uuid},
 		&content,
 	)
 
 	if content.Id == "" {
-		return content, errNotFound(contentCode)
+		return content, errNotFound(uuid)
 	}
 	return content, err
 }

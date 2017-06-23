@@ -6,11 +6,11 @@ server:
 
 xmp_api:
   enabled: true
+  dsn: 54.254.222.204:50318
   # dsn: 52.220.50.252:50318
-  dsn: 52.220.50.252:50318
   client_port: 50319
   timeout: 10
-  instance_id: 5560321c-9138-442f-9af6-7586f55503e5
+  instance_id: 4b806752-a57f-474d-8755-56b82e6c53ea
 
 aws:
   region: ap-southeast-1

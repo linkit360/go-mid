@@ -140,7 +140,7 @@ func (rpc *Campaign) ByServiceCode(
 func (rpc *Campaign) ByKeyWord(
 	req GetByKeyWordParams, res *service.Campaign) error {
 
-	campaignCode, ok := service.Svc.KeyWords.ByKeyWord[strings.ToLower(req.Key)]
+	campaignId, ok := service.Svc.KeyWords.ByKeyWord[strings.ToLower(req.Key)]
 	if !ok {
 		log.Errorf("campaign id not found, key: %s", req.Key)
 		notFound.Inc()
@@ -148,7 +148,7 @@ func (rpc *Campaign) ByKeyWord(
 		errors.Inc()
 		return nil
 	}
-	campaign, err := service.Svc.Campaigns.GetByCode(campaignCode)
+	campaign, err := service.Svc.Campaigns.GetByUUID(campaignId)
 	if err != nil {
 		log.Errorf("campaign not found %#v", req.Key)
 		errors.Inc()
@@ -326,9 +326,9 @@ func (rpc *PixelSetting) ByKeyWithRatio(
 type Content struct{}
 
 func (rpc *Content) ById(
-	req GetByCodeParams, res *xmp_api_structs.Content) error {
+	req GetByUUIDParams, res *xmp_api_structs.Content) error {
 
-	content, err := service.Svc.Contents.GetById(req.Code)
+	content, err := service.Svc.Contents.GetById(req.UUID)
 	if err != nil {
 		notFound.Inc()
 		errors.Inc()

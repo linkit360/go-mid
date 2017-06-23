@@ -323,7 +323,7 @@ func TestUniqUrl(t *testing.T) {
 		Msisdn:       "79997777777",
 		Tid:          "test tid",
 		ServiceCode:  "421924601",
-		CampaignCode: "290",
+		CampaignId:   "290",
 		OperatorCode: 410,
 		CountryCode:  92,
 		UniqueUrl:    "cz3twmoynbq5",

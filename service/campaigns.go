@@ -27,7 +27,6 @@ type Campaigns interface {
 	Reload() error
 	GetAll() map[string]Campaign
 	GetByLink(string) (Campaign, error)
-	GetByCode(string) (Campaign, error)
 	GetByUUID(string) (Campaign, error)
 	GetByHash(string) (Campaign, error)
 	GetByServiceCode(string) ([]Campaign, error)
@@ -90,7 +89,6 @@ type сampaigns struct {
 	ByUUID          map[string]Campaign
 	ByHash          map[string]Campaign
 	ByLink          map[string]Campaign
-	ByCode          map[string]Campaign
 	ByServiceCode   map[string][]Campaign
 }
 
@@ -216,9 +214,6 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 	if ac.Id == "" {
 		return fmt.Errorf("Campaign Id is empty%s", "")
 	}
-	if ac.Code == "" {
-		ac.Code = ac.Id
-	}
 	if ac.Hash == "" {
 		ac.Hash = ac.Id
 	}
@@ -237,7 +232,6 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 		delete(s.ByUUID, ac.Id)
 		delete(s.ByHash, ac.Id)
 		delete(s.ByLink, ac.Link)
-		delete(s.ByCode, ac.Code)
 		s.Unlock()
 		log.WithFields(log.Fields{
 			"id": ac.Id,
@@ -275,9 +269,6 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 	if s.ByLink == nil {
 		s.ByLink = make(map[string]Campaign)
 	}
-	if s.ByCode == nil {
-		s.ByCode = make(map[string]Campaign)
-	}
 	if s.ByServiceCode == nil {
 		s.ByServiceCode = make(map[string][]Campaign)
 	}
@@ -294,7 +285,6 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 	s.ByUUID[campaign.Id] = campaign
 	s.ByHash[campaign.Hash] = campaign
 	s.ByLink[campaign.Link] = campaign
-	s.ByCode[campaign.Code] = campaign
 
 	s.ByServiceCode = make(map[string][]Campaign)
 	for _, c := range s.ByUUID {
@@ -344,16 +334,7 @@ func (s *сampaigns) GetByUUID(uuid string) (camp Campaign, err error) {
 	}
 	return
 }
-func (s *сampaigns) GetByCode(code string) (camp Campaign, err error) {
-	var ok bool
-	camp, ok = s.ByCode[code]
-	if !ok {
-		err = fmt.Errorf("Campaign code %s: not found", code)
-		s.notFound.Inc()
-		return
-	}
-	return
-}
+
 func (s *сampaigns) GetByHash(hash string) (camp Campaign, err error) {
 	var ok bool
 	camp, ok = s.ByHash[hash]
@@ -404,7 +385,7 @@ func (s *сampaigns) Reload() (err error) {
 	for rows.Next() {
 		campaign := xmp_api_structs.Campaign{}
 		if err = rows.Scan(
-			&campaign.Code,
+			&campaign.Id,
 			&campaign.Hash,
 			&campaign.Link,
 			&campaign.PageWelcome,
@@ -418,8 +399,7 @@ func (s *сampaigns) Reload() (err error) {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
-		campaign.Id = campaign.Code
-		campaigns[campaign.Code] = campaign
+		campaigns[campaign.Id] = campaign
 	}
 	if rows.Err() != nil {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
@@ -433,7 +413,6 @@ func (s *сampaigns) Reload() (err error) {
 func (s *сampaigns) Apply(campaigns map[string]xmp_api_structs.Campaign) {
 
 	s.ByUUID = make(map[string]Campaign, len(campaigns))
-	s.ByCode = make(map[string]Campaign, len(campaigns))
 	s.ByServiceCode = make(map[string][]Campaign)
 	s.ByLink = make(map[string]Campaign, len(campaigns))
 	s.ByHash = make(map[string]Campaign, len(campaigns))
@@ -454,14 +433,12 @@ func (s *сampaigns) ShowLoaded() {
 	byUUID, _ := json.Marshal(s.ByUUID)
 	byHash, _ := json.Marshal(s.ByHash)
 	byLink, _ := json.Marshal(s.ByLink)
-	byCode, _ := json.Marshal(s.ByCode)
 	byServiceCode, _ := json.Marshal(s.ByServiceCode)
 
 	log.WithFields(log.Fields{
 		"byUUID": string(byUUID),
 		"hash":   string(byHash),
 		"link":   string(byLink),
-		"code":   string(byCode),
 		"sid":    string(byServiceCode),
 	}).Debug("campaigns")
 }
