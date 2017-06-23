@@ -28,6 +28,7 @@ type Campaigns interface {
 	GetAll() map[string]Campaign
 	GetByLink(string) (Campaign, error)
 	GetByCode(string) (Campaign, error)
+	GetByUUID(string) (Campaign, error)
 	GetByHash(string) (Campaign, error)
 	GetByServiceCode(string) ([]Campaign, error)
 	GetJson() string
@@ -56,7 +57,6 @@ func (camp *Campaign) Load(ac xmp_api_structs.Campaign) {
 func (camp *Campaign) SimpleServe(c *gin.Context, data interface{}) {
 	camp.incRatio()
 	log.WithFields(log.Fields{
-		"code":              camp.Code,
 		"count":             camp.AutoClickCount,
 		"ratio":             camp.AutoClickRatio,
 		"autoclick_enabled": camp.AutoClickEnabled,
@@ -87,7 +87,7 @@ type сampaigns struct {
 	loadError       prometheus.Gauge
 	awsSessionError prometheus.Gauge
 	notFound        m.Gauge
-	ByUUID          map[string]xmp_api_structs.Campaign
+	ByUUID          map[string]Campaign
 	ByHash          map[string]Campaign
 	ByLink          map[string]Campaign
 	ByCode          map[string]Campaign
@@ -132,6 +132,7 @@ func (camp *сampaigns) catchUpdates(updates <-chan xmp_api_structs.Campaign) {
 // check content and download it
 // content already checked: it hasn't been downloaded yet
 func (s *сampaigns) Download(c xmp_api_structs.Campaign) (err error) {
+
 	unzipPath := s.conf.LandingsPath + c.Id + "/"
 	log.WithFields(log.Fields{
 		"id": c.Id,
@@ -216,7 +217,7 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 		return fmt.Errorf("Campaign Id is empty%s", "")
 	}
 	if ac.Code == "" {
-		return fmt.Errorf("Campaign Code is empty%s", "")
+		ac.Code = ac.Id
 	}
 	if ac.Hash == "" {
 		ac.Hash = ac.Id
@@ -265,7 +266,9 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 
 	s.Lock()
 	defer s.Unlock()
-
+	if s.ByUUID == nil {
+		s.ByUUID = make(map[string]Campaign)
+	}
 	if s.ByHash == nil {
 		s.ByHash = make(map[string]Campaign)
 	}
@@ -274,18 +277,13 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 	}
 	if s.ByCode == nil {
 		s.ByCode = make(map[string]Campaign)
-		s.ByServiceCode = make(map[string][]Campaign)
-		s.ByLink = make(map[string]Campaign)
-		s.ByHash = make(map[string]Campaign)
 	}
-
 	if s.ByServiceCode == nil {
 		s.ByServiceCode = make(map[string][]Campaign)
 	}
 	if s.ByUUID == nil {
-		s.ByUUID[ac.Id] = ac
+		s.ByUUID = make(map[string]Campaign)
 	}
-
 	serv, err := Svc.Services.GetById(ac.ServiceId)
 	if err != nil {
 		return fmt.Errorf("unknown service id: %s", ac.ServiceId)
@@ -293,16 +291,14 @@ func (s *сampaigns) Update(ac xmp_api_structs.Campaign) error {
 	ac.ServiceCode = serv.Code
 	campaign := Campaign{}
 	campaign.Load(ac)
-	s.ByUUID[campaign.Id] = ac
+	s.ByUUID[campaign.Id] = campaign
 	s.ByHash[campaign.Hash] = campaign
 	s.ByLink[campaign.Link] = campaign
 	s.ByCode[campaign.Code] = campaign
 
 	s.ByServiceCode = make(map[string][]Campaign)
 	for _, c := range s.ByUUID {
-		intCamp := Campaign{}
-		intCamp.Load(c)
-		s.ByServiceCode[c.ServiceCode] = append(s.ByServiceCode[c.ServiceCode], intCamp)
+		s.ByServiceCode[c.ServiceCode] = append(s.ByServiceCode[c.ServiceCode], c)
 	}
 	s.webHook()
 	return nil
@@ -333,6 +329,16 @@ func (s *сampaigns) GetByLink(link string) (camp Campaign, err error) {
 	camp, ok = s.ByLink[link]
 	if !ok {
 		err = fmt.Errorf("Campaign link %s: not found", link)
+		s.notFound.Inc()
+		return
+	}
+	return
+}
+func (s *сampaigns) GetByUUID(uuid string) (camp Campaign, err error) {
+	var ok bool
+	camp, ok = s.ByUUID[uuid]
+	if !ok {
+		err = fmt.Errorf("Campaign uuid %s: not found", uuid)
 		s.notFound.Inc()
 		return
 	}
@@ -426,7 +432,7 @@ func (s *сampaigns) Reload() (err error) {
 }
 func (s *сampaigns) Apply(campaigns map[string]xmp_api_structs.Campaign) {
 
-	s.ByUUID = make(map[string]xmp_api_structs.Campaign, len(campaigns))
+	s.ByUUID = make(map[string]Campaign, len(campaigns))
 	s.ByCode = make(map[string]Campaign, len(campaigns))
 	s.ByServiceCode = make(map[string][]Campaign)
 	s.ByLink = make(map[string]Campaign, len(campaigns))

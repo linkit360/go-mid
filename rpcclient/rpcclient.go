@@ -169,10 +169,10 @@ func GetCampaignByKeyWord(keyWord string) (service.Campaign, error) {
 	}
 	return campaign, err
 }
-func GetCampaignByCode(code string) (service.Campaign, error) {
+func GetCampaignByUUID(code string) (service.Campaign, error) {
 	var campaign service.Campaign
 	err := call(
-		"Campaign.ByCode",
+		"Campaign.ByUUID",
 		handlers.GetByCodeParams{Code: code},
 		&campaign,
 	)

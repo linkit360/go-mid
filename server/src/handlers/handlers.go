@@ -36,6 +36,9 @@ type GetByHashParams struct {
 type GetByIdParams struct {
 	Id int64 `json:"id,omitempty"`
 }
+type GetByUUIDParams struct {
+	UUID string `json:"uuid,omitempty"`
+}
 type GetByCodeParams struct {
 	Code string `json:"code,omitempty"`
 }
@@ -106,10 +109,10 @@ func (rpc *Campaign) ByLink(
 	return nil
 }
 
-func (rpc *Campaign) ByCode(
-	req GetByCodeParams, res *service.Campaign) error {
+func (rpc *Campaign) ByUUID(
+	req GetByUUIDParams, res *service.Campaign) error {
 
-	campaign, err := service.Svc.Campaigns.GetByCode(req.Code)
+	campaign, err := service.Svc.Campaigns.GetByUUID(req.UUID)
 	if err != nil {
 		notFound.Inc()
 		errors.Inc()
