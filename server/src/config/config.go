@@ -17,6 +17,7 @@ import (
 )
 
 type ServerConfig struct {
+	Host     string `default:"0.0.0.0" yaml:"host"`
 	RPCPort  string `default:"50307" yaml:"rpc_port"`
 	HttpPort string `default:"50308" yaml:"http_port"`
 }
