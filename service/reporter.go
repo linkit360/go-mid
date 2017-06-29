@@ -26,7 +26,7 @@ type Collector interface {
 
 type Collect struct {
 	Tid               string `json:"tid,omitempty"`
-	CampaignCode      string `json:"campaign_code,omitempty"`
+	CampaignUUID      string `json:"campaign_id,omitempty"`
 	OperatorCode      int64  `json:"operator_code,omitempty"`
 	Msisdn            string `json:"msisdn,omitempty"`
 	TransactionResult string `json:"transaction_result,omitempty"`
@@ -60,7 +60,7 @@ type ReporterMetrics struct {
 	Success m.Gauge
 	Errors  m.Gauge
 
-	ErrorCampaignCodeEmpty m.Gauge
+	ErrorCampaignIdEmpty   m.Gauge
 	ErrorOperatorCodeEmpty m.Gauge
 
 	BreatheDuration prometheus.Summary
@@ -70,7 +70,7 @@ type ReporterMetrics struct {
 
 func initReporterMetrics(appName string) *ReporterMetrics {
 	mm := &ReporterMetrics{
-		ErrorCampaignCodeEmpty: m.NewGauge(appName+"_reporter", "campaign_code", "empty", "errors"),
+		ErrorCampaignIdEmpty:   m.NewGauge(appName+"_reporter", "campaign_id", "empty", "errors"),
 		ErrorOperatorCodeEmpty: m.NewGauge(appName+"_reporter", "operator_code", "empty", "errors"),
 		Success:                m.NewGauge(appName, "reporter", "success", "success"),
 		Errors:                 m.NewGauge(appName, "reporter", "errors", "errors"),
@@ -83,7 +83,7 @@ func initReporterMetrics(appName string) *ReporterMetrics {
 		for range time.Tick(time.Minute) {
 			mm.Success.Update()
 			mm.Errors.Update()
-			mm.ErrorCampaignCodeEmpty.Update()
+			mm.ErrorCampaignIdEmpty.Update()
 			mm.ErrorOperatorCodeEmpty.Update()
 		}
 	}()
@@ -181,10 +181,20 @@ func newAdAggregate() adAggregate {
 	}
 }
 
-func (a *adAggregate) generateReport(instanceId, campaignCode string, operatorCode int64, reportAt time.Time) xmp_api_structs.Aggregate {
+func (a *adAggregate) generateReport(instanceId, campaignUUID string, operatorCode int64, reportAt time.Time) xmp_api_structs.Aggregate {
+	campaignCode := "0"
+	camp, err := Svc.Campaigns.GetByUUID(campaignUUID)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+			"uuid":  campaignUUID,
+		}).Error("cannot get campaign code by uuid")
+	}
+	campaignCode = camp.Code
 	return xmp_api_structs.Aggregate{
 		ReportAt:               reportAt.UTC().Unix(),
 		InstanceId:             instanceId,
+		CampaignId:             campaignUUID,
 		CampaignCode:           campaignCode,
 		OperatorCode:           operatorCode,
 		LpHits:                 a.LpHits.count,
@@ -293,7 +303,7 @@ func (as *collectorService) send() {
 	var data []interface{}
 	aggregateSum := int64(.0)
 
-	for campaignCode, operatorAgregate := range as.adReport {
+	for campaignUUID, operatorAgregate := range as.adReport {
 		for operatorCode, coa := range operatorAgregate {
 			if coa.Sum() == 0 {
 				continue
@@ -303,7 +313,7 @@ func (as *collectorService) send() {
 
 			data = append(data, coa.generateReport(
 				Svc.xmpAPIConf.InstanceId,
-				campaignCode,
+				campaignUUID,
 				operatorCode,
 				time.Now(),
 			))
@@ -344,11 +354,11 @@ func (as *collectorService) send() {
 // clean stats of a second.
 func (as *collectorService) breathe() {
 	begin := time.Now()
-	for campaignCode, operatorAgregate := range as.adReport {
+	for campaignUUID, operatorAgregate := range as.adReport {
 		for operatorCode, _ := range operatorAgregate {
-			delete(as.adReport[campaignCode], operatorCode)
+			delete(as.adReport[campaignUUID], operatorCode)
 		}
-		delete(as.adReport, campaignCode)
+		delete(as.adReport, campaignUUID)
 	}
 	log.WithFields(log.Fields{"took": time.Since(begin)}).Debug("breathe")
 	as.m.BreatheDuration.Observe(time.Since(begin).Seconds())
@@ -383,7 +393,7 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 		return
 	}
 
-	var campaignCode string
+	var campaignUUID string
 	var operatorCode int64
 	var rowsCount int
 	defer rows.Close()
@@ -392,7 +402,7 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 		var result string
 		var sum int
 		var count int
-		if err = rows.Scan(&sentAt, &campaignCode, &operatorCode, &result, &sum, &count); err != nil {
+		if err = rows.Scan(&sentAt, &campaignUUID, &operatorCode, &result, &sum, &count); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
@@ -401,42 +411,42 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 		if _, ok := agg[sentAt]; !ok {
 			agg[sentAt] = CampaignAgregate{}
 		}
-		if _, ok := agg[sentAt][campaignCode]; !ok {
-			agg[sentAt][campaignCode] = OperatorAgregate{}
+		if _, ok := agg[sentAt][campaignUUID]; !ok {
+			agg[sentAt][campaignUUID] = OperatorAgregate{}
 		}
-		if _, ok := agg[sentAt][campaignCode][operatorCode]; !ok {
-			agg[sentAt][campaignCode][operatorCode] = newAdAggregate()
+		if _, ok := agg[sentAt][campaignUUID][operatorCode]; !ok {
+			agg[sentAt][campaignUUID][operatorCode] = newAdAggregate()
 		}
 
 		switch result {
 		case "paid":
-			agg[sentAt][campaignCode][operatorCode].MoChargeSuccess.Set(count)
-			agg[sentAt][campaignCode][operatorCode].MoChargeSum.Set(sum)
-			agg[sentAt][campaignCode][operatorCode].MoTotal.Add(count)
+			agg[sentAt][campaignUUID][operatorCode].MoChargeSuccess.Set(count)
+			agg[sentAt][campaignUUID][operatorCode].MoChargeSum.Set(sum)
+			agg[sentAt][campaignUUID][operatorCode].MoTotal.Add(count)
 		case "failed":
-			agg[sentAt][campaignCode][operatorCode].MoTotal.Add(count)
-			agg[sentAt][campaignCode][operatorCode].MoChargeFailed.Set(count)
+			agg[sentAt][campaignUUID][operatorCode].MoTotal.Add(count)
+			agg[sentAt][campaignUUID][operatorCode].MoChargeFailed.Set(count)
 		case "retry_paid":
-			agg[sentAt][campaignCode][operatorCode].RenewalChargeSuccess.Set(count)
-			agg[sentAt][campaignCode][operatorCode].RenewalChargeSum.Set(sum)
-			agg[sentAt][campaignCode][operatorCode].RenewalTotal.Add(count)
+			agg[sentAt][campaignUUID][operatorCode].RenewalChargeSuccess.Set(count)
+			agg[sentAt][campaignUUID][operatorCode].RenewalChargeSum.Set(sum)
+			agg[sentAt][campaignUUID][operatorCode].RenewalTotal.Add(count)
 		case "retry_failed":
-			agg[sentAt][campaignCode][operatorCode].RenewalTotal.Add(count)
-			agg[sentAt][campaignCode][operatorCode].RenewalFailed.Set(count)
+			agg[sentAt][campaignUUID][operatorCode].RenewalTotal.Add(count)
+			agg[sentAt][campaignUUID][operatorCode].RenewalFailed.Set(count)
 		case "injection_paid":
-			agg[sentAt][campaignCode][operatorCode].InjectionChargeSuccess.Set(count)
-			agg[sentAt][campaignCode][operatorCode].InjectionChargeSum.Set(sum)
-			agg[sentAt][campaignCode][operatorCode].InjectionTotal.Add(count)
+			agg[sentAt][campaignUUID][operatorCode].InjectionChargeSuccess.Set(count)
+			agg[sentAt][campaignUUID][operatorCode].InjectionChargeSum.Set(sum)
+			agg[sentAt][campaignUUID][operatorCode].InjectionTotal.Add(count)
 		case "injection_failed":
-			agg[sentAt][campaignCode][operatorCode].InjectionTotal.Add(count)
-			agg[sentAt][campaignCode][operatorCode].InjectionFailed.Set(count)
+			agg[sentAt][campaignUUID][operatorCode].InjectionTotal.Add(count)
+			agg[sentAt][campaignUUID][operatorCode].InjectionFailed.Set(count)
 		case "expired_paid":
-			agg[sentAt][campaignCode][operatorCode].MoChargeSuccess.Set(count)
-			agg[sentAt][campaignCode][operatorCode].MoChargeSum.Set(sum)
-			agg[sentAt][campaignCode][operatorCode].MoTotal.Add(count)
+			agg[sentAt][campaignUUID][operatorCode].MoChargeSuccess.Set(count)
+			agg[sentAt][campaignUUID][operatorCode].MoChargeSum.Set(sum)
+			agg[sentAt][campaignUUID][operatorCode].MoTotal.Add(count)
 		case "expired_failed":
-			agg[sentAt][campaignCode][operatorCode].MoTotal.Add(count)
-			agg[sentAt][campaignCode][operatorCode].MoChargeFailed.Set(count)
+			agg[sentAt][campaignUUID][operatorCode].MoTotal.Add(count)
+			agg[sentAt][campaignUUID][operatorCode].MoChargeFailed.Set(count)
 		}
 	}
 	if rows.Err() != nil {
@@ -473,7 +483,7 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 	for rows.Next() {
 		var sentAt string
 		var count int
-		if err = rows.Scan(&sentAt, &campaignCode, &operatorCode, &count); err != nil {
+		if err = rows.Scan(&sentAt, &campaignUUID, &operatorCode, &count); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
@@ -482,13 +492,13 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 		if _, ok := agg[sentAt]; !ok {
 			agg[sentAt] = CampaignAgregate{}
 		}
-		if _, ok := agg[sentAt][campaignCode]; !ok {
-			agg[sentAt][campaignCode] = OperatorAgregate{}
+		if _, ok := agg[sentAt][campaignUUID]; !ok {
+			agg[sentAt][campaignUUID] = OperatorAgregate{}
 		}
-		if _, ok := agg[sentAt][campaignCode][operatorCode]; !ok {
-			agg[sentAt][campaignCode][operatorCode] = newAdAggregate()
+		if _, ok := agg[sentAt][campaignUUID][operatorCode]; !ok {
+			agg[sentAt][campaignUUID][operatorCode] = newAdAggregate()
 		}
-		agg[sentAt][campaignCode][operatorCode].Pixels.Set(count)
+		agg[sentAt][campaignUUID][operatorCode].Pixels.Set(count)
 	}
 	if rows.Err() != nil {
 		err = fmt.Errorf("rows.Err: %s", err.Error())
@@ -525,7 +535,7 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 		var sentAt string
 		var present bool
 		var count int
-		if err = rows.Scan(&sentAt, &campaignCode, &operatorCode, &present, &count); err != nil {
+		if err = rows.Scan(&sentAt, &campaignUUID, &operatorCode, &present, &count); err != nil {
 			err = fmt.Errorf("rows.Scan: %s", err.Error())
 			return
 		}
@@ -534,15 +544,15 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 		if _, ok := agg[sentAt]; !ok {
 			agg[sentAt] = CampaignAgregate{}
 		}
-		if _, ok := agg[sentAt][campaignCode]; !ok {
-			agg[sentAt][campaignCode] = OperatorAgregate{}
+		if _, ok := agg[sentAt][campaignUUID]; !ok {
+			agg[sentAt][campaignUUID] = OperatorAgregate{}
 		}
-		if _, ok := agg[sentAt][campaignCode][operatorCode]; !ok {
-			agg[sentAt][campaignCode][operatorCode] = newAdAggregate()
+		if _, ok := agg[sentAt][campaignUUID][operatorCode]; !ok {
+			agg[sentAt][campaignUUID][operatorCode] = newAdAggregate()
 		}
-		agg[sentAt][campaignCode][operatorCode].LpHits.Add(count)
+		agg[sentAt][campaignUUID][operatorCode].LpHits.Add(count)
 		if present {
-			agg[sentAt][campaignCode][operatorCode].LpMsisdnHits.Add(count)
+			agg[sentAt][campaignUUID][operatorCode].LpMsisdnHits.Add(count)
 		}
 	}
 	if rows.Err() != nil {
@@ -559,7 +569,7 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 
 	res = []xmp_api_structs.Aggregate{}
 	for dateSent, agByCampaign := range agg {
-		for campaignCode, agByOperatorCode := range agByCampaign {
+		for campaignUUID, agByOperatorCode := range agByCampaign {
 			for operatorCode, ag := range agByOperatorCode {
 				var reportAt time.Time
 				reportAt, err = time.Parse("2006-01-02", dateSent)
@@ -569,7 +579,7 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 				}
 				res = append(res, ag.generateReport(
 					Svc.xmpAPIConf.InstanceId,
-					campaignCode,
+					campaignUUID,
 					operatorCode,
 					reportAt,
 				))
@@ -587,9 +597,9 @@ func (as *collectorService) GetAggregate(from, to time.Time) (res []xmp_api_stru
 
 // map[campaign][operator]acceptor.Aggregate
 func (as *collectorService) check(r Collect) error {
-	if r.CampaignCode == "" {
+	if r.CampaignUUID == "" {
 		as.m.Errors.Inc()
-		as.m.ErrorCampaignCodeEmpty.Inc()
+		as.m.ErrorCampaignIdEmpty.Inc()
 		log.WithField("collect", fmt.Sprintf("%#v", r)).Error("campaign code is empty")
 		return fmt.Errorf("CampaignIdEmpty: %#v", r)
 	}
@@ -607,13 +617,13 @@ func (as *collectorService) check(r Collect) error {
 	if as.adReport == nil {
 		as.adReport = make(map[string]OperatorAgregate)
 	}
-	_, found := as.adReport[r.CampaignCode]
+	_, found := as.adReport[r.CampaignUUID]
 	if !found {
-		as.adReport[r.CampaignCode] = OperatorAgregate{}
+		as.adReport[r.CampaignUUID] = OperatorAgregate{}
 	}
-	_, found = as.adReport[r.CampaignCode][r.OperatorCode]
+	_, found = as.adReport[r.CampaignUUID][r.OperatorCode]
 	if !found {
-		as.adReport[r.CampaignCode][r.OperatorCode] = newAdAggregate()
+		as.adReport[r.CampaignUUID][r.OperatorCode] = newAdAggregate()
 	}
 	as.m.Success.Inc()
 	return nil
@@ -625,9 +635,9 @@ func (as *collectorService) incHit(r Collect) error {
 	as.Lock()
 	defer as.Unlock()
 
-	as.adReport[r.CampaignCode][r.OperatorCode].LpHits.Inc()
+	as.adReport[r.CampaignUUID][r.OperatorCode].LpHits.Inc()
 	if r.Msisdn != "" {
-		as.adReport[r.CampaignCode][r.OperatorCode].LpMsisdnHits.Inc()
+		as.adReport[r.CampaignUUID][r.OperatorCode].LpMsisdnHits.Inc()
 	}
 	return nil
 }
@@ -639,61 +649,61 @@ func (as *collectorService) incTransaction(r Collect) error {
 	defer as.Unlock()
 
 	if r.AttemptsCount == 0 {
-		as.adReport[r.CampaignCode][r.OperatorCode].MoTotal.Inc()
+		as.adReport[r.CampaignUUID][r.OperatorCode].MoTotal.Inc()
 		if r.TransactionResult == "paid" {
-			as.adReport[r.CampaignCode][r.OperatorCode].MoChargeSuccess.Inc()
-			as.adReport[r.CampaignCode][r.OperatorCode].MoChargeSum.Add(r.Price)
+			as.adReport[r.CampaignUUID][r.OperatorCode].MoChargeSuccess.Inc()
+			as.adReport[r.CampaignUUID][r.OperatorCode].MoChargeSum.Add(r.Price)
 		}
 		if r.TransactionResult == "rejected" {
-			as.adReport[r.CampaignCode][r.OperatorCode].MoRejected.Inc()
+			as.adReport[r.CampaignUUID][r.OperatorCode].MoRejected.Inc()
 		}
 		if r.TransactionResult == "failed" {
-			as.adReport[r.CampaignCode][r.OperatorCode].MoChargeFailed.Inc()
+			as.adReport[r.CampaignUUID][r.OperatorCode].MoChargeFailed.Inc()
 		}
 		log.WithField("tid", r.Tid).Debug("mo")
 		return nil
 	}
 
 	if strings.Contains(r.TransactionResult, "retry") {
-		as.adReport[r.CampaignCode][r.OperatorCode].RenewalTotal.Inc()
+		as.adReport[r.CampaignUUID][r.OperatorCode].RenewalTotal.Inc()
 
 		if strings.Contains(r.TransactionResult, "retry_paid") {
-			as.adReport[r.CampaignCode][r.OperatorCode].RenewalChargeSuccess.Inc()
-			as.adReport[r.CampaignCode][r.OperatorCode].RenewalChargeSum.Add(r.Price)
+			as.adReport[r.CampaignUUID][r.OperatorCode].RenewalChargeSuccess.Inc()
+			as.adReport[r.CampaignUUID][r.OperatorCode].RenewalChargeSum.Add(r.Price)
 		}
 
 		if strings.Contains(r.TransactionResult, "retry_failed") {
-			as.adReport[r.CampaignCode][r.OperatorCode].RenewalFailed.Inc()
+			as.adReport[r.CampaignUUID][r.OperatorCode].RenewalFailed.Inc()
 		}
 		log.WithField("tid", r.Tid).Debug("retry")
 		return nil
 	}
 
 	if strings.Contains(r.TransactionResult, "injection") {
-		as.adReport[r.CampaignCode][r.OperatorCode].InjectionTotal.Inc()
+		as.adReport[r.CampaignUUID][r.OperatorCode].InjectionTotal.Inc()
 
 		if strings.Contains(r.TransactionResult, "injection_paid") {
-			as.adReport[r.CampaignCode][r.OperatorCode].InjectionChargeSuccess.Inc()
-			as.adReport[r.CampaignCode][r.OperatorCode].InjectionChargeSum.Add(r.Price)
+			as.adReport[r.CampaignUUID][r.OperatorCode].InjectionChargeSuccess.Inc()
+			as.adReport[r.CampaignUUID][r.OperatorCode].InjectionChargeSum.Add(r.Price)
 		}
 
 		if strings.Contains(r.TransactionResult, "injection_failed") {
-			as.adReport[r.CampaignCode][r.OperatorCode].InjectionFailed.Inc()
+			as.adReport[r.CampaignUUID][r.OperatorCode].InjectionFailed.Inc()
 		}
 		log.WithField("tid", r.Tid).Debug("injection")
 		return nil
 	}
 
 	if strings.Contains(r.TransactionResult, "expired") {
-		as.adReport[r.CampaignCode][r.OperatorCode].ExpiredTotal.Inc()
+		as.adReport[r.CampaignUUID][r.OperatorCode].ExpiredTotal.Inc()
 
 		if strings.Contains(r.TransactionResult, "expired_paid") {
-			as.adReport[r.CampaignCode][r.OperatorCode].ExpiredChargeSuccess.Inc()
-			as.adReport[r.CampaignCode][r.OperatorCode].ExpiredChargeSum.Add(r.Price)
+			as.adReport[r.CampaignUUID][r.OperatorCode].ExpiredChargeSuccess.Inc()
+			as.adReport[r.CampaignUUID][r.OperatorCode].ExpiredChargeSum.Add(r.Price)
 		}
 
 		if strings.Contains(r.TransactionResult, "expired_failed") {
-			as.adReport[r.CampaignCode][r.OperatorCode].ExpiredFailed.Inc()
+			as.adReport[r.CampaignUUID][r.OperatorCode].ExpiredFailed.Inc()
 		}
 		log.WithField("tid", r.Tid).Debug("expired")
 		return nil
@@ -712,7 +722,7 @@ func (as *collectorService) incOutflow(r Collect) error {
 		strings.Contains(r.TransactionResult, "purge") ||
 		strings.Contains(r.TransactionResult, "cancel") {
 		log.WithField("tid", r.Tid).Debug("outflow")
-		as.adReport[r.CampaignCode][r.OperatorCode].Outflow.Inc()
+		as.adReport[r.CampaignUUID][r.OperatorCode].Outflow.Inc()
 	}
 	return nil
 }
@@ -723,7 +733,7 @@ func (as *collectorService) incPixel(r Collect) error {
 	as.Lock()
 	defer as.Unlock()
 	log.WithField("tid", r.Tid).Debug("pixel")
-	as.adReport[r.CampaignCode][r.OperatorCode].Pixels.Inc()
+	as.adReport[r.CampaignUUID][r.OperatorCode].Pixels.Inc()
 	return nil
 }
 

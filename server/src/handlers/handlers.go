@@ -150,7 +150,7 @@ func (rpc *Campaign) ByKeyWord(
 	}
 	campaign, err := service.Svc.Campaigns.GetByUUID(campaignId)
 	if err != nil {
-		log.Errorf("campaign not found %#v", req.Key)
+		log.Errorf("campaign %s not found %s", campaignId, req.Key)
 		errors.Inc()
 		return nil
 	}
